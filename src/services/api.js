@@ -3,12 +3,19 @@ import { API_BASE_URL } from '../config';
 // Fungsi umum untuk mengirim data ke Apps Script
 const sendRequest = async (payload) => {
   try {
+    // CCTV: Melihat data apa yang dikirim ke Google
+    console.log("📡 SENDING:", payload);
+
     const response = await fetch(API_BASE_URL, {
       method: "POST",
       body: JSON.stringify(payload),
     });
     
     const result = await response.json();
+    
+    // CCTV: Melihat balasan dari Google
+    console.log("📥 RECEIVED:", result);
+
     return result;
   } catch (error) {
     console.error("API Error:", error);
@@ -16,10 +23,10 @@ const sendRequest = async (payload) => {
   }
 };
 
-export const loginUser = async (id_karyawan, password) => {
+export const loginUser = async (data) => {
   return await sendRequest({
     action: "login",
-    data: { id_karyawan, password }
+    data: data 
   });
 };
 
@@ -47,18 +54,30 @@ export const fetchValidationData = async () => {
   }
 };
 
-export const submitOEEData = async (formData, userData) => {
+// [PERBAIKAN PENTING DI SINI]
+// Otomatis ambil user dari LocalStorage jika tidak dikirim dari halaman
+export const submitOEEData = async (formData, explicitUser = null) => {
+  let userData = explicitUser;
+
+  // Jika user tidak dikirim manual, ambil dari memori browser
+  if (!userData) {
+    const stored = localStorage.getItem("oee_user");
+    if (stored) {
+      userData = JSON.parse(stored);
+    } else {
+      userData = { nama: "Unknown", zone: "-", plant: "-" };
+    }
+  }
+
   return await sendRequest({
     action: "submit_oee",
     data: formData,
-    user: userData
+    user: userData // Kirim data user (nama, zone, plant) ke backend
   });
 };
 
 // --- FUNGSI TAMBAHAN UNTUK MENCEGAH ERROR DASHBOARD ---
 export const fetchProductionData = async () => {
-  // Kita buat placeholder dulu agar aplikasi tidak blank
-  // Nanti kita update ini untuk menarik data real dari DB_OEE
   return []; 
 };
 

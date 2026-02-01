@@ -1,179 +1,242 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { fetchForemanStats } from '../services/api';
+import { fetchTeamStats } from '../services/api'; 
 import { 
-  Trophy, TrendingUp, AlertOctagon, Clock, 
-  Zap, Activity, Loader2 
+  Trophy, Target, TrendingUp, Calendar, 
+  Loader2, Star, Zap, History, ChevronRight,
+  Award, Crown, Medal
 } from 'lucide-react';
+import { motion } from 'framer-motion';
+
+// --- ANIMATED NUMBER ---
+const CountUp = ({ value }) => {
+  const [displayValue, setDisplayValue] = useState(0);
+  useEffect(() => {
+    let start = 0;
+    const end = parseInt(value) || 0;
+    if (start === end) return;
+    let duration = 1500;
+    let startTime = null;
+    const animate = (currentTime) => {
+      if (!startTime) startTime = currentTime;
+      const progress = Math.min((currentTime - startTime) / duration, 1);
+      setDisplayValue(Math.floor(progress * (end - start) + start));
+      if (progress < 1) requestAnimationFrame(animate);
+    };
+    requestAnimationFrame(animate);
+  }, [value]);
+  return <span>{displayValue}</span>;
+};
+
+// --- SMART AVATAR ---
+const UserAvatar = ({ foto, name, className, border = true }) => {
+  const isValidBase64 = foto && foto.length > 100;
+  const defaultPhoto = `https://i.pravatar.cc/300?u=${name}`;
+  const [imgSrc, setImgSrc] = useState(isValidBase64 ? foto : defaultPhoto);
+
+  useEffect(() => { setImgSrc((foto && foto.length > 100) ? foto : defaultPhoto); }, [foto, name]);
+
+  return (
+    <div className={`relative shrink-0 ${className}`}>
+        {/* Animated Glow Ring */}
+        {border && <div className="absolute -inset-1 bg-gradient-to-tr from-blue-500 via-purple-500 to-pink-500 rounded-full blur opacity-75 animate-pulse"></div>}
+        <div className={`relative w-full h-full rounded-full overflow-hidden ${border ? 'border-4 border-slate-900 bg-slate-800' : ''}`}>
+            <img src={imgSrc} alt={name} className="w-full h-full object-cover" onError={() => setImgSrc(defaultPhoto)} />
+        </div>
+    </div>
+  );
+};
 
 const Kinerja = () => {
   const { user } = useAuth();
+  const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({
-    mttr: 0,
-    top_bad_actor: [],
-    input_accuracy: 0,
-    setup_efficiency: 100,
-    uptime_streak: 0,
-    trend_oee: []
+
+  const [dateRange] = useState({
+    startDate: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
+    endDate: new Date().toISOString().split('T')[0]
   });
 
   useEffect(() => {
-    const loadStats = async () => {
+    const loadMyStats = async () => {
       setLoading(true);
-      const res = await fetchForemanStats(user);
+      const res = await fetchTeamStats({ ...dateRange, zone: 'All' });
       if (res.status === 'success') {
-        setStats(res.data);
+        const myData = res.data.find(item => item.name === user.nama);
+        setStats(myData || { name: user.nama, input_count: 0, downtime_events: 0, total_downtime: 0 });
       }
       setLoading(false);
     };
-    loadStats();
-  }, [user]);
+    loadMyStats();
+  }, [user.nama, dateRange]);
 
-  if (loading) return <div className="p-10 text-center flex justify-center"><Loader2 className="animate-spin text-blue-600" size={40}/></div>;
+  // Gamification Levels
+  const calculateLevel = (inputs) => {
+     if (inputs > 100) return { name: 'Grand Master', color: 'text-yellow-400', bg: 'bg-yellow-500/20', border: 'border-yellow-500/50', icon: <Crown size={18} className="fill-current"/> };
+     if (inputs > 50) return { name: 'Elite Expert', color: 'text-purple-400', bg: 'bg-purple-500/20', border: 'border-purple-500/50', icon: <Medal size={18} className="fill-current"/> };
+     return { name: 'Rookie Agent', color: 'text-blue-400', bg: 'bg-blue-500/20', border: 'border-blue-500/50', icon: <Zap size={18} className="fill-current"/> };
+  };
+
+  const level = stats ? calculateLevel(stats.input_count) : { name: 'Loading...', color: 'text-slate-400', bg: 'bg-slate-800', border: 'border-slate-700' };
 
   return (
-    <div className="max-w-6xl mx-auto pb-10">
+    <div className="max-w-5xl mx-auto pb-24 px-4 md:px-0 font-sans">
       
-      {/* HEADER */}
-      <div className="mb-8 flex justify-between items-end">
-        <div>
-           <h1 className="text-3xl font-bold text-slate-800">Rapor Kinerja</h1>
-           <p className="text-slate-500">Pantau performa shift Anda secara real-time.</p>
-        </div>
-        <div className="bg-blue-50 text-blue-700 px-4 py-2 rounded-lg font-bold text-sm">
-           Shift Hari Ini
-        </div>
+      {/* HEADER SECTION */}
+      <div className="flex items-center justify-between py-6">
+         <div>
+            <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Kinerja <span className="text-blue-600">Saya</span></h1>
+            <p className="text-slate-500 font-medium text-sm">Overview performa bulan ini</p>
+         </div>
+         <div className="hidden md:flex items-center gap-2 bg-white px-4 py-2 rounded-full shadow-sm border border-slate-200 text-sm font-bold text-slate-600">
+            <Calendar size={16} className="text-blue-500"/> {new Date().toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })}
+         </div>
       </div>
 
-      {/* --- GRID 1: INDIKATOR UTAMA (SPEEDOMETER STYLE) --- */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        
-        {/* 1. MTTR (Response Time) */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 relative overflow-hidden group hover:shadow-md transition">
-          <div className="absolute right-0 top-0 p-4 opacity-5 group-hover:opacity-10 transition"><Clock size={100} /></div>
-          <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Kecepatan Respon (MTTR)</h3>
-          <div className="flex items-end gap-2">
-            <span className={`text-5xl font-extrabold ${stats.mttr > 15 ? 'text-red-500' : 'text-green-500'}`}>
-              {stats.mttr}
-            </span>
-            <span className="text-slate-400 font-bold mb-2">Menit</span>
-          </div>
-          <p className="text-xs text-slate-500 mt-2">
-            {stats.mttr > 15 ? "⚠️ Respon melambat! Target < 15 Menit." : "✅ Respon sangat bagus!"}
-          </p>
+      {loading ? (
+        <div className="h-80 flex flex-col items-center justify-center bg-white rounded-3xl border border-slate-100 shadow-xl">
+           <Loader2 className="animate-spin text-blue-600 mb-3" size={40} />
+           <span className="text-slate-400 font-bold animate-pulse">Menghitung Data...</span>
         </div>
+      ) : (
+        <div className="space-y-6">
+           
+           {/* 1. HERO CARD (Dark Theme) */}
+           <motion.div 
+             initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
+             className="relative overflow-hidden rounded-[2.5rem] bg-slate-900 text-white p-8 md:p-10 shadow-2xl shadow-blue-900/20 group"
+           >
+              {/* Background FX */}
+              <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-slate-800 to-blue-900/40 z-0"></div>
+              <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500 rounded-full blur-[100px] opacity-20 group-hover:opacity-30 transition duration-1000"></div>
+              
+              <div className="relative z-10 flex flex-col md:flex-row items-center gap-8 md:gap-12">
+                 {/* Left: Avatar & Identity */}
+                 <div className="flex flex-col items-center md:items-start text-center md:text-left shrink-0">
+                    <UserAvatar foto={user?.foto} name={user?.nama} className="w-28 h-28 md:w-32 md:h-32 mb-4" />
+                    
+                    <div className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest border backdrop-blur-md mb-2 ${level.color} ${level.bg} ${level.border}`}>
+                        {level.icon} {level.name}
+                    </div>
+                    <h2 className="text-3xl md:text-4xl font-black tracking-tight">{user?.nama}</h2>
+                    <p className="text-slate-400 font-medium flex items-center gap-2 mt-1">
+                        <Award size={16}/> {user?.jabatan || 'Operator'} • Zone {user?.plant_zone || 'A'}
+                    </p>
+                 </div>
 
-        {/* 2. Setup Efficiency */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 group hover:shadow-md transition">
-          <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4">Efisiensi Setup</h3>
-          <div className="relative pt-1">
-            <div className="flex mb-2 items-center justify-between">
-              <div>
-                <span className="text-xs font-semibold inline-block py-1 px-2 uppercase rounded-full text-blue-600 bg-blue-200">
-                  Skor
-                </span>
+                 {/* Divider (Desktop Only) */}
+                 <div className="hidden md:block w-px h-32 bg-gradient-to-b from-transparent via-slate-700 to-transparent"></div>
+
+                 {/* Right: Big Stats */}
+                 <div className="flex-1 grid grid-cols-2 gap-8 w-full">
+                    <div className="bg-white/5 p-5 rounded-3xl border border-white/5 backdrop-blur-sm hover:bg-white/10 transition">
+                       <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-2 flex items-center gap-2">
+                          <Target size={14}/> Total Input
+                       </p>
+                       <p className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-200 to-white">
+                          <CountUp value={stats?.input_count} />
+                       </p>
+                       <p className="text-xs text-blue-300/70 mt-1 font-medium">Batch terdata</p>
+                    </div>
+                    <div className="bg-white/5 p-5 rounded-3xl border border-white/5 backdrop-blur-sm hover:bg-white/10 transition">
+                       <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-2 flex items-center gap-2">
+                          <TrendingUp size={14} className="text-red-400"/> Total Downtime
+                       </p>
+                       <p className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-red-200 to-white">
+                          <CountUp value={stats?.total_downtime} />
+                       </p>
+                       <p className="text-xs text-red-300/70 mt-1 font-medium">Menit hilang</p>
+                    </div>
+                 </div>
               </div>
-              <div className="text-right">
-                <span className="text-xs font-semibold inline-block text-blue-600">
-                  {stats.setup_efficiency}%
-                </span>
+           </motion.div>
+
+           {/* 2. STATS & ACTION GRID */}
+           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              
+              {/* Productivity Circle */}
+              <motion.div 
+                 initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.1 }}
+                 className="bg-white p-6 rounded-[2rem] shadow-lg border border-slate-100 flex flex-col items-center justify-center md:col-span-1"
+              >
+                 <div className="relative w-40 h-40 flex items-center justify-center">
+                    <svg className="w-full h-full transform -rotate-90">
+                       <circle cx="50%" cy="50%" r="45%" className="stroke-slate-100" strokeWidth="12" fill="transparent"/>
+                       <motion.circle 
+                          initial={{ pathLength: 0 }} 
+                          whileInView={{ pathLength: Math.min((stats?.input_count || 0) / 100, 1) }}
+                          transition={{ duration: 2, ease: "easeOut" }}
+                          cx="50%" cy="50%" r="45%" 
+                          className="stroke-blue-500" 
+                          strokeWidth="12" 
+                          strokeLinecap="round" 
+                          fill="transparent"
+                          strokeDasharray="1 1"
+                       />
+                    </svg>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center">
+                       <span className="text-3xl font-black text-slate-800"><CountUp value={stats?.input_count} /></span>
+                       <span className="text-[10px] uppercase font-bold text-slate-400">Target 100</span>
+                    </div>
+                 </div>
+                 <h3 className="font-bold text-slate-800 mt-4">Produktivitas</h3>
+                 <p className="text-xs text-slate-400 text-center px-4">Persentase pencapaian target batch bulanan.</p>
+              </motion.div>
+
+              {/* Downtime Frequency */}
+              <motion.div 
+                 initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.2 }}
+                 className="bg-white p-6 rounded-[2rem] shadow-lg border border-slate-100 flex flex-col justify-between md:col-span-2"
+              >
+                 <div>
+                    <div className="flex items-center gap-3 mb-6">
+                       <div className="p-3 bg-red-50 rounded-2xl text-red-500"><TrendingUp size={24}/></div>
+                       <div>
+                          <h3 className="font-bold text-slate-800 text-lg">Frekuensi Masalah</h3>
+                          <p className="text-xs text-slate-400">Kejadian downtime bulan ini</p>
+                       </div>
+                    </div>
+                    <div className="flex items-end gap-2 mb-2">
+                       <span className="text-6xl font-black text-slate-800"><CountUp value={stats?.downtime_events} /></span>
+                       <span className="text-lg font-bold text-slate-400 mb-3">Kejadian</span>
+                    </div>
+                 </div>
+                 
+                 {/* Progress Bar Visual */}
+                 <div className="w-full bg-slate-100 h-4 rounded-full overflow-hidden mt-4">
+                    <motion.div 
+                       initial={{ width: 0 }} 
+                       whileInView={{ width: `${Math.min((stats?.downtime_events || 0) * 10, 100)}%` }} // Asumsi max 10 kejadian = 100%
+                       className="h-full bg-gradient-to-r from-red-400 to-red-600 rounded-full"
+                    />
+                 </div>
+                 <p className="text-xs text-right mt-2 text-slate-400 font-medium">Batas Toleransi: 10 Kejadian</p>
+              </motion.div>
+           </div>
+
+           {/* 3. QUICK ACTIONS (HISTORY) */}
+           <motion.button 
+              initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.3 }}
+              whileHover={{ scale: 1.01, boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)" }}
+              whileTap={{ scale: 0.98 }}
+              className="w-full bg-white p-6 rounded-[2rem] shadow-md border border-slate-100 flex items-center justify-between group cursor-pointer"
+           >
+              <div className="flex items-center gap-4">
+                 <div className="p-4 bg-blue-50 text-blue-600 rounded-2xl group-hover:bg-blue-600 group-hover:text-white transition-colors duration-300">
+                    <History size={24}/>
+                 </div>
+                 <div className="text-left">
+                    <h3 className="font-bold text-lg text-slate-800">Lihat Riwayat Lengkap</h3>
+                    <p className="text-sm text-slate-400">Cek detail log aktivitas harian Anda</p>
+                 </div>
               </div>
-            </div>
-            <div className="overflow-hidden h-2 mb-4 text-xs flex rounded bg-blue-100">
-              <div style={{ width: `${Math.min(stats.setup_efficiency, 100)}%` }} className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-blue-500"></div>
-            </div>
-            <p className="text-xs text-slate-500">Perbandingan waktu setup real vs standar.</p>
-          </div>
-        </div>
-
-        {/* 3. Uptime Streak (Momentum) */}
-        <div className="bg-gradient-to-br from-slate-900 to-slate-800 text-white p-6 rounded-2xl shadow-lg border border-slate-700 relative overflow-hidden">
-          <div className="absolute right-0 bottom-0 p-4 opacity-10"><Zap size={80} /></div>
-          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-2">
-             Momentum (Uptime)
-          </h3>
-          <div className="flex items-end gap-2">
-            <span className="text-5xl font-extrabold text-white">{stats.uptime_streak}</span>
-            <span className="text-slate-400 font-bold mb-2">Jam</span>
-          </div>
-          <p className="text-xs text-slate-400 mt-2">Rekor mesin jalan tanpa henti hari ini.</p>
-        </div>
-      </div>
-
-      {/* --- GRID 2: ANALISA MENDALAM --- */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* 4. Top Bad Actor (Pareto) */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 lg:col-span-2">
-          <h3 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
-            <AlertOctagon className="text-red-500"/> Musuh Terbesar Hari Ini (Pareto)
-          </h3>
-          <div className="space-y-5">
-            {stats.top_bad_actor.length === 0 ? (
-              <div className="p-4 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm text-center">
-                 🎉 Belum ada masalah hari ini. Pertahankan mesin tetap jalan!
+              <div className="bg-slate-50 p-3 rounded-full text-slate-400 group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">
+                 <ChevronRight size={20}/>
               </div>
-            ) : (
-              stats.top_bad_actor.map((item, idx) => (
-                <div key={idx} className="relative">
-                  <div className="flex justify-between text-sm font-medium mb-1">
-                    <span className="text-slate-700 font-bold flex items-center gap-2">
-                       <span className="w-5 h-5 bg-slate-200 rounded-full flex items-center justify-center text-xs">{idx + 1}</span>
-                       {item.name}
-                    </span>
-                    <span className="text-red-600 font-bold">{item.count} Kali</span>
-                  </div>
-                  <div className="w-full bg-slate-100 rounded-full h-2">
-                    <div 
-                      className="bg-red-500 h-2 rounded-full transition-all duration-500" 
-                      style={{ width: `${(item.count / stats.top_bad_actor[0].count) * 100}%` }}
-                    ></div>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
+           </motion.button>
 
-        {/* 5. Input Accuracy */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col items-center justify-center text-center">
-          <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4">
-             Kontribusi Data
-          </h3>
-          <div className="relative mb-4">
-             <Trophy size={60} className="text-yellow-400" />
-             <div className="absolute top-0 right-0 bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full animate-bounce">
-                Live
-             </div>
-          </div>
-          <span className="text-4xl font-extrabold text-slate-800">{stats.input_accuracy}</span>
-          <p className="text-slate-600 font-medium text-sm">Laporan Terkirim</p>
-          <p className="text-xs text-slate-400 mt-2 px-4">Semakin lengkap data, semakin akurat analisa tim.</p>
         </div>
-      </div>
-
-      {/* 6. Trend OEE (Visual Sederhana) */}
-      <div className="mt-8 bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-        <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-          <TrendingUp className="text-green-600"/> Trend Performa (7 Hari Terakhir)
-        </h3>
-        <div className="h-40 flex items-end justify-between gap-2 px-2 md:px-10 border-b border-slate-100 pb-2">
-           {stats.trend_oee.map((val, idx) => (
-             <div key={idx} className="w-full flex flex-col items-center gap-2 group relative">
-                <div className="absolute -top-8 bg-slate-800 text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition">
-                   {val}%
-                </div>
-                <div 
-                  className={`w-full max-w-[40px] rounded-t-lg transition-all duration-1000 ease-out ${val >= 70 ? 'bg-gradient-to-t from-green-600 to-green-400' : 'bg-gradient-to-t from-slate-400 to-slate-300'}`} 
-                  style={{ height: `${val}%` }}
-                ></div>
-                <div className="text-xs text-slate-400 font-bold">H-{7 - idx}</div>
-             </div>
-           ))}
-        </div>
-      </div>
-
+      )}
     </div>
   );
 };
