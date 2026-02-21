@@ -52,8 +52,8 @@ const SidebarForeman = ({ isOpen, onClose }) => {
                       <Hexagon className="text-white fill-white/10" size={20} strokeWidth={2.5}/>
                    </div>
                    <div>
-                      <h1 className="text-lg font-black text-white tracking-tight leading-none">TACTICAL</h1>
-                      <p className="text-[9px] font-bold text-blue-400 tracking-[0.2em] uppercase mt-1">Production</p>
+                      <h1 className="text-lg font-black text-white tracking-tight leading-none">OEE PRO</h1>
+                      <p className="text-[9px] font-bold text-blue-400 tracking-[0.2em] uppercase mt-1">FOREMAN MODES</p>
                    </div>
                </div>
                {/* Tombol Silang (X) hanya muncul di HP */}
