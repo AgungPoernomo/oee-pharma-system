@@ -53,7 +53,7 @@ const SidebarForeman = ({ isOpen, onClose }) => {
                    </div>
                    <div>
                       <h1 className="text-lg font-black text-white tracking-tight leading-none">OEE PRO</h1>
-                      <p className="text-[9px] font-bold text-blue-400 tracking-[0.2em] uppercase mt-1">FOREMAN MODES</p>
+                      <p className="text-[9px] font-bold text-blue-400 tracking-[0.2em] uppercase mt-1">Foreman Mode</p>
                    </div>
                </div>
                {/* Tombol Silang (X) hanya muncul di HP */}

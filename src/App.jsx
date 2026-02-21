@@ -45,8 +45,8 @@ const ForemanLayout = ({ children }) => {
                   <Hexagon size={18} className="text-white fill-white/20"/>
                </div>
                <div className="flex flex-col">
-                  <span className="font-black text-sm tracking-tight leading-none text-white">OEE SYSTEM</span>
-                  <span className="text-[9px] font-bold text-blue-400 tracking-widest uppercase mt-0.5">Production Mode</span>
+                  <span className="font-black text-sm tracking-tight leading-none text-white">OEE PRO</span>
+                  <span className="text-[9px] font-bold text-blue-400 tracking-widest uppercase mt-0.5">Foreman Mode</span>
                </div>
             </div>
             <button onClick={() => setSidebarOpen(true)} className="p-2.5 text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-700 border border-white/10 rounded-xl transition-all active:scale-95 shadow-md">
