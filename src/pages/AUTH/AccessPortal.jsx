@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import { loginUser, registerUser, verifyUser, fetchValidationData } from '../services/api';
+import { useAuth } from '../../context/AuthContext';
+import { loginUser, registerUser, verifyUser, fetchValidationData } from '../../services/api';
 import { 
   User, Lock, Briefcase, MapPin, ArrowRight, 
   CheckCircle, Loader2, Hexagon, Eye, EyeOff, Activity, X, 

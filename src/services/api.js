@@ -1,120 +1,115 @@
 import { API_BASE_URL } from '../config';
 
-// Fungsi umum untuk mengirim data ke Apps Script
+// =================================================================
+// 1. HELPER FUNCTIONS (Jantung Koneksi)
+// =================================================================
+
+// Helper: Ambil user dari parameter atau LocalStorage (Jaring Pengaman)
+const getCurrentUser = (explicitUser) => {
+  if (explicitUser) return explicitUser;
+  
+  const stored = localStorage.getItem("oee_user");
+  if (stored) {
+    try { return JSON.parse(stored); } catch (e) { return null; }
+  }
+  return { nama: "Unknown", zone: "-", plant: "-", line: "2" }; // Default fallback
+};
+
+// Helper: Kirim Request ke Google Apps Script
 const sendRequest = async (payload) => {
   try {
-    // CCTV: Melihat data apa yang dikirim ke Google
-    console.log("📡 SENDING:", payload);
-
     const response = await fetch(API_BASE_URL, {
       method: "POST",
+      // --- ANTI CORS PREFLIGHT ---
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
       body: JSON.stringify(payload),
     });
-    
-    const result = await response.json();
-    
-    // CCTV: Melihat balasan dari Google
-    console.log("📥 RECEIVED:", result);
 
-    return result;
+    if (!response.ok) {
+      throw new Error(`HTTP error! Status: ${response.status}`);
+    }
+    
+    return await response.json();
   } catch (error) {
     console.error("API Error:", error);
-    return { status: "error", message: "Gagal terhubung ke server." };
+    return { status: "error", message: "Gagal terhubung ke server (Network Error)." };
   }
 };
 
+// =================================================================
+// 2. AUTHENTICATION MODULE
+// =================================================================
+
 export const loginUser = async (data) => {
-  return await sendRequest({
-    action: "login",
-    data: data 
-  });
+  return await sendRequest({ action: "login", data: data });
 };
 
 export const registerUser = async (formData) => {
-  return await sendRequest({
-    action: "register",
-    data: formData
-  });
+  return await sendRequest({ action: "register", data: formData });
 };
 
 export const verifyUser = async (id_karyawan, code) => {
-  return await sendRequest({
-    action: "verify",
-    data: { id_karyawan, code }
-  });
-};
-
-export const fetchValidationData = async () => {
-  try {
-    const response = await fetch(`${API_BASE_URL}?action=get_validation_data`);
-    return await response.json();
-  } catch (error) {
-    console.error("Gagal ambil data validasi", error);
-    return { status: "error", data: {} };
-  }
-};
-
-// [PERBAIKAN PENTING DI SINI]
-// Otomatis ambil user dari LocalStorage jika tidak dikirim dari halaman
-export const submitOEEData = async (formData, explicitUser = null) => {
-  let userData = explicitUser;
-
-  // Jika user tidak dikirim manual, ambil dari memori browser
-  if (!userData) {
-    const stored = localStorage.getItem("oee_user");
-    if (stored) {
-      userData = JSON.parse(stored);
-    } else {
-      userData = { nama: "Unknown", zone: "-", plant: "-" };
-    }
-  }
-
-  return await sendRequest({
-    action: "submit_oee",
-    data: formData,
-    user: userData // Kirim data user (nama, zone, plant) ke backend
-  });
-};
-
-// --- FUNGSI TAMBAHAN UNTUK MENCEGAH ERROR DASHBOARD ---
-export const fetchProductionData = async () => {
-  return []; 
-};
-
-// Ambil Statistik Kinerja Foreman (Trader Mode)
-export const fetchForemanStats = async (userData) => {
-  return await sendRequest({
-    action: "get_foreman_stats",
-    user: userData
-  });
-};
-
-// Ambil Data Downtime Manager
-export const fetchManagerDowntime = async (filterData) => {
-  return await sendRequest({
-    action: "get_manager_downtime",
-    data: filterData
-  });
-};
-
-export const fetchManagerOEE = async (filterData) => {
-  return await sendRequest({
-    action: "get_manager_oee",
-    data: filterData
-  });
-};
-
-export const fetchTeamStats = async (filterData) => {
-  return await sendRequest({ action: "get_team_stats", data: filterData });
-};
-
-export const fetchRootCauseStats = async (filterData) => {
-  return await sendRequest({ action: "get_root_cause_stats", data: filterData });
+  return await sendRequest({ action: "verify", data: { id_karyawan, code } });
 };
 
 export const updatePassword = async (id, oldPassword, newPassword) => {
+  return await sendRequest({ action: "update_password", data: { id, oldPassword, newPassword } });
+};
+
+// =================================================================
+// 3. MASTER DATA MODULE
+// =================================================================
+
+export const fetchValidationData = async () => {
+  return await sendRequest({ action: "get_validation_data" });
+};
+
+// =================================================================
+// 4. SUBMIT DATA MODULE (TRANSACTIONAL & EDIT)
+// =================================================================
+
+export const submitOEEData = async (payload, explicitUser = null) => {
+  const userData = getCurrentUser(explicitUser);
+
+  // Payload action dinamis (bisa submit_baru atau update_data)
+  const realAction = payload.action || "submit_oee";
+  const realData = payload.data ? payload.data : payload;
+
+  return await sendRequest({
+    action: realAction,
+    data: realData,
+    user: userData // PENTING: Backend butuh ini untuk Routing Line 1-4
+  });
+};
+
+// =================================================================
+// 5. MONITORING MODULE (TABEL HARIAN)
+// =================================================================
+
+export const fetchTodayRejectC = async (user = null) => {
   return await sendRequest({ 
-    action: "update_password", 
-    data: { id, oldPassword, newPassword } 
+    action: "get_today_reject_c", 
+    user: getCurrentUser(user) 
+  });
+};
+
+export const fetchTodayRejectF = async (user = null) => {
+  return await sendRequest({ 
+    action: "get_today_reject_f",
+    user: getCurrentUser(user) 
+  });
+};
+
+export const fetchTodayDowntimeC = async (user = null) => {
+  return await sendRequest({ 
+    action: "get_today_downtime_c",
+    user: getCurrentUser(user) 
+  });
+};
+
+export const fetchTodayDowntimeF = async (user = null) => {
+  return await sendRequest({ 
+    action: "get_today_downtime_f",
+    user: getCurrentUser(user) 
   });
 };

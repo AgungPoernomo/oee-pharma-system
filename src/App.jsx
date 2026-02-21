@@ -1,111 +1,98 @@
-import React, { useState } from 'react';
+import React, { useState, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
-import { Menu, Hexagon } from 'lucide-react'; // Tambah Ikon Menu
+import { Menu, Hexagon, Loader2 } from 'lucide-react';
 
-// Import Components
-import Sidebar from "./components/layout/Sidebar";
+// --- 1. LAYOUT COMPONENT ---
+import SidebarForeman from "./components/layout/SidebarForeman";
 
-// Import Pages
-import Login from './pages/Login';
-import Dashboard from './pages/Dashboard';
-import InputData from './pages/InputData';
-import Kinerja from './pages/Kinerja';         
-import KinerjaTim from './pages/KinerjaTim';   
-import Downtime from './pages/Downtime';
-import RootCause from './pages/RootCause';
-import Analisa from './pages/Analisa';
-import Profil from './pages/Profil';
+// --- 2. LAZY LOAD PAGES (MVP CORE ONLY) ---
+// Auth
+const AccessPortal = React.lazy(() => import('./pages/AUTH/AccessPortal'));
 
-// --- LAYOUT TERPROTEKSI (SATPAM + RESPONSIVE) ---
-const ProtectedLayout = () => {
-  const { user } = useAuth();
-  const [isSidebarOpen, setSidebarOpen] = useState(false); // State untuk Mobile Menu
+// Foreman Data Entry
+const TacticalInputHub = React.lazy(() => import('./pages/foreman/Inputdata/TacticalInputHub'));
+const SmartDowntimeC = React.lazy(() => import('./pages/foreman/Inputdata/SmartDowntimeLoggerC'));
+const SmartDowntimeF = React.lazy(() => import('./pages/foreman/Inputdata/SmartDowntimeLoggerF'));
+const DefectCatcherC = React.lazy(() => import('./pages/foreman/Inputdata/DefectCatcherC'));
+const DefectCatcherF = React.lazy(() => import('./pages/foreman/Inputdata/DefectCatcherF'));
 
-  // 1. CEK SECURITY
-  if (!user) {
-    return <Navigate to="/login" replace />;
-  }
 
-  // 2. RENDER LAYOUT RESPONSIVE
+// --- 3. LOADING SPINNER ---
+const PageLoader = () => (
+  <div className="flex h-screen w-full items-center justify-center bg-[#0B1120]">
+    <div className="flex flex-col items-center gap-4">
+      <Loader2 size={48} className="animate-spin text-blue-500" />
+      <span className="text-sm font-bold text-slate-400 animate-pulse tracking-widest">MEMUAT SISTEM...</span>
+    </div>
+  </div>
+);
+
+// --- 4. FOREMAN LAYOUT (THE ONLY LAYOUT NOW) ---
+const ForemanLayout = ({ children }) => {
+  const [isSidebarOpen, setSidebarOpen] = useState(false);
   return (
-    <div className="flex h-screen bg-slate-50 overflow-hidden">
+    <div className="flex h-screen bg-[#0B1120] overflow-hidden text-slate-200">
       
-      {/* A. SIDEBAR (Dinamis via Props) */}
-      <Sidebar 
-        isOpen={isSidebarOpen} 
-        onClose={() => setSidebarOpen(false)} 
-      />
+      <SidebarForeman isOpen={isSidebarOpen} onClose={() => setSidebarOpen(false)} />
       
-      {/* B. AREA KONTEN UTAMA */}
       <div className="flex-1 flex flex-col h-screen overflow-hidden relative w-full">
-        
-        {/* HEADER MOBILE (Hanya Muncul di HP) */}
-        <header className="lg:hidden bg-slate-900 text-white p-4 flex items-center justify-between shadow-md z-30 shrink-0">
-           <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                 <Hexagon size={20} className="text-white"/>
-              </div>
-              <span className="font-bold text-lg tracking-tight">OEE System</span>
-           </div>
-           {/* Tombol Buka Sidebar */}
-           <button 
-             onClick={() => setSidebarOpen(true)} 
-             className="p-2 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition"
-           >
-              <Menu size={28} />
-           </button>
-        </header>
-
-        {/* MAIN CONTENT SCROLLABLE */}
-        <main className="flex-1 overflow-y-auto p-4 lg:p-8 custom-scrollbar">
-          <Outlet />
-        </main>
-
+         {/* Mobile Header */}
+         <header className="lg:hidden bg-[#1e293b] text-white p-4 flex items-center justify-between shadow-md z-30 shrink-0 border-b border-white/5">
+            <div className="flex items-center gap-3">
+               <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center shadow-lg">
+                  <Hexagon size={20} className="text-white fill-current"/>
+               </div>
+               <span className="font-bold text-lg tracking-tight">OEE Input Data</span>
+            </div>
+            <button onClick={() => setSidebarOpen(true)} className="p-2 text-white bg-slate-800 rounded-lg">
+               <Menu size={24} />
+            </button>
+         </header>
+         
+         <main className="flex-1 overflow-y-auto p-0 custom-scrollbar relative">
+            {children}
+         </main>
       </div>
     </div>
   );
 };
 
+
+// --- 5. ROUTING CONFIGURATION ---
 const App = () => {
   const { user } = useAuth();
 
   return (
     <Router>
       <Routes>
-        {/* --- ROUTE PUBLIC (LOGIN) --- */}
+        
+        {/* PUBLIC ROUTE: Login Page */}
         <Route 
-          path="/login" 
-          element={user ? <Navigate to="/" replace /> : <Login />} 
+            path="/access-portal" 
+            element={!user ? <Suspense fallback={<PageLoader />}><AccessPortal /></Suspense> : <Navigate to="/foreman/tactical-input" replace />} 
         />
+        <Route path="/login" element={<Navigate to="/access-portal" replace />} />
 
-        {/* --- ROUTE RAHASIA (HARUS LOGIN) --- */}
-        <Route element={<ProtectedLayout />}>
+        {/* PROTECTED ROUTE: Forced directly to Input Hub */}
+        <Route 
+          path="/" 
+          element={user ? <ForemanLayout><Suspense fallback={<PageLoader />}><Outlet /></Suspense></ForemanLayout> : <Navigate to="/access-portal" replace />}
+        >
+          <Route index element={<Navigate to="/foreman/tactical-input" replace />} />
           
-          {/* SMART ROUTING */}
-          <Route path="/" element={
-            user?.jabatan?.toLowerCase().includes('manager') || user?.jabatan?.toLowerCase().includes('admin')
-              ? <Navigate to="/dashboard" replace /> 
-              : <Navigate to="/input-data" replace />
-          } />
-
-          {/* Halaman Manager */}
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/downtime" element={<Downtime />} />
-          <Route path="/root-cause" element={<RootCause />} />
-          <Route path="/analisa" element={<Analisa />} />
-          <Route path="/kinerja-tim" element={<KinerjaTim />} />
-
-          {/* Halaman Foreman */}
-          <Route path="/input-data" element={<InputData />} />
-          <Route path="/kinerja" element={<Kinerja />} />
-
-          {/* Halaman Umum */}
-          <Route path="/profil" element={<Profil />} />
+          {/* === THE MVP ROUTES === */}
+          <Route path="foreman/tactical-input" element={<TacticalInputHub />} />
+          <Route path="foreman/input/reject/c" element={<DefectCatcherC />} />
+          <Route path="foreman/input/reject/f" element={<DefectCatcherF />} />
+          <Route path="foreman/input/downtime/c" element={<SmartDowntimeC />} />
+          <Route path="foreman/input/downtime/f" element={<SmartDowntimeF />} />
+          
         </Route>
 
-        {/* --- CATCH ALL (404) --- */}
-        <Route path="*" element={<Navigate to="/login" replace />} />
+        {/* FALLBACK ROUTE: Catch-all to prevent lost users */}
+        <Route path="*" element={<Navigate to={user ? "/foreman/tactical-input" : "/access-portal"} replace />} />
+        
       </Routes>
     </Router>
   );

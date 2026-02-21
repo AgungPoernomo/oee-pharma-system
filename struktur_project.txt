@@ -1,0 +1,95 @@
+Folder PATH listing
+Volume serial number is 783A-3CCA
+C:.
+|   .dockerignore
+|   .gitattributes
+|   .gitignore
+|   components.json
+|   Dockerfile
+|   eslint.config.js
+|   index.html
+|   jsconfig.json
+|   package-lock.json
+|   package.json
+|   postcss.config.cjs
+|   README.md
+|   struktur_project.txt
+|   tailwind.config.js
+|   vite.config.js
+|   
++---node_modules
+|   \---@rolldown
+|       +---binding-win32-x64-msvc
+|       |       package.json
+|       |       README.md
+|       |       rolldown-binding.win32-x64-msvc.node
+|       |       
+|       \---pluginutils
+|           |   LICENSE
+|           |   package.json
+|           |   README.md
+|           |   
+|           \---dist
+|                   composable-filters.d.ts
+|                   composable-filters.js
+|                   filter-vite-plugins.d.ts
+|                   filter-vite-plugins.js
+|                   index.d.ts
+|                   index.js
+|                   simple-filters.d.ts
+|                   simple-filters.js
+|                   utils.d.ts
+|                   utils.js
+|                   
++---public
+|       factory-bg.jpg
+|       logo-perusahaan.png
+|       vite.svg
+|       
+\---src
+    |   App.jsx
+    |   config.js
+    |   index.css
+    |   main.jsx
+    |   
+    +---assets
+    +---components
+    |   +---dashboard
+    |   |       ProductionChart.jsx
+    |   |       StatCard.jsx
+    |   |       
+    |   \---layout
+    |           Layout.jsx
+    |           NavbarManager.jsx
+    |           NavbarSupervisor.jsx
+    |           SidebarAdmin.jsx
+    |           SidebarForeman.jsx
+    |           SidebarManager.jsx
+    |           
+    +---context
+    |       AuthContext.jsx
+    |       
+    +---layout
+    +---lib
+    |       utils.js
+    |       
+    +---pages
+    |   +---AUTH
+    |   |       AccessPortal.jsx
+    |   |       
+    |   +---COMMON
+    |   |       AndonNotificationCenter.jsx
+    |   |       GlobalSearch_Genba.jsx
+    |   |       OperatorPassport.jsx
+    |   |       
+    |   \---foreman
+    |       \---Inputdata
+    |               DefectCatcherC.jsx
+    |               DefectCatcherF.jsx
+    |               SmartDowntimeLoggerC.jsx
+    |               SmartDowntimeLoggerF.jsx
+    |               TacticalInputHub.jsx
+    |               
+    \---services
+            api.js
+            
