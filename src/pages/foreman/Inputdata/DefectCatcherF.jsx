@@ -9,6 +9,40 @@ import toast, { Toaster } from 'react-hot-toast';
 // Kapasitas Teori
 const TEORI_BATCH = { "500 ML": 21923, "100 ML": 56880, "1000 ML": 6019 };
 
+const normalizeDate = (d) => {
+    if (!d) return "";
+    const strD = String(d).trim();
+    
+    // Jika formatnya sudah YYYY-MM-DD
+    if (/^\d{4}-\d{2}-\d{2}/.test(strD)) {
+        return strD.substring(0, 10);
+    }
+
+    // Jika formatnya DD/MM/YYYY dari Spreadsheet
+    if (strD.includes('/')) {
+        const parts = strD.split('/');
+        if (parts.length === 3) {
+            const day = parts[0].padStart(2, '0');
+            const month = parts[1].padStart(2, '0');
+            const year = parts[2].length === 2 ? `20${parts[2]}` : parts[2];
+            return `${year}-${month}-${day}`;
+        }
+    }
+    
+    // Ekstraksi amam menggunakan Local Time (mencegah mundur 1 hari karena UTC)
+    try {
+        const dateObj = new Date(strD);
+        if (!isNaN(dateObj.getTime())) {
+            const year = dateObj.getFullYear();
+            const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+            const day = String(dateObj.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+    } catch(e) {}
+    
+    return strD;
+};
+
 // --- UI COMPONENTS ---
 const Card = ({ children, title, icon: Icon, color = "purple" }) => (
     <div className={`relative overflow-hidden rounded-2xl bg-[#1e293b]/80 border border-white/5 shadow-xl backdrop-blur-sm mb-6`}>
@@ -76,69 +110,82 @@ const TimeInputBlock = ({ title, prefix, formData, handleChange, subtotal }) => 
     </div>
 );
 
-// --- TABEL MONITORING (FINAL VERSION WITH EDIT) ---
-const HistoryTableF = ({ data, refresh, onEdit }) => {
-    const val = (row, index) => (!row || row[index] === undefined || row[index] === null) ? "-" : row[index];
-    const Th = ({ children, rowSpan=1, colSpan=1, className="" }) => <th rowSpan={rowSpan} colSpan={colSpan} className={`px-2 py-2 border-b border-r border-slate-600 bg-slate-900 text-center font-bold text-[9px] text-slate-300 uppercase whitespace-nowrap ${className}`}>{children}</th>;
-    const Td = ({ children, className="" }) => <td className={`px-2 py-1 border-b border-r border-white/5 text-center font-mono text-[10px] text-slate-300 whitespace-nowrap ${className}`}>{children}</td>;
+// --- KOMPONEN UI TABEL ZONE F (SIMPEL & BERSIH) ---
+const HistoryTableF = ({ data, refresh, onEdit, currentFilterDate }) => {
+    const val = (row, index) => (!row || row[index] === undefined || row[index] === null || String(row[index]).trim() === "") ? "-" : row[index];
     
-    const getShiftColor = (shift) => {
-        const s = String(shift).trim();
-        if (s === '1') return 'bg-blue-900/20 hover:bg-blue-900/40';
-        if (s === '2') return 'bg-emerald-900/20 hover:bg-emerald-900/40';
-        if (s === '3') return 'bg-purple-900/20 hover:bg-purple-900/40';
-        return 'bg-[#1e293b]/50 hover:bg-white/5';
-    };
+    const Th = ({ children, className="" }) => <th className={`px-3 py-3 border-b border-r border-slate-600 bg-slate-900 text-center font-bold text-[10px] text-slate-300 uppercase whitespace-nowrap ${className}`}>{children}</th>;
+    const Td = ({ children, className="" }) => <td className={`px-3 py-2 border-b border-r border-white/5 text-center font-mono text-[11px] whitespace-nowrap ${className}`}>{children}</td>;
+
+    // DETEKTOR SHIFT DITUTUP (Membaca Kolom CB / Index 79)
+    const closedShifts = new Set();
+    if (data && Array.isArray(data)) {
+        data.forEach(row => {
+            if (row[79] && String(row[79]).trim() !== "" && String(row[79]).trim() !== "-") {
+                const rowDate = normalizeDate(row[4]); 
+                const shift = String(row[5]).trim();   
+                closedShifts.add(`${rowDate}_${shift}`);
+            }
+        });
+    }
 
     return (
         <div className="mt-8 bg-[#1e293b]/50 rounded-2xl border border-white/5 shadow-2xl overflow-hidden backdrop-blur-sm flex flex-col">
             <div className="p-3 border-b border-white/5 flex justify-between items-center bg-white/5">
-                <h3 className="font-bold text-white flex items-center gap-2 text-xs uppercase"><Database size={14} className="text-purple-400"/> Monitoring Harian</h3>
+                <h3 className="font-bold text-white flex items-center gap-2 text-xs uppercase"><Database size={14} className="text-purple-400"/> Histori Data OEE Zone F</h3>
                 <button type="button" onClick={refresh} className="p-1.5 bg-slate-700 rounded hover:bg-slate-600 text-white transition-all flex items-center gap-1 text-[10px] active:scale-95 cursor-pointer border border-white/10"><RefreshCw size={12}/> Refresh</button>
             </div>
-            <div className="overflow-auto max-h-[500px] w-full relative custom-scrollbar">
+            <div className="overflow-auto max-h-[600px] w-full relative custom-scrollbar">
                 <table className="w-full border-collapse">
-                    <thead className="sticky top-0 z-20 shadow-lg">
-                        <tr><Th rowSpan={2} className="sticky left-0 bg-slate-900 z-30 border-r-2 border-purple-500">Batch</Th><Th colSpan={3}>Info</Th><Th colSpan={3}>Steril</Th><Th colSpan={2}>Visual Insp</Th><Th colSpan={3}>Packing</Th><Th colSpan={3}>Yield & Shift</Th><Th colSpan={3}>Waktu</Th><Th rowSpan={2}>STATUS</Th><Th rowSpan={2} className="sticky right-0 bg-slate-900 z-30 border-l-2 border-yellow-500/50 text-yellow-500">AKSI</Th></tr>
+                    <thead className="sticky top-0 z-20 shadow-xl">
                         <tr>
-                            <Th>Sh</Th><Th>Grp</Th><Th>Vol</Th>
-                            <Th>In</Th><Th>Rej</Th><Th>Out</Th>
-                            {/* VI */}
-                            <Th>Sub</Th><Th>Tot Shift (T)</Th>
-                            {/* Pack */}
-                            <Th>FG</Th><Th>Jml Btc</Th><Th>Tot Shift (CB)</Th>
-                            {/* Yield */}
-                            <Th>Yld</Th><Th>Avg Sh (CD)</Th><Th>Tot Avail (CJ)</Th>
-                            {/* Waktu */}
-                            <Th>Avail</Th><Th>P+C</Th><Th>Jeda</Th>
+                            <Th className="sticky left-0 bg-slate-900 z-30 border-r-2 border-slate-600 text-slate-300">Tanggal</Th>
+                            <Th className="text-slate-300">Batch & Lot</Th>
+                            <Th className="text-slate-300">Shift</Th>
+                            <Th className="text-slate-300">Sub In VI</Th>
+                            <Th className="text-slate-300">Sub FG Pack</Th>
+                            <Th className="text-slate-300">TOTAL In VI (Shift)</Th>
+                            <Th className="text-slate-300">TOTAL FG (Shift)</Th>
+                            <Th className="text-slate-300">% Yield (AVG Shift)</Th>
+                            <Th className="text-slate-300">STATUS</Th>
+                            <Th className="sticky right-0 bg-slate-900 z-30 border-l-2 border-slate-600 text-yellow-500">AKSI</Th>
                         </tr>
                     </thead>
                     <tbody>
-                        {(!data || data.length === 0) ? (<tr><td colSpan="25" className="px-4 py-8 text-center italic text-slate-500 text-xs">Belum ada data input hari ini</td></tr>) : (
-                            data.map((row, idx) => (
-                                <tr key={idx} className={`transition-colors border-b border-white/5 ${getShiftColor(val(row, 5))}`}>
-                                    <Td className="sticky left-0 bg-slate-800 z-10 font-bold text-white border-r-2 border-purple-500">{val(row, 2)}</Td>
-                                    <Td>{val(row, 5)}</Td><Td>{val(row, 6)}</Td><Td>{val(row, 7)}</Td>
+                        {(!data || data.length === 0) ? (<tr><td colSpan="10" className="px-4 py-8 text-center italic text-slate-500 text-xs">Belum ada data input hari ini</td></tr>) : (
+                            data.map((row, idx) => {
+                                const rowDate = normalizeDate(val(row, 4));
+                                const s = String(val(row, 5)).trim();
+                                const isClosed = closedShifts.has(`${rowDate}_${s}`);
+
+                                return (
+                                <tr key={idx} className="transition-colors border-b border-white/5 bg-[#1e293b]/50 hover:bg-white/5 text-slate-200">
+                                    <Td className="sticky left-0 bg-slate-800 z-10 font-bold border-r-2 border-slate-700">{val(row, 4)}</Td>
+                                    <Td className="font-bold text-white">{val(row, 2)} - {val(row, 3)}</Td>
+                                    <Td className="font-bold">{val(row, 5)}</Td>
                                     
-                                    <Td>{val(row, 8)}</Td><Td className="text-red-400">{val(row, 14)}</Td><Td>{val(row, 16)}</Td>
+                                    <Td>{val(row, 18)}</Td> {/* Sub In VI */}
+                                    <Td>{val(row, 76)}</Td> {/* Sub FG Pack */}
                                     
-                                    <Td>{val(row, 19)}</Td><Td className="text-blue-300 font-bold bg-blue-900/30">{val(row, 20)}</Td> {/* T4 */}
+                                    <Td className="font-bold">{val(row, 19)}</Td> {/* TOTAL IN VI */}
+                                    <Td className="font-bold">{val(row, 79)}</Td> {/* TOTAL FG SHIFT */}
+                                    <Td className="font-bold">{val(row, 81)}</Td> {/* AVG YIELD SHIFT */}
                                     
-                                    <Td className="font-bold text-emerald-400">{val(row, 76)}</Td><Td>{val(row, 78)}</Td><Td className="text-emerald-200 bg-emerald-900/30">{val(row, 79)}</Td> {/* CB4 */}
-                                    
-                                    <Td className="text-yellow-300">{val(row, 80)}</Td><Td className="text-purple-300 font-bold bg-purple-900/30">{val(row, 81)}</Td> {/* CD4 */}
-                                    
-                                    <Td className="text-blue-200 bg-slate-800">{val(row, 87)}</Td> {/* CJ4 */}
-                                    
-                                    <Td>{val(row, 86)}</Td><Td className="bg-slate-700/50 text-white">{val(row, 108)}</Td><Td className="text-orange-400">{val(row, 109)}</Td>
-                                    <Td><span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 text-[9px] font-bold border border-emerald-500/50">TERSIMPAN</span></Td>
-                                    <Td className="sticky right-0 bg-slate-800 border-l-2 border-yellow-500/20 z-10">
+                                    <Td>
+                                        {isClosed ? (
+                                            <span className="px-2 py-1 bg-emerald-500/20 text-emerald-400 rounded text-[9px] font-bold border border-emerald-500/30">LENGKAP</span>
+                                        ) : (
+                                            <span className="px-2 py-1 bg-slate-500/20 text-slate-400 rounded text-[9px] font-bold border border-slate-500/30">BERJALAN</span>
+                                        )}
+                                    </Td>
+                                    <Td className="sticky right-0 bg-slate-800 border-l-2 border-slate-700 z-10">
                                         <button type="button" onClick={() => onEdit(row)} className="p-2 bg-yellow-500/10 text-yellow-400 hover:bg-yellow-500 hover:text-black rounded transition-colors shadow-lg active:scale-95" title="Edit Data">
                                             <FileEdit size={16}/> 
                                         </button>
                                     </Td>
                                 </tr>
-                            ))
+                                )
+                            })
                         )}
                     </tbody>
                 </table>
@@ -163,7 +210,7 @@ const InputRejectF = () => {
     const [isEditing, setIsEditing] = useState(false);
     const [editRowId, setEditRowId] = useState(null);
 
-    // Initial Form
+    // Initial Form (TIDAK ADA YANG DIHAPUS)
     const initialForm = {
         no_batch: '', lot_no: '', tanggal: new Date().toISOString().split('T')[0], shift: '', group: '', volume_botol: '500 ML',
         teori_jml_batch: '56880', teori_yield: '21923', 
@@ -190,15 +237,15 @@ const InputRejectF = () => {
                 const hist = await fetchTodayRejectF(user);
                 if(hist.status === 'success') {
                     setHistoryData(hist.data);
-                    if(formData.shift) calculateHistoryTotals(hist.data, formData.shift);
+                    if(formData.shift) calculateHistoryTotals(hist.data, formData.shift, formData.tanggal);
                 }
             } catch(e) {}
         }
     };
 
-    // --- LOGIC SHIFT ACCUMULATION (V5.2 - Index DD Corrected) ---
-    const calculateHistoryTotals = (data, currentShift) => {
-        if (!data || data.length === 0 || !currentShift) {
+    // --- LOGIC SHIFT ACCUMULATION (TANGGAL & SHIFT SAMA) ---
+    const calculateHistoryTotals = (data, currentShift, currentDate) => {
+        if (!data || data.length === 0 || !currentShift || !currentDate) {
             setShiftTotals({ vi_in: 0, fg: 0, avail: 0, prep: 0, jeda: 0, yield_sum: 0, yield_count: 0, lastBatchNo: "", lastLC: 0 });
             return;
         }
@@ -206,23 +253,26 @@ const InputRejectF = () => {
         const parseIndoNumber = (val) => { if (!val) return 0; let str = String(val).replace('%', '').trim().replace(',', '.'); return parseFloat(str) || 0; };
         const p = (val) => parseIndoNumber(val);
 
-        const relevantData = [...data].reverse().filter(row => String(row[5]) === String(currentShift)); 
+        const formDateFmt = normalizeDate(currentDate);
+
+        const relevantData = [...data].reverse().filter(row => {
+            const rowDateFmt = normalizeDate(row[4]); 
+            return String(row[5]).trim() === String(currentShift).trim() && rowDateFmt === formDateFmt;
+        });
 
         let t = { vi_in: 0, fg: 0, avail: 0, prep: 0, jeda: 0, yield_sum: 0, yield_count: 0, lastBatchNo: "", lastLC: 0 };
 
         if(relevantData.length > 0) {
             t.lastBatchNo = String(relevantData[0][2]);
-            // AMBIL LINE CLEARANCE DARI DATA TERAKHIR
-            // Kolom DD = Index 107
-            t.lastLC = p(relevantData[0][107]); 
+            t.lastLC = p(relevantData[0][107]); // Index DD Corrected
         }
 
         relevantData.forEach(row => {
-            t.vi_in += p(row[19]); // T4
-            t.fg += p(row[76]);    // FG
-            t.avail += p(row[87]); // Avail
+            t.vi_in += p(row[19]); 
+            t.fg += p(row[76]);    
+            t.avail += p(row[87]); 
             t.prep += p(row[97]); 
-            t.jeda += p(row[109]); // Jeda (DG)
+            t.jeda += p(row[109]); 
             let yieldVal = parseIndoNumber(row[80]); 
             if (yieldVal < 1.1 && yieldVal > 0) yieldVal = yieldVal * 100;
             t.yield_sum += yieldVal;
@@ -231,7 +281,7 @@ const InputRejectF = () => {
         setShiftTotals(t);
     };
 
-    useEffect(() => { calculateHistoryTotals(historyData, formData.shift); }, [formData.shift, historyData]);
+    useEffect(() => { calculateHistoryTotals(historyData, formData.shift, formData.tanggal); }, [formData.shift, formData.tanggal, historyData]);
     useEffect(() => { if (user) loadData(); }, [user]);
 
     // --- CALCULATOR ENGINE ---
@@ -272,12 +322,9 @@ const InputRejectF = () => {
         const process_total = prep_sub + run_sub + rework_sub + clear_sub; 
         const total_prep_clear = prep_sub + clear_sub; 
         
-        // --- JEDA (LOGIKA LURUS + EDIT SAFE) ---
-        // Jika Edit, jangan jadikan 0
         let prevLC = shiftTotals.lastLC || 0;
         if (formData.no_batch && shiftTotals.lastBatchNo && String(formData.no_batch).trim().toUpperCase() === String(shiftTotals.lastBatchNo).trim().toUpperCase() && !isEditing) {
-             // Jika batch sama (batch lanjutan), prevLC tidak dihitung lagi (opsional, tergantung rule pabrik)
-             // TAPI untuk amannya kita ikuti rumus standard
+            // prevLC = 0; 
         }
         const jeda_batch = prevLC + prep_sub;
 
@@ -291,11 +338,8 @@ const InputRejectF = () => {
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
-    // --- HANDLE EDIT CLICK (MAPPING) ---
+    // --- HANDLE EDIT CLICK ---
     const handleEditClick = (rowData) => {
-        // PERHATIKAN URUTAN KOLOM SPREADSHEET ZONE F (SANGAT PANJANG)
-        // [0]Time, [1]User, [2]Batch, [3]Lot, [4]Tgl, [5]Shift, [6]Grp, [7]Vol
-        
         let dateVal = new Date().toISOString().split('T')[0];
         try { if(rowData[4]) dateVal = new Date(rowData[4]).toISOString().split('T')[0]; } catch(e){}
 
@@ -308,15 +352,11 @@ const InputRejectF = () => {
             group: rowData[6],
             volume_botol: rowData[7],
             
-            // Steril & VI
             steril_in: rowData[8],
             steril_bocor: rowData[9], steril_h_patah_ring: rowData[10], steril_h_patah_lidah: rowData[11], steril_h_patah_leleh: rowData[12], steril_no_hanger: rowData[13], 
             steril_sample: rowData[15],
             
             vi_start: rowData[17], vi_end: rowData[18],
-            // VI REJECTS (R1 - R48)
-            // Asumsi R1 ada di index 22. Jika geser, sesuaikan.
-            // R1 = 22, R48 = 22 + 47 = 69
             ...Object.fromEntries(Array.from({length:48}, (_, i) => [`vi_r_${i+1}`, rowData[22+i] || ''])),
             
             vi_sample_qc: rowData[71],
@@ -324,30 +364,44 @@ const InputRejectF = () => {
             pack_s_qc: rowData[74], pack_s_others: rowData[75],
             pack_utuh: rowData[77] || 'Y',
             
-            // Form Waktu (Kosongkan atau Mapping jika ada kolom raw)
-            // Saat ini dikosongkan untuk validasi ulang oleh user
+            av_sh: rowData[83], av_sm: rowData[84], av_eh: rowData[85], av_em: rowData[86],
+            p_mat_sh: rowData[88], p_mat_sm: rowData[89], p_mat_eh: rowData[90], p_mat_em: rowData[91],
+            run_sh: rowData[93], run_sm: rowData[94], run_eh: rowData[95], run_em: rowData[96],
+            rework_sh: rowData[98], rework_sm: rowData[99], rework_eh: rowData[100], rework_em: rowData[101],
+            clear_sh: rowData[103], clear_sm: rowData[104], clear_eh: rowData[105], clear_em: rowData[106],
         };
 
         setFormData(newData);
         setIsEditing(true);
-        setEditRowId(rowData[2]);
+        
+        // PENTING: Tangkap Row Index dari Index Terakhir Array untuk hindari duplikasi baris
+        const exactRowIndex = rowData[rowData.length - 1]; 
+        setEditRowId(exactRowIndex);
+
+        // Cek status akhir shift
+        if(rowData[78] && String(rowData[78]).trim() !== "" && String(rowData[78]).trim() !== "-") {
+            setIsClosingShift(true);
+        } else {
+            setIsClosingShift(false);
+        }
+
         window.scrollTo({ top: 0, behavior: 'smooth' });
-        toast("Mode Edit Aktif: Silakan perbaiki data", { icon: '✏️' });
+        toast("Mode Edit Aktif", { icon: '✏️', duration: 3000 });
     };
 
     const handleCancelEdit = () => {
         setIsEditing(false);
         setFormData(initialForm);
         setEditRowId(null);
+        setIsClosingShift(false);
         toast.dismiss();
-        toast("Mode Edit Dibatalkan");
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault(); setLoading(true);
         if(!formData.no_batch || !formData.lot_no || !formData.shift) { toast.error("Data Wajib: No Batch, Lot No, Shift!"); setLoading(false); return; }
 
-        // --- FILTER KIRIM KE DATABASE (STRICT IF CLOSING) ---
+        // --- SKENARIO B: KOSONGKAN TOTAL JIKA BUKAN AKHIR SHIFT ---
         let calc_vi_in = "", calc_fg = "", calc_avail = "", calc_prep = "", calc_jeda = "", calc_avg_yield = "";
 
         if (isClosingShift) {
@@ -380,7 +434,7 @@ const InputRejectF = () => {
             const res = await submitOEEData({ action: actionType, data: finalData }, user);
             setLoading(false);
             if(res.status === 'success') {
-                toast.success(isEditing ? "Data Berhasil Diupdate!" : (isClosingShift ? "Shift Ditutup!" : "Data Tersimpan."));
+                toast.success(isEditing ? "Data Diupdate!" : (isClosingShift ? "Shift Ditutup!" : "Data Tersimpan."));
                 setFormData(prev => ({ ...initialForm, shift: prev.shift, group: prev.group, tanggal: prev.tanggal, vi_start: 0, vi_end: '' }));
                 setIsClosingShift(false); 
                 setIsEditing(false);
@@ -391,7 +445,7 @@ const InputRejectF = () => {
     };
 
     return (
-        <div className="min-h-screen bg-[#0B1120] text-slate-200 pb-32">
+        <div className="min-h-screen bg-[#0B1120] text-slate-200 pb-32 font-sans">
             <Toaster position="top-center" toastOptions={{style: {background: '#1e293b', color: '#fff'}}} />
             
             {/* HEADER */}
@@ -403,7 +457,7 @@ const InputRejectF = () => {
                             <h1 className="text-xl font-black text-white tracking-tight flex items-center gap-2">REJECT ZONE <span className="text-purple-500">F</span></h1>
                             <div className="flex items-center gap-2">
                                 {isEditing ? (
-                                    <span className="text-[10px] font-bold bg-yellow-500 text-black px-2 py-0.5 rounded animate-pulse">MODE EDITING: {editRowId}</span>
+                                    <span className="text-[10px] font-bold bg-yellow-500 text-black px-2 py-0.5 rounded animate-pulse">MODE EDITING</span>
                                 ) : (
                                     <>
                                         <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
@@ -413,7 +467,6 @@ const InputRejectF = () => {
                             </div>
                         </div>
                     </div>
-                    <div className="flex items-center gap-4"><div className="text-right hidden md:block"><p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Operator</p><p className="font-bold text-white text-sm">{user?.nama || 'Guest'}</p></div></div>
                 </div>
             </div>
 
@@ -421,6 +474,7 @@ const InputRejectF = () => {
                 <form onSubmit={handleSubmit}>
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                         <div className="lg:col-span-8 space-y-6">
+                            {/* BLOCK FORM TIDAK DIUBAH SAMA SEKALI DARI VERSI ASLI ANDA */}
                             <Card title="1. Data Batch & Umum" icon={Layers} color="purple">
                                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                                     <ModernInput label="No Batch" name="no_batch" type="text" placeholder="A123" value={formData.no_batch} onChange={handleChange} required disabled={isEditing}/>
@@ -440,27 +494,48 @@ const InputRejectF = () => {
                             <CollapsibleCard title="Detail Reject VI (48 Item)" icon={AlertOctagon} color="red" summary={`Total: ${calc.vi_rej_total} Pcs`}><div className="grid grid-cols-4 md:grid-cols-6 gap-2">{Array.from({length:48}, (_, i) => (<div key={i} className="flex flex-col"><label className="text-[8px] text-slate-500 uppercase text-center mb-0.5">R-{i+1}</label><input type="number" name={`vi_r_${i+1}`} value={formData[`vi_r_${i+1}`]} onChange={handleChange} className="bg-black/40 text-white text-center text-xs p-1.5 rounded border border-white/10 focus:border-red-500 outline-none"/></div>))}</div></CollapsibleCard>
                             <Card title="4. Output Packing" icon={Package} color="emerald"><div className="space-y-4"><div className="grid grid-cols-2 md:grid-cols-4 gap-4"><StatBox label="Hasil Baik VI" value={calc.vi_hasil_baik} color="emerald"/><ModernInput label="Sample QC (VI)" name="vi_sample_qc" value={formData.vi_sample_qc} onChange={handleChange}/><StatBox label="TF Packing" value={calc.vi_tf_packing} color="blue"/><ModernInput label="Reject Pack" name="pack_reject" value={formData.pack_reject} onChange={handleChange}/></div><div className="h-px bg-white/5"></div><div className="grid grid-cols-2 md:grid-cols-3 gap-4"><ModernInput label="Sample Pack QC" name="pack_s_qc" value={formData.pack_s_qc} onChange={handleChange}/><ModernInput label="Sample Pack Oth" name="pack_s_others" value={formData.pack_s_others} onChange={handleChange}/><ModernSelect label="Utuh?" name="pack_utuh" value={formData.pack_utuh} options={['Y','N']} onChange={handleChange}/></div></div></Card>
                         </div>
+                        
                         <div className="lg:col-span-4 space-y-6">
-                            <div className="bg-gradient-to-br from-purple-700 to-indigo-900 rounded-2xl p-5 shadow-2xl text-white"><h3 className="text-xs font-bold uppercase tracking-widest text-purple-200 mb-4">5. Final Result & Yield</h3><div className="space-y-4"><div className="flex justify-between items-end pb-2 border-b border-white/20"><span className="text-sm opacity-80">Finished Goods</span><span className="text-3xl font-black">{calc.pack_fg}</span></div><div className="grid grid-cols-2 gap-4"><div><span className="text-xs opacity-70 block">% Batch</span><span className="text-xl font-bold">{calc.yield_batch}%</span></div><div className="text-right"><span className="text-xs opacity-70 block">AVG Shift (CD)</span><span className="text-xl font-bold text-yellow-300">{((shiftTotals.yield_sum + Number(calc.yield_batch)) / (shiftTotals.yield_count + 1)).toFixed(2)}%</span></div></div><div className="pt-2"><span className="text-xs opacity-70 block">Running Total FG Shift (CB)</span><span className="text-2xl font-black text-emerald-300">{shiftTotals.fg + calc.pack_fg}</span></div></div></div>
+                            <div className="bg-gradient-to-br from-purple-700 to-indigo-900 rounded-2xl p-5 shadow-2xl text-white">
+                                <h3 className="text-xs font-bold uppercase tracking-widest text-purple-200 mb-4">5. Final Result & Yield</h3>
+                                <div className="space-y-4">
+                                    <div className="flex justify-between items-end pb-2 border-b border-white/20">
+                                        <span className="text-sm opacity-80">Finished Goods</span><span className="text-3xl font-black">{calc.pack_fg}</span>
+                                    </div>
+                                    <div className="pt-2 flex justify-between items-end">
+                                        <span className="text-xs font-bold text-emerald-300">TOTAL HASIL SHIFT</span>
+                                        <span className="text-2xl font-black text-emerald-100">{shiftTotals.fg + calc.pack_fg}</span>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4 mt-4">
+                                        <div><span className="text-xs opacity-70 block">% Batch</span><span className="text-xl font-bold">{calc.yield_batch}%</span></div>
+                                        <div className="text-right">
+                                            <span className="text-xs opacity-70 block">AVG Yield Shift</span>
+                                            <span className="text-xl font-bold text-yellow-300">{((shiftTotals.yield_sum + Number(calc.yield_batch)) / (shiftTotals.yield_count + 1)).toFixed(2)}%</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
                             <Card title="6. Available Time" icon={Clock} color="slate"><div className="space-y-3"><TimeInputBlock title="Available" prefix="av" formData={formData} handleChange={handleChange} subtotal={calc.av_sub} /><div className="text-right text-[10px] text-slate-400">Total Shift (CJ): {shiftTotals.avail + calc.av_sub}m</div></div></Card>
-                            <Card title="7. Process Details" icon={Activity} color="slate"><div className="space-y-3"><TimeInputBlock title="Preparation" prefix="p_mat" formData={formData} handleChange={handleChange} subtotal={calc.prep_sub} /><TimeInputBlock title="Machine Run" prefix="run" formData={formData} handleChange={handleChange} subtotal={calc.run_sub} /><TimeInputBlock title="Rework" prefix="rework" formData={formData} handleChange={handleChange} subtotal={calc.rework_sub} /><div className="h-px bg-white/5 my-2"></div><TimeInputBlock title="Line Clearance" prefix="clear" formData={formData} handleChange={handleChange} subtotal={calc.clear_sub} /></div><div className="mt-4 p-3 bg-slate-900 rounded-xl"><div className="flex justify-between items-center text-xs font-bold text-slate-400 mb-1"><span>Total Prep+Clear (8)</span><span className="text-white text-lg">{calc.total_prep_clear}m</span></div><div className="h-px bg-white/10 my-2"></div><div className="flex justify-between items-center text-xs font-bold text-orange-400"><span>Jeda Antar Batch (9)</span><span className="text-lg">{calc.jeda_batch}m</span></div><div className="text-[9px] text-slate-500 italic mt-1 text-right">*Rumus: LC Batch Lalu + Prep Batch Ini</div></div></Card>
+                            <Card title="7. Process Details" icon={Activity} color="slate"><div className="space-y-3"><TimeInputBlock title="Preparation" prefix="p_mat" formData={formData} handleChange={handleChange} subtotal={calc.prep_sub} /><TimeInputBlock title="Machine Run" prefix="run" formData={formData} handleChange={handleChange} subtotal={calc.run_sub} /><TimeInputBlock title="Rework" prefix="rework" formData={formData} handleChange={handleChange} subtotal={calc.rework_sub} /><div className="h-px bg-white/5 my-2"></div><TimeInputBlock title="Line Clearance" prefix="clear" formData={formData} handleChange={handleChange} subtotal={calc.clear_sub} /></div><div className="mt-4 p-3 bg-slate-900 rounded-xl"><div className="flex justify-between items-center text-xs font-bold text-slate-400 mb-1"><span>Total Prep+Clear (8)</span><span className="text-white text-lg">{calc.total_prep_clear}m</span></div><div className="h-px bg-white/10 my-2"></div><div className="flex justify-between items-center text-xs font-bold text-orange-400"><span>Jeda Antar Batch (9)</span><span className="text-lg">{calc.jeda_batch}m</span></div></div></Card>
                             
                             {!isEditing && (
-                                <div className="mt-4 p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-xl flex items-center justify-between"><div className="flex items-center gap-3"><Flag className={`text-yellow-500 ${isClosingShift ? 'fill-yellow-500' : ''}`} size={20}/><div><h4 className="text-white font-bold text-sm">Akhir Shift?</h4><p className="text-[9px] text-slate-400">Centang jika batch terakhir.</p></div></div><input type="checkbox" className="w-5 h-5 accent-yellow-500 cursor-pointer" checked={isClosingShift} onChange={(e) => setIsClosingShift(e.target.checked)}/></div>
+                                <div className="mt-4 p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-xl flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <Flag className={`text-yellow-500 ${isClosingShift ? 'fill-yellow-500' : ''}`} size={20}/>
+                                        <div><h4 className="text-white font-bold text-sm">Akhir Shift?</h4><p className="text-[9px] text-slate-400">Centang untuk memproses Data TOTAL.</p></div>
+                                    </div>
+                                    <input type="checkbox" className="w-5 h-5 accent-yellow-500 cursor-pointer" checked={isClosingShift} onChange={(e) => setIsClosingShift(e.target.checked)}/>
+                                </div>
                             )}
 
-                            <div className="flex gap-2">
+                            <div className="flex gap-2 mt-4">
                                 {isEditing && (
-                                    <button 
-                                        type="button" 
-                                        onClick={handleCancelEdit} 
-                                        className="flex-1 py-4 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-xl font-bold flex items-center justify-center gap-2 transition-colors"
-                                    >
+                                    <button type="button" onClick={handleCancelEdit} className="flex-1 py-4 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-xl font-bold flex items-center justify-center gap-2 transition-colors">
                                         <XCircle size={20}/> BATAL
                                     </button>
                                 )}
-                                <motion.button 
-                                    whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} disabled={loading} type="submit" 
+                                <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} disabled={loading} type="submit" 
                                     className={`flex-[2] py-4 rounded-xl font-bold text-lg shadow-lg flex items-center justify-center gap-3 transition-all ${isEditing ? 'bg-orange-500 hover:bg-orange-400 text-white' : (isClosingShift ? 'bg-yellow-500 hover:bg-yellow-400 text-black' : 'bg-purple-600 hover:bg-purple-500 text-white')}`}
                                 >
                                     {loading ? <Loader2 className="animate-spin"/> : <>{isEditing ? <FileEdit size={20}/> : <Save size={20}/>} {isEditing ? "UPDATE DATA" : (isClosingShift ? "TUTUP SHIFT" : "SIMPAN DATA")}</>}
@@ -468,7 +543,9 @@ const InputRejectF = () => {
                             </div>
                         </div>
                     </div>
-                    <HistoryTableF data={historyData} refresh={loadData} onEdit={handleEditClick} />
+                    
+                    {/* TABLE ZONE F DIPANGGIL DI SINI */}
+                    <HistoryTableF data={historyData} refresh={loadData} onEdit={handleEditClick} currentFilterDate={formData.tanggal} />
                 </form>
             </div>
         </div>
