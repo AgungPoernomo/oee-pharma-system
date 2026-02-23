@@ -113,3 +113,25 @@ export const fetchTodayDowntimeF = async (user = null) => {
     user: getCurrentUser(user) 
   });
 };
+
+// =================================================================
+// 6. API OTORISASI BARU (ACCESS CONTROL)
+// =================================================================
+
+export const getPendingApprovals = async () => {
+  return await sendRequest({ action: 'get_pending_approvals' });
+};
+
+export const approveUserRequest = async (id_karyawan) => {
+  return await sendRequest({ 
+    action: 'approve_user', 
+    data: { id_karyawan: id_karyawan } 
+  });
+};
+
+export const checkApprovalStatus = async (id_karyawan) => {
+  return await sendRequest({ 
+    action: 'check_approval_status', 
+    data: { id_karyawan: id_karyawan } 
+  });
+};
