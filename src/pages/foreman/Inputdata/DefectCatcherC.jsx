@@ -8,24 +8,29 @@ import toast, { Toaster } from 'react-hot-toast';
 
 const TEORI_BATCH = { "500 ML": 23076, "100 ML": 56880, "1000 ML": 6019 };
 
-// --- FUNGSI PENYETARA TANGGAL ---
 const normalizeDate = (d) => {
     if (!d) return "";
+    const strD = String(d).trim();
+    if (/^\d{4}-\d{2}-\d{2}/.test(strD)) return strD.substring(0, 10);
+    if (strD.includes('/')) {
+        const parts = strD.split('/');
+        if (parts.length === 3) {
+            const day = parts[0].padStart(2, '0');
+            const month = parts[1].padStart(2, '0');
+            const year = parts[2].length === 2 ? `20${parts[2]}` : parts[2];
+            return `${year}-${month}-${day}`;
+        }
+    }
     try {
-        const dateObj = new Date(d);
-        if (!isNaN(dateObj.getTime())) return dateObj.toISOString().split('T')[0];
-        
-        if (String(d).includes('/')) {
-            const parts = String(d).split('/');
-            if (parts.length === 3) {
-                const day = parts[0].padStart(2, '0');
-                const month = parts[1].padStart(2, '0');
-                const year = parts[2].length === 2 ? `20${parts[2]}` : parts[2];
-                return `${year}-${month}-${day}`;
-            }
+        const dateObj = new Date(strD);
+        if (!isNaN(dateObj.getTime())) {
+            const year = dateObj.getFullYear();
+            const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+            const day = String(dateObj.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
         }
     } catch(e) {}
-    return String(d).trim();
+    return strD;
 };
 
 // --- UI COMPONENTS ---
@@ -90,21 +95,42 @@ const TimeInputBlock = ({ title, prefix, formData, handleChange, subtotal }) => 
     </div>
 );
 
-// --- KOMPONEN UI TABEL ZONE C (SIMPEL & BERSIH) ---
+// --- TABEL MONITORING (DYNAMIC CALCULATION ENGINE) ---
 const HistoryTable = ({ data, refresh, onEdit, currentFilterDate }) => {
     const val = (row, index) => (!row || row[index] === undefined || row[index] === null || String(row[index]).trim() === "") ? "-" : row[index];
     
     const Th = ({ children, className="" }) => <th className={`px-3 py-3 border-b border-r border-slate-600 bg-slate-900 text-center font-bold text-[10px] text-slate-300 uppercase whitespace-nowrap ${className}`}>{children}</th>;
     const Td = ({ children, className="" }) => <td className={`px-3 py-2 border-b border-r border-white/5 text-center font-mono text-[11px] whitespace-nowrap ${className}`}>{children}</td>;
 
-    // DETEKTOR SHIFT DITUTUP (Zone C: Total Counter Filling ada di Index 13)
+    // 1. ENGINE KALKULASI DINAMIS UNTUK TABEL (Anti Update Anomaly)
+    const shiftAggregates = {}; 
     const closedShifts = new Set();
+
     if (data && Array.isArray(data)) {
-        data.forEach(row => {
+        // Melakukan putaran pertama untuk menghitung ulang semua Total berdasarkan Sub-total terkini
+        [...data].forEach(row => {
+            const rowDate = normalizeDate(row[3]);
+            const shift = String(row[4]).trim();
+            const key = `${rowDate}_${shift}`;
+            
+            if (!shiftAggregates[key]) {
+                shiftAggregates[key] = { cnt: 0, good: 0, yield_sum: 0, count: 0 };
+            }
+            
+            // Menjumlahkan nilai sub-total yang sebenarnya (bukan total)
+            const parseNum = (val) => parseFloat(String(val).replace(',', '.')) || 0;
+            
+            shiftAggregates[key].cnt += parseNum(row[10]);     // Sub Cycle
+            shiftAggregates[key].good += parseNum(row[24]);    // Trf To ST
+            
+            let yld = parseNum(row[26]);
+            if (yld < 1.1 && yld > 0) yld *= 100;
+            shiftAggregates[key].yield_sum += yld;
+            shiftAggregates[key].count += 1;
+
+            // Deteksi penutup shift
             if (row[13] && String(row[13]).trim() !== "" && String(row[13]).trim() !== "-") {
-                const rowDate = normalizeDate(row[3]); 
-                const shift = String(row[4]).trim();   
-                closedShifts.add(`${rowDate}_${shift}`);
+                closedShifts.add(key);
             }
         });
     }
@@ -113,7 +139,9 @@ const HistoryTable = ({ data, refresh, onEdit, currentFilterDate }) => {
         <div className="mt-8 bg-[#1e293b]/50 rounded-2xl border border-white/5 shadow-2xl overflow-hidden backdrop-blur-sm flex flex-col">
             <div className="p-3 border-b border-white/5 flex justify-between items-center bg-white/5">
                 <h3 className="font-bold text-white flex items-center gap-2 text-xs uppercase"><Database size={14} className="text-blue-400"/> Histori Data OEE Zone C</h3>
-                <button type="button" onClick={refresh} className="p-1.5 bg-slate-700 rounded hover:bg-slate-600 text-white transition-all flex items-center gap-1 text-[10px] active:scale-95 cursor-pointer border border-white/10"><RefreshCw size={12}/> Refresh</button>
+                <button type="button" onClick={refresh} className="p-1.5 bg-slate-700 rounded hover:bg-slate-600 text-white transition-all flex items-center gap-1 text-[10px] active:scale-95 cursor-pointer border border-white/10">
+                    <RefreshCw size={12}/> Refresh
+                </button>
             </div>
             <div className="overflow-auto max-h-[600px] w-full relative custom-scrollbar">
                 <table className="w-full border-collapse">
@@ -128,7 +156,7 @@ const HistoryTable = ({ data, refresh, onEdit, currentFilterDate }) => {
                             <Th className="text-slate-300">TOTAL Hasil Baik (Shift)</Th>
                             <Th className="text-slate-300">% Yield (AVG Shift)</Th>
                             <Th className="text-slate-300">STATUS</Th>
-                            <Th className="sticky right-0 bg-slate-900 z-30 border-l-2 border-slate-600 text-yellow-500">AKSI</Th>
+                            <Th className="sticky right-0 bg-slate-900 z-30 border-l-2 border-slate-600 text-yellow-500">AKSI</Th> 
                         </tr>
                     </thead>
                     <tbody>
@@ -136,7 +164,16 @@ const HistoryTable = ({ data, refresh, onEdit, currentFilterDate }) => {
                             data.map((row, idx) => {
                                 const rowDate = normalizeDate(val(row, 3));
                                 const s = String(val(row, 4)).trim();
-                                const isClosed = closedShifts.has(`${rowDate}_${s}`);
+                                const key = `${rowDate}_${s}`;
+                                const isClosed = closedShifts.has(key);
+                                
+                                // Apakah baris ini adalah baris tempat kita harus memunculkan angkanya? 
+                                // (Hanya memunculkan total pada baris yang is_closing nya tercentang)
+                                const isClosingRow = row[13] && String(row[13]).trim() !== "" && String(row[13]).trim() !== "-";
+
+                                // Ambil hasil perhitungan dinamis
+                                const agg = shiftAggregates[key];
+                                const dynamicAvgYield = agg.count > 0 ? (agg.yield_sum / agg.count).toFixed(2) : 0;
 
                                 return (
                                 <tr key={idx} className="transition-colors border-b border-white/5 bg-[#1e293b]/50 hover:bg-white/5 text-slate-200">
@@ -146,9 +183,11 @@ const HistoryTable = ({ data, refresh, onEdit, currentFilterDate }) => {
                                     <Td>{val(row, 6)}</Td>
                                     
                                     <Td>{val(row, 10)}</Td>
-                                    <Td className="font-bold">{val(row, 13)}</Td>
-                                    <Td className="font-bold">{val(row, 25)}</Td>
-                                    <Td className="font-bold">{val(row, 27)}</Td>
+                                    
+                                    {/* MENGGUNAKAN HASIL KALKULASI DINAMIS DARI FRONTEND */}
+                                    <Td className="font-bold">{isClosingRow ? agg.cnt : "-"}</Td>
+                                    <Td className="font-bold">{isClosingRow ? agg.good : "-"}</Td>
+                                    <Td className="font-bold">{isClosingRow ? `${dynamicAvgYield}%` : "-"}</Td>
                                     
                                     <Td>
                                         {isClosed ? (
@@ -208,7 +247,6 @@ const InputRejectC = () => {
     const [calc, setCalc] = useState({}); 
     const [shiftTotals, setShiftTotals] = useState({ cnt: 0, good: 0, avail: 0, prep: 0, jeda: 0, yield_sum: 0, yield_count: 0, lastBatchNo: "" });
 
-    // LOAD DATA
     const loadData = async () => {
         try { const res = await fetchValidationData(); if(res.status==='success') setDropdowns({ shift: res.data['Shift'], group: res.data['Group'] }); } catch(e) {}
         if (user) {
@@ -216,14 +254,13 @@ const InputRejectC = () => {
                 const hist = await fetchTodayRejectC(user); 
                 if(hist.status === 'success') {
                     setHistoryData(hist.data);
-                    if(formData.shift) calculateHistoryTotals(hist.data, formData.shift, formData.tanggal);
                 }
             } catch(e) {}
         }
     };
 
-    // LOGIKA AKUMULASI (TANGGAL & SHIFT SAMA)
-    const calculateHistoryTotals = (data, currentShift, currentDate) => {
+    // LOGIKA AKUMULASI (DIPERBARUI: EXCLUDE EDITED ROW)
+    const calculateHistoryTotals = (data, currentShift, currentDate, editingState, currentEditId) => {
         if (!data || data.length === 0 || !currentShift || !currentDate) {
             setShiftTotals({ cnt: 0, good: 0, avail: 0, prep: 0, jeda: 0, yield_sum: 0, yield_count: 0, lastBatchNo: "" });
             return;
@@ -239,7 +276,12 @@ const InputRejectC = () => {
 
         const relevantData = [...data].reverse().filter(row => {
             const rowDateFmt = normalizeDate(row[3]); 
-            return String(row[4]).trim() === String(currentShift).trim() && rowDateFmt === formDateFmt;
+            const isSameShift = String(row[4]).trim() === String(currentShift).trim() && rowDateFmt === formDateFmt;
+            
+            // MAGIC FIX: Jika sedang edit, buang baris historis yang sedang diedit agar tidak double count!
+            const isNotBeingEdited = editingState ? row[row.length - 1] !== currentEditId : true;
+            
+            return isSameShift && isNotBeingEdited;
         });
 
         let t = { cnt: 0, good: 0, avail: 0, prep: 0, jeda: 0, yield_sum: 0, yield_count: 0, lastBatchNo: "" };
@@ -262,7 +304,11 @@ const InputRejectC = () => {
         setShiftTotals(t);
     };
 
-    useEffect(() => { calculateHistoryTotals(historyData, formData.shift, formData.tanggal); }, [formData.shift, formData.tanggal, historyData]);
+    // Pantau perubahan form & status edit secara bersamaan
+    useEffect(() => { 
+        calculateHistoryTotals(historyData, formData.shift, formData.tanggal, isEditing, editRowId); 
+    }, [formData.shift, formData.tanggal, historyData, isEditing, editRowId]);
+    
     useEffect(() => { if (user) loadData(); }, [user]);
 
     // CALCULATOR REALTIME
@@ -343,7 +389,6 @@ const InputRejectC = () => {
         const exactRowIndex = rowData[rowData.length - 1]; 
         setEditRowId(exactRowIndex); 
         
-        // Cek apakah data ini dulunya di-tutup shiftnya?
         if(rowData[13] && String(rowData[13]).trim() !== "" && String(rowData[13]).trim() !== "-") {
             setIsClosingShift(true);
         } else {
@@ -362,7 +407,6 @@ const InputRejectC = () => {
         toast.dismiss();
     };
 
-    // --- SUBMIT: LOGIKA SKENARIO B ---
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
@@ -435,7 +479,6 @@ const InputRejectC = () => {
         <div className="min-h-screen bg-[#0B1120] text-slate-200 font-sans pb-32">
             <Toaster position="top-center" toastOptions={{style: {background: '#1e293b', color: '#fff'}}} />
             
-            {/* HEADER */}
             <div className={`bg-[#0f172a]/80 backdrop-blur-md border-b border-white/5 px-6 py-4 sticky top-0 z-50 shadow-2xl transition-colors ${isEditing ? 'border-b-2 border-yellow-500' : ''}`}>
                 <div className="max-w-6xl mx-auto flex justify-between items-center">
                     <div className="flex items-center gap-4">
@@ -607,8 +650,7 @@ const InputRejectC = () => {
                         </div>
                     </div>
                     
-                    {/* MEMANGGIL TABEL */}
-                    <HistoryTable data={historyData} refresh={loadData} onEdit={handleEditClick} />
+                    <HistoryTable data={historyData} refresh={loadData} onEdit={handleEditClick} currentFilterDate={formData.tanggal} />
                 </form>
             </div>
         </div>
