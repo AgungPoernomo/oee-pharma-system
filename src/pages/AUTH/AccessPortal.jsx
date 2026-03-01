@@ -549,8 +549,8 @@ const Login = () => {
                   <motion.div key="waiting" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} className="text-center flex flex-col items-center justify-center py-8">
                      <div className="relative w-40 h-40 mx-auto mb-10 flex items-center justify-center">
                         <div className="absolute inset-0 border-[4px] border-blue-500/10 rounded-full"></div>
-                        <div className="absolute inset-0 border-[4px] border-blue-500 border-t-transparent border-l-transparent rounded-full animate-spin duration-[3000ms]"></div>
-                        <div className="absolute inset-4 border-[2px] border-purple-500 border-b-transparent rounded-full animate-spin duration-[2000ms] reverse"></div>
+                        <div className="absolute inset-0 border-[4px] border-blue-500 border-t-transparent border-l-transparent rounded-full animate-spin duration-1000"></div>
+                        <div className="absolute inset-4 border-[2px] border-purple-500 border-b-transparent rounded-full animate-spin duration-1000 reverse"></div>
                         <div className="bg-slate-900/80 p-5 rounded-full border border-white/10 z-10 shadow-[0_0_30px_rgba(37,99,235,0.3)]">
                            <Server size={32} className="text-blue-400 animate-pulse"/>
                         </div>

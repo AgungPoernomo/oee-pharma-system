@@ -114,10 +114,6 @@ export const fetchTodayDowntimeF = async (user = null) => {
   });
 };
 
-// =================================================================
-// 6. API OTORISASI BARU (ACCESS CONTROL)
-// =================================================================
-
 export const getPendingApprovals = async () => {
   return await sendRequest({ action: 'get_pending_approvals' });
 };
@@ -133,5 +129,18 @@ export const checkApprovalStatus = async (id_karyawan) => {
   return await sendRequest({ 
     action: 'check_approval_status', 
     data: { id_karyawan: id_karyawan } 
+  });
+};
+
+// =================================================================
+// 7. ONESHEET DASHBOARD MODULE
+// =================================================================
+
+export const fetchOnesheetData = async (tanggal, explicitUser = null) => {
+  const userData = getCurrentUser(explicitUser);
+  return await sendRequest({ 
+    action: "get_onesheet_data", 
+    data: { tanggal: tanggal },
+    user: userData // Penting agar Apps Script tahu harus buka Database Line 1,2,3 atau 4
   });
 };

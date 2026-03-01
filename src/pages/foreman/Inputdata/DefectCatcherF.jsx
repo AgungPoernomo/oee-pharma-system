@@ -1,24 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { submitOEEData, fetchValidationData, fetchTodayRejectF } from '../../../services/api'; 
-import { Save, Database, Activity, Clock, Info, ChevronDown, ChevronUp, CheckCircle, RefreshCw, Flag, ArrowLeft, BarChart2, Layers, AlertOctagon, Loader2, Package, FileEdit, XCircle } from 'lucide-react';
+import { submitOEEData, fetchTodayRejectF } from '../../../services/api'; 
+import { Save, Database, Activity, Clock, Info, ChevronDown, RefreshCw, Flag, ArrowLeft, Layers, AlertOctagon, Loader2, Package, FileEdit, XCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast, { Toaster } from 'react-hot-toast';
 
-// Kapasitas Teori
-const TEORI_BATCH = { "500 ML": 21923, "100 ML": 56880, "1000 ML": 6019 };
+// --- HARDCODED CONSTANTS ---
+const SHIFTS = ["1", "2", "3"];
+const GROUPS = ["A", "B", "C", "D"];
+const VOLUMES = ["25 ML", "100 ML", "250 ML", "500 ML", "1000 ML"];
+const TEORI_BATCH = { "25 ML": 29412, "100 ML": 56880, "250 ML": 21509, "500 ML": 23076, "1000 ML": 60194 };
+const TEORI_YIELD = 21923; // Konstan untuk semua volume F
 
 const normalizeDate = (d) => {
     if (!d) return "";
     const strD = String(d).trim();
-    
-    // Jika formatnya sudah YYYY-MM-DD
-    if (/^\d{4}-\d{2}-\d{2}/.test(strD)) {
-        return strD.substring(0, 10);
-    }
-
-    // Jika formatnya DD/MM/YYYY dari Spreadsheet
+    if (/^\d{4}-\d{2}-\d{2}/.test(strD)) return strD.substring(0, 10);
     if (strD.includes('/')) {
         const parts = strD.split('/');
         if (parts.length === 3) {
@@ -28,8 +26,6 @@ const normalizeDate = (d) => {
             return `${year}-${month}-${day}`;
         }
     }
-    
-    // Ekstraksi amam menggunakan Local Time (mencegah mundur 1 hari karena UTC)
     try {
         const dateObj = new Date(strD);
         if (!isNaN(dateObj.getTime())) {
@@ -39,7 +35,6 @@ const normalizeDate = (d) => {
             return `${year}-${month}-${day}`;
         }
     } catch(e) {}
-    
     return strD;
 };
 
@@ -54,25 +49,6 @@ const Card = ({ children, title, icon: Icon, color = "purple" }) => (
         <div className="p-5">{children}</div>
     </div>
 );
-
-const CollapsibleCard = ({ children, title, icon: Icon, color = "red", defaultOpen = false, summary }) => {
-    const [isOpen, setIsOpen] = useState(defaultOpen);
-    return (
-        <div className={`relative overflow-hidden rounded-2xl bg-[#1e293b]/80 border border-white/5 shadow-xl backdrop-blur-sm mb-6 transition-all`}>
-            <div className={`absolute top-0 left-0 w-1 h-full bg-${color}-500/50`}></div>
-            <div onClick={() => setIsOpen(!isOpen)} className="p-4 border-b border-white/5 flex items-center justify-between bg-white/5 cursor-pointer hover:bg-white/10 transition-colors">
-                <div className="flex items-center gap-3">
-                    <div className={`p-1.5 rounded-lg bg-${color}-500/20 text-${color}-400`}>{Icon && <Icon size={18} />}</div>
-                    <div><h3 className="text-md font-bold text-white tracking-wide">{title}</h3>{summary && <p className="text-[10px] text-slate-400 mt-0.5">{summary}</p>}</div>
-                </div>
-                {isOpen ? <ChevronUp size={18} className="text-slate-400"/> : <ChevronDown size={18} className="text-slate-400"/>}
-            </div>
-            <AnimatePresence>
-                {isOpen && (<motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden"><div className="p-5 border-t border-white/5">{children}</div></motion.div>)}
-            </AnimatePresence>
-        </div>
-    );
-};
 
 const ModernInput = ({ label, name, type="number", value, onChange, disabled, placeholder, required }) => (
     <div className="group relative">
@@ -110,22 +86,20 @@ const TimeInputBlock = ({ title, prefix, formData, handleChange, subtotal }) => 
     </div>
 );
 
-// --- KOMPONEN UI TABEL ZONE F (SIMPEL & BERSIH) ---
+// --- KOMPONEN UI TABEL ZONE F ---
 const HistoryTableF = ({ data, refresh, onEdit, currentFilterDate }) => {
     const val = (row, index) => (!row || row[index] === undefined || row[index] === null || String(row[index]).trim() === "") ? "-" : row[index];
-    
     const Th = ({ children, className="" }) => <th className={`px-3 py-3 border-b border-r border-slate-600 bg-slate-900 text-center font-bold text-[10px] text-slate-300 uppercase whitespace-nowrap ${className}`}>{children}</th>;
     const Td = ({ children, className="" }) => <td className={`px-3 py-2 border-b border-r border-white/5 text-center font-mono text-[11px] whitespace-nowrap ${className}`}>{children}</td>;
 
-    // DETEKTOR SHIFT DITUTUP (Membaca Kolom CB / Index 79)
+    // DETEKTOR SHIFT DITUTUP (Membaca Kolom AG / Index 32 = Utuh?)
     const closedShifts = new Set();
     if (data && Array.isArray(data)) {
         data.forEach(row => {
-            if (row[79] && String(row[79]).trim() !== "" && String(row[79]).trim() !== "-") {
-                const rowDate = normalizeDate(row[4]); 
-                const shift = String(row[5]).trim();   
-                closedShifts.add(`${rowDate}_${shift}`);
-            }
+            // Kolom penutup shift sekarang ada di indeks 66 (Highlight cell BG color) 
+            // Kita pakai deteksi warna kuning atau penanda lain. Di Apps Script, penanda is_closing biasanya terlihat di akhir baris
+            // Namun untuk amannya kita deteksi dari format array jika ada is_closing.
+            // Asumsi kita akan mengecek dari Backend array yg dikirim. Untuk tabel ini kita hanya render.
         });
     }
 
@@ -156,7 +130,7 @@ const HistoryTableF = ({ data, refresh, onEdit, currentFilterDate }) => {
                             data.map((row, idx) => {
                                 const rowDate = normalizeDate(val(row, 4));
                                 const s = String(val(row, 5)).trim();
-                                const isClosed = closedShifts.has(`${rowDate}_${s}`);
+                                const isClosed = row[34] && String(row[34]).trim() !== ""; // Jika Total Shift FG Terisi
 
                                 return (
                                 <tr key={idx} className="transition-colors border-b border-white/5 bg-[#1e293b]/50 hover:bg-white/5 text-slate-200">
@@ -164,12 +138,12 @@ const HistoryTableF = ({ data, refresh, onEdit, currentFilterDate }) => {
                                     <Td className="font-bold text-white">{val(row, 2)} - {val(row, 3)}</Td>
                                     <Td className="font-bold">{val(row, 5)}</Td>
                                     
-                                    <Td>{val(row, 18)}</Td> {/* Sub In VI */}
-                                    <Td>{val(row, 76)}</Td> {/* Sub FG Pack */}
+                                    <Td>{val(row, 19)}</Td> {/* Sub In VI (T) */}
+                                    <Td>{val(row, 31)}</Td> {/* Sub FG Pack (AF) */}
                                     
-                                    <Td className="font-bold">{val(row, 19)}</Td> {/* TOTAL IN VI */}
-                                    <Td className="font-bold">{val(row, 79)}</Td> {/* TOTAL FG SHIFT */}
-                                    <Td className="font-bold">{val(row, 81)}</Td> {/* AVG YIELD SHIFT */}
+                                    <Td className="font-bold">{val(row, 20)}</Td> {/* TOTAL IN VI (U) */}
+                                    <Td className="font-bold">{val(row, 34)}</Td> {/* TOTAL FG SHIFT (AI) */}
+                                    <Td className="font-bold text-yellow-400">{val(row, 36) !== "-" ? `${(val(row, 36)*100).toFixed(2)}%` : "-"}</Td> {/* AVG YIELD SHIFT (AK) */}
                                     
                                     <Td>
                                         {isClosed ? (
@@ -203,21 +177,17 @@ const InputRejectF = () => {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
     const [isClosingShift, setIsClosingShift] = useState(false);
-    const [dropdowns, setDropdowns] = useState({ shift: [], group: [] });
     const [historyData, setHistoryData] = useState([]); 
     
     // STATE EDIT
     const [isEditing, setIsEditing] = useState(false);
     const [editRowId, setEditRowId] = useState(null);
 
-    // Initial Form (TIDAK ADA YANG DIHAPUS)
+    // Initial Form
     const initialForm = {
         no_batch: '', lot_no: '', tanggal: new Date().toISOString().split('T')[0], shift: '', group: '', volume_botol: '500 ML',
-        teori_jml_batch: '56880', teori_yield: '21923', 
         steril_in: '', steril_bocor: '', steril_h_patah_ring: '', steril_h_patah_lidah: '', steril_h_patah_leleh: '', steril_no_hanger: '', steril_sample: '',
-        vi_start: 0, vi_end: '', 
-        ...Object.fromEntries(Array.from({length:48}, (_, i) => [`vi_r_${i+1}`, ''])),
-        vi_sample_qc: '',
+        vi_start: 0, vi_end: '', vi_partikel: '', vi_kosmetik: '', vi_sample_qc: '',
         pack_reject: '', pack_s_qc: '', pack_s_others: '', pack_utuh: 'Y',
         av_sh: '', av_sm: '', av_eh: '', av_em: '',
         p_mat_sh: '', p_mat_sm: '', p_mat_eh: '', p_mat_em: '',
@@ -231,49 +201,48 @@ const InputRejectF = () => {
     const [shiftTotals, setShiftTotals] = useState({ vi_in: 0, fg: 0, avail: 0, prep: 0, jeda: 0, yield_sum: 0, yield_count: 0, lastBatchNo: "", lastLC: 0 });
 
     const loadData = async () => {
-        try { const res = await fetchValidationData(); if(res.status==='success') setDropdowns({ shift: res.data['Shift'], group: res.data['Group'] }); } catch(e) {}
         if (user) {
             try {
                 const hist = await fetchTodayRejectF(user);
                 if(hist.status === 'success') {
                     setHistoryData(hist.data);
-                    if(formData.shift) calculateHistoryTotals(hist.data, formData.shift, formData.tanggal);
                 }
             } catch(e) {}
         }
     };
 
-    // --- LOGIC SHIFT ACCUMULATION (TANGGAL & SHIFT SAMA) ---
-    const calculateHistoryTotals = (data, currentShift, currentDate) => {
+    // --- LOGIC SHIFT ACCUMULATION (FIXED INDICES) ---
+    const calculateHistoryTotals = (data, currentShift, currentDate, editingState, currentEditId) => {
         if (!data || data.length === 0 || !currentShift || !currentDate) {
             setShiftTotals({ vi_in: 0, fg: 0, avail: 0, prep: 0, jeda: 0, yield_sum: 0, yield_count: 0, lastBatchNo: "", lastLC: 0 });
             return;
         }
         
-        const parseIndoNumber = (val) => { if (!val) return 0; let str = String(val).replace('%', '').trim().replace(',', '.'); return parseFloat(str) || 0; };
-        const p = (val) => parseIndoNumber(val);
-
+        const p = (val) => { if (!val) return 0; let str = String(val).replace('%', '').trim().replace(',', '.'); return parseFloat(str) || 0; };
         const formDateFmt = normalizeDate(currentDate);
 
         const relevantData = [...data].reverse().filter(row => {
-            const rowDateFmt = normalizeDate(row[4]); 
-            return String(row[5]).trim() === String(currentShift).trim() && rowDateFmt === formDateFmt;
+            const rowDateFmt = normalizeDate(row[4]); // Tanggal ada di index 4
+            const isSameShift = String(row[5]).trim() === String(currentShift).trim() && rowDateFmt === formDateFmt;
+            // Jika mode edit, baris yg diedit jgn dihitung (Index baris asli diujung array)
+            const isNotBeingEdited = editingState ? row[row.length - 1] !== currentEditId : true;
+            return isSameShift && isNotBeingEdited;
         });
 
         let t = { vi_in: 0, fg: 0, avail: 0, prep: 0, jeda: 0, yield_sum: 0, yield_count: 0, lastBatchNo: "", lastLC: 0 };
 
         if(relevantData.length > 0) {
-            t.lastBatchNo = String(relevantData[0][2]);
-            t.lastLC = p(relevantData[0][107]); // Index DD Corrected
+            t.lastBatchNo = String(relevantData[0][2]); // Batch No di index 2
+            t.lastLC = p(relevantData[0][62]); // Line Clearance Sub Total Index 62
         }
 
         relevantData.forEach(row => {
-            t.vi_in += p(row[19]); 
-            t.fg += p(row[76]);    
-            t.avail += p(row[87]); 
-            t.prep += p(row[97]); 
-            t.jeda += p(row[109]); 
-            let yieldVal = parseIndoNumber(row[80]); 
+            t.vi_in += p(row[19]);     // VI Sub Total (Index 19)
+            t.fg += p(row[31]);        // FG Pack Sub (Index 31)
+            t.avail += p(row[41]);     // Avail Sub (Index 41)
+            t.prep += p(row[47]);      // Prep Sub (Index 47)
+            t.jeda += p(row[65]);      // Jeda Batch (Index 65)
+            let yieldVal = p(row[35]); // Yield Batch (Index 35)
             if (yieldVal < 1.1 && yieldVal > 0) yieldVal = yieldVal * 100;
             t.yield_sum += yieldVal;
             t.yield_count += 1;
@@ -281,7 +250,7 @@ const InputRejectF = () => {
         setShiftTotals(t);
     };
 
-    useEffect(() => { calculateHistoryTotals(historyData, formData.shift, formData.tanggal); }, [formData.shift, formData.tanggal, historyData]);
+    useEffect(() => { calculateHistoryTotals(historyData, formData.shift, formData.tanggal, isEditing, editRowId); }, [formData.shift, formData.tanggal, historyData, isEditing, editRowId]);
     useEffect(() => { if (user) loadData(); }, [user]);
 
     // --- CALCULATOR ENGINE ---
@@ -292,15 +261,17 @@ const InputRejectF = () => {
         const steril_out = val('steril_in') - steril_rej_total - val('steril_sample');
 
         const vi_sub = val('vi_end') - val('vi_start');
-        let vi_rej_total = 0; for(let i=1; i<=48; i++) vi_rej_total += val(`vi_r_${i}`);
+        const vi_rej_total = val('vi_partikel') + val('vi_kosmetik');
         const vi_hasil_baik = vi_sub - vi_rej_total;
         const vi_tf_packing = vi_hasil_baik - val('vi_sample_qc');
 
         const pack_hasil_baik = vi_tf_packing - val('pack_reject');
         const pack_fg = pack_hasil_baik - (val('pack_s_qc') + val('pack_s_others'));
         
-        const teori_jml = parseFloat(formData.teori_jml_batch) || 56880;
-        const teori_yld = parseFloat(formData.teori_yield) || 21923;
+        // TEORI MENGGUNAKAN HARDCODE BERDASARKAN VOLUME BOTOL
+        const volKey = formData.volume_botol || "500 ML";
+        const teori_jml = TEORI_BATCH[volKey] || 23076;
+        const teori_yld = TEORI_YIELD; // 21923
 
         const pack_jml_batch = (pack_fg / teori_jml).toFixed(2);
         const yield_batch = (pack_fg > 0) ? ((pack_fg / teori_yld) * 100).toFixed(2) : 0;
@@ -324,7 +295,7 @@ const InputRejectF = () => {
         
         let prevLC = shiftTotals.lastLC || 0;
         if (formData.no_batch && shiftTotals.lastBatchNo && String(formData.no_batch).trim().toUpperCase() === String(shiftTotals.lastBatchNo).trim().toUpperCase() && !isEditing) {
-            // prevLC = 0; 
+            prevLC = 0; 
         }
         const jeda_batch = prevLC + prep_sub;
 
@@ -338,48 +309,30 @@ const InputRejectF = () => {
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
-    // --- HANDLE EDIT CLICK ---
+    // --- HANDLE EDIT CLICK (MAPPED TO NEW INDICES) ---
     const handleEditClick = (rowData) => {
         let dateVal = new Date().toISOString().split('T')[0];
         try { if(rowData[4]) dateVal = new Date(rowData[4]).toISOString().split('T')[0]; } catch(e){}
 
         const newData = {
             ...initialForm,
-            no_batch: rowData[2],
-            lot_no: rowData[3],
-            tanggal: dateVal,
-            shift: rowData[5],
-            group: rowData[6],
-            volume_botol: rowData[7],
-            
-            steril_in: rowData[8],
-            steril_bocor: rowData[9], steril_h_patah_ring: rowData[10], steril_h_patah_lidah: rowData[11], steril_h_patah_leleh: rowData[12], steril_no_hanger: rowData[13], 
-            steril_sample: rowData[15],
-            
-            vi_start: rowData[17], vi_end: rowData[18],
-            ...Object.fromEntries(Array.from({length:48}, (_, i) => [`vi_r_${i+1}`, rowData[22+i] || ''])),
-            
-            vi_sample_qc: rowData[71],
-            pack_reject: rowData[73], 
-            pack_s_qc: rowData[74], pack_s_others: rowData[75],
-            pack_utuh: rowData[77] || 'Y',
-            
-            av_sh: rowData[83], av_sm: rowData[84], av_eh: rowData[85], av_em: rowData[86],
-            p_mat_sh: rowData[88], p_mat_sm: rowData[89], p_mat_eh: rowData[90], p_mat_em: rowData[91],
-            run_sh: rowData[93], run_sm: rowData[94], run_eh: rowData[95], run_em: rowData[96],
-            rework_sh: rowData[98], rework_sm: rowData[99], rework_eh: rowData[100], rework_em: rowData[101],
-            clear_sh: rowData[103], clear_sm: rowData[104], clear_eh: rowData[105], clear_em: rowData[106],
+            no_batch: rowData[2], lot_no: rowData[3], tanggal: dateVal, shift: rowData[5], group: rowData[6], volume_botol: rowData[7],
+            steril_in: rowData[8], steril_bocor: rowData[9], steril_h_patah_ring: rowData[10], steril_h_patah_lidah: rowData[11], steril_h_patah_leleh: rowData[12], steril_no_hanger: rowData[13], steril_sample: rowData[15],
+            vi_start: rowData[17], vi_end: rowData[18], vi_partikel: rowData[21], vi_kosmetik: rowData[22], vi_sample_qc: rowData[25],
+            pack_reject: rowData[27], pack_s_qc: rowData[29], pack_s_others: rowData[30], pack_utuh: rowData[32] || 'Y',
+            av_sh: rowData[37], av_sm: rowData[38], av_eh: rowData[39], av_em: rowData[40],
+            p_mat_sh: rowData[43], p_mat_sm: rowData[44], p_mat_eh: rowData[45], p_mat_em: rowData[46],
+            run_sh: rowData[48], run_sm: rowData[49], run_eh: rowData[50], run_em: rowData[51],
+            rework_sh: rowData[53], rework_sm: rowData[54], rework_eh: rowData[55], rework_em: rowData[56],
+            clear_sh: rowData[58], clear_sm: rowData[59], clear_eh: rowData[60], clear_em: rowData[61],
         };
 
         setFormData(newData);
         setIsEditing(true);
-        
-        // PENTING: Tangkap Row Index dari Index Terakhir Array untuk hindari duplikasi baris
         const exactRowIndex = rowData[rowData.length - 1]; 
         setEditRowId(exactRowIndex);
 
-        // Cek status akhir shift
-        if(rowData[78] && String(rowData[78]).trim() !== "" && String(rowData[78]).trim() !== "-") {
+        if(rowData[34] && String(rowData[34]).trim() !== "" && String(rowData[34]).trim() !== "-") {
             setIsClosingShift(true);
         } else {
             setIsClosingShift(false);
@@ -401,7 +354,6 @@ const InputRejectF = () => {
         e.preventDefault(); setLoading(true);
         if(!formData.no_batch || !formData.lot_no || !formData.shift) { toast.error("Data Wajib: No Batch, Lot No, Shift!"); setLoading(false); return; }
 
-        // --- SKENARIO B: KOSONGKAN TOTAL JIKA BUKAN AKHIR SHIFT ---
         let calc_vi_in = "", calc_fg = "", calc_avail = "", calc_prep = "", calc_jeda = "", calc_avg_yield = "";
 
         if (isClosingShift) {
@@ -425,8 +377,7 @@ const InputRejectF = () => {
             total_jeda_shift: calc_jeda,
             total_yield_shift: calc_avg_yield,
             is_closing: isClosingShift,
-            original_id: isEditing ? editRowId : null,
-            ...Object.fromEntries(Array.from({length:48}, (_, i) => [`vi_r_${i+1}`, formData[`vi_r_${i+1}`]]))
+            original_id: isEditing ? editRowId : null
         };
 
         try {
@@ -448,7 +399,6 @@ const InputRejectF = () => {
         <div className="min-h-screen bg-[#0B1120] text-slate-200 pb-32 font-sans">
             <Toaster position="top-center" toastOptions={{style: {background: '#1e293b', color: '#fff'}}} />
             
-            {/* HEADER */}
             <div className={`bg-[#0f172a]/80 backdrop-blur-md border-b border-white/5 px-6 py-4 sticky top-0 z-50 shadow-2xl transition-colors ${isEditing ? 'border-b-2 border-yellow-500' : ''}`}>
                 <div className="max-w-6xl mx-auto flex justify-between items-center">
                     <div className="flex items-center gap-4">
@@ -459,10 +409,7 @@ const InputRejectF = () => {
                                 {isEditing ? (
                                     <span className="text-[10px] font-bold bg-yellow-500 text-black px-2 py-0.5 rounded animate-pulse">MODE EDITING</span>
                                 ) : (
-                                    <>
-                                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                                        <span className="text-[10px] font-mono text-slate-400 uppercase tracking-widest">System Online</span>
-                                    </>
+                                    <><span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span><span className="text-[10px] font-mono text-slate-400 uppercase tracking-widest">System Online</span></>
                                 )}
                             </div>
                         </div>
@@ -474,25 +421,65 @@ const InputRejectF = () => {
                 <form onSubmit={handleSubmit}>
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                         <div className="lg:col-span-8 space-y-6">
-                            {/* BLOCK FORM TIDAK DIUBAH SAMA SEKALI DARI VERSI ASLI ANDA */}
                             <Card title="1. Data Batch & Umum" icon={Layers} color="purple">
                                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                                     <ModernInput label="No Batch" name="no_batch" type="text" placeholder="A123" value={formData.no_batch} onChange={handleChange} required disabled={isEditing}/>
                                     <ModernInput label="Lot No" name="lot_no" type="text" value={formData.lot_no} onChange={handleChange} required/>
                                     <ModernInput label="Tanggal" name="tanggal" type="date" value={formData.tanggal} onChange={handleChange} required/>
-                                    <ModernSelect label="Shift" name="shift" value={formData.shift} options={dropdowns.shift} onChange={handleChange} />
-                                    <ModernSelect label="Group" name="group" value={formData.group} options={dropdowns.group} onChange={handleChange} />
-                                    <ModernSelect label="Volume" name="volume_botol" value={formData.volume_botol} options={["500 ML", "100 ML"]} onChange={handleChange} />
-                                </div>
-                                <div className="mt-4 pt-4 border-t border-white/10 grid grid-cols-2 gap-4">
-                                    <ModernInput label="Teori utk Jml Batch" name="teori_jml_batch" value={formData.teori_jml_batch} onChange={handleChange} placeholder="56880" />
-                                    <ModernInput label="Teori utk Yield" name="teori_yield" value={formData.teori_yield} onChange={handleChange} placeholder="21923" />
+                                    <ModernSelect label="Shift" name="shift" value={formData.shift} options={SHIFTS} onChange={handleChange} required />
+                                    <ModernSelect label="Group" name="group" value={formData.group} options={GROUPS} onChange={handleChange} required />
+                                    <ModernSelect label="Volume" name="volume_botol" value={formData.volume_botol} options={VOLUMES} onChange={handleChange} required />
                                 </div>
                             </Card>
-                            <Card title="2. Output After Steril" icon={Info} color="blue"><div className="grid grid-cols-2 md:grid-cols-3 gap-4"><ModernInput label="In Chamber" name="steril_in" value={formData.steril_in} onChange={handleChange}/><ModernInput label="Bocor" name="steril_bocor" value={formData.steril_bocor} onChange={handleChange}/><ModernInput label="Patah Ring" name="steril_h_patah_ring" value={formData.steril_h_patah_ring} onChange={handleChange}/><ModernInput label="Patah Lidah" name="steril_h_patah_lidah" value={formData.steril_h_patah_lidah} onChange={handleChange}/><ModernInput label="Patah Leleh" name="steril_h_patah_leleh" value={formData.steril_h_patah_leleh} onChange={handleChange}/><ModernInput label="No Hanger" name="steril_no_hanger" value={formData.steril_no_hanger} onChange={handleChange}/><ModernInput label="Sample QC" name="steril_sample" value={formData.steril_sample} onChange={handleChange}/><div className="col-span-2 md:col-span-1 bg-[#0f172a] p-2 rounded-lg border border-blue-500/20 flex flex-col justify-center items-center"><span className="text-[9px] text-blue-400 font-bold uppercase">OUT TF to VI</span><span className="text-xl font-black text-white">{calc.steril_out}</span></div></div></Card>
-                            <Card title="3. Visual Inspeksi (Counter)" icon={Activity} color="emerald"><div className="grid grid-cols-2 gap-4 mb-4"><ModernInput label="Start (Auto)" name="vi_start" value={formData.vi_start} onChange={handleChange} /><ModernInput label="End" name="vi_end" value={formData.vi_end} onChange={handleChange}/></div><div className="flex justify-between items-center bg-emerald-900/10 p-3 rounded-lg border border-emerald-500/20"><div><span className="text-xs font-bold text-emerald-300">Subtotal Input VI</span><div className="text-xl font-black text-white">{calc.vi_sub}</div></div><div className="text-right"><span className="text-xs font-bold text-blue-300">Total Shift (T)</span><div className="text-xl font-black text-white">{shiftTotals.vi_in + calc.vi_sub}</div></div></div></Card>
-                            <CollapsibleCard title="Detail Reject VI (48 Item)" icon={AlertOctagon} color="red" summary={`Total: ${calc.vi_rej_total} Pcs`}><div className="grid grid-cols-4 md:grid-cols-6 gap-2">{Array.from({length:48}, (_, i) => (<div key={i} className="flex flex-col"><label className="text-[8px] text-slate-500 uppercase text-center mb-0.5">R-{i+1}</label><input type="number" name={`vi_r_${i+1}`} value={formData[`vi_r_${i+1}`]} onChange={handleChange} className="bg-black/40 text-white text-center text-xs p-1.5 rounded border border-white/10 focus:border-red-500 outline-none"/></div>))}</div></CollapsibleCard>
-                            <Card title="4. Output Packing" icon={Package} color="emerald"><div className="space-y-4"><div className="grid grid-cols-2 md:grid-cols-4 gap-4"><StatBox label="Hasil Baik VI" value={calc.vi_hasil_baik} color="emerald"/><ModernInput label="Sample QC (VI)" name="vi_sample_qc" value={formData.vi_sample_qc} onChange={handleChange}/><StatBox label="TF Packing" value={calc.vi_tf_packing} color="blue"/><ModernInput label="Reject Pack" name="pack_reject" value={formData.pack_reject} onChange={handleChange}/></div><div className="h-px bg-white/5"></div><div className="grid grid-cols-2 md:grid-cols-3 gap-4"><ModernInput label="Sample Pack QC" name="pack_s_qc" value={formData.pack_s_qc} onChange={handleChange}/><ModernInput label="Sample Pack Oth" name="pack_s_others" value={formData.pack_s_others} onChange={handleChange}/><ModernSelect label="Utuh?" name="pack_utuh" value={formData.pack_utuh} options={['Y','N']} onChange={handleChange}/></div></div></Card>
+                            
+                            <Card title="2. Output After Steril" icon={Info} color="blue">
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                                    <ModernInput label="In Chamber" name="steril_in" value={formData.steril_in} onChange={handleChange}/>
+                                    <ModernInput label="Bocor" name="steril_bocor" value={formData.steril_bocor} onChange={handleChange}/>
+                                    <ModernInput label="Patah Ring" name="steril_h_patah_ring" value={formData.steril_h_patah_ring} onChange={handleChange}/>
+                                    <ModernInput label="Patah Lidah" name="steril_h_patah_lidah" value={formData.steril_h_patah_lidah} onChange={handleChange}/>
+                                    <ModernInput label="Patah Leleh" name="steril_h_patah_leleh" value={formData.steril_h_patah_leleh} onChange={handleChange}/>
+                                    <ModernInput label="No Hanger" name="steril_no_hanger" value={formData.steril_no_hanger} onChange={handleChange}/>
+                                    <ModernInput label="Sample QC" name="steril_sample" value={formData.steril_sample} onChange={handleChange}/>
+                                    <div className="col-span-2 md:col-span-1 bg-[#0f172a] p-2 rounded-lg border border-blue-500/20 flex flex-col justify-center items-center"><span className="text-[9px] text-blue-400 font-bold uppercase">OUT TF to VI</span><span className="text-xl font-black text-white">{calc.steril_out}</span></div>
+                                </div>
+                            </Card>
+
+                            <Card title="3. Visual Inspeksi (Counter)" icon={Activity} color="emerald">
+                                <div className="grid grid-cols-2 gap-4 mb-4">
+                                    <ModernInput label="Start (Auto)" name="vi_start" value={formData.vi_start} onChange={handleChange} />
+                                    <ModernInput label="End" name="vi_end" value={formData.vi_end} onChange={handleChange}/>
+                                </div>
+                                <div className="flex justify-between items-center bg-emerald-900/10 p-3 rounded-lg border border-emerald-500/20">
+                                    <div><span className="text-xs font-bold text-emerald-300">Subtotal Input VI</span><div className="text-xl font-black text-white">{calc.vi_sub}</div></div>
+                                    <div className="text-right"><span className="text-xs font-bold text-blue-300">Total Shift (VI)</span><div className="text-xl font-black text-white">{shiftTotals.vi_in + calc.vi_sub}</div></div>
+                                </div>
+                                <div className="mt-4 pt-4 border-t border-white/5">
+                                    <h4 className="text-[10px] font-bold uppercase tracking-widest text-red-400 mb-3 flex items-center gap-2"><AlertOctagon size={12}/> Reject VI</h4>
+                                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                                        <ModernInput label="Partikel" name="vi_partikel" value={formData.vi_partikel} onChange={handleChange} />
+                                        <ModernInput label="Kosmetik" name="vi_kosmetik" value={formData.vi_kosmetik} onChange={handleChange} />
+                                        <StatBox label="Total Reject VI" value={calc.vi_rej_total} color="red" />
+                                    </div>
+                                </div>
+                            </Card>
+
+                            <Card title="4. Output Packing" icon={Package} color="emerald">
+                                <div className="space-y-4">
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                        <StatBox label="Hasil Baik VI" value={calc.vi_hasil_baik} color="emerald"/>
+                                        <ModernInput label="Sample QC (VI)" name="vi_sample_qc" value={formData.vi_sample_qc} onChange={handleChange}/>
+                                        <StatBox label="TF Packing" value={calc.vi_tf_packing} color="blue"/>
+                                        <ModernInput label="Reject Pack" name="pack_reject" value={formData.pack_reject} onChange={handleChange}/>
+                                    </div>
+                                    <div className="h-px bg-white/5"></div>
+                                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                                        <ModernInput label="Sample Pack QC" name="pack_s_qc" value={formData.pack_s_qc} onChange={handleChange}/>
+                                        <ModernInput label="Sample Pack Oth" name="pack_s_others" value={formData.pack_s_others} onChange={handleChange}/>
+                                        <ModernSelect label="Utuh?" name="pack_utuh" value={formData.pack_utuh} options={['Y','N']} onChange={handleChange}/>
+                                    </div>
+                                </div>
+                            </Card>
                         </div>
                         
                         <div className="lg:col-span-4 space-y-6">
@@ -516,8 +503,27 @@ const InputRejectF = () => {
                                 </div>
                             </div>
                             
-                            <Card title="6. Available Time" icon={Clock} color="slate"><div className="space-y-3"><TimeInputBlock title="Available" prefix="av" formData={formData} handleChange={handleChange} subtotal={calc.av_sub} /><div className="text-right text-[10px] text-slate-400">Total Shift (CJ): {shiftTotals.avail + calc.av_sub}m</div></div></Card>
-                            <Card title="7. Process Details" icon={Activity} color="slate"><div className="space-y-3"><TimeInputBlock title="Preparation" prefix="p_mat" formData={formData} handleChange={handleChange} subtotal={calc.prep_sub} /><TimeInputBlock title="Machine Run" prefix="run" formData={formData} handleChange={handleChange} subtotal={calc.run_sub} /><TimeInputBlock title="Rework" prefix="rework" formData={formData} handleChange={handleChange} subtotal={calc.rework_sub} /><div className="h-px bg-white/5 my-2"></div><TimeInputBlock title="Line Clearance" prefix="clear" formData={formData} handleChange={handleChange} subtotal={calc.clear_sub} /></div><div className="mt-4 p-3 bg-slate-900 rounded-xl"><div className="flex justify-between items-center text-xs font-bold text-slate-400 mb-1"><span>Total Prep+Clear (8)</span><span className="text-white text-lg">{calc.total_prep_clear}m</span></div><div className="h-px bg-white/10 my-2"></div><div className="flex justify-between items-center text-xs font-bold text-orange-400"><span>Jeda Antar Batch (9)</span><span className="text-lg">{calc.jeda_batch}m</span></div></div></Card>
+                            <Card title="6. Available Time" icon={Clock} color="slate">
+                                <div className="space-y-3">
+                                    <TimeInputBlock title="Available" prefix="av" formData={formData} handleChange={handleChange} subtotal={calc.av_sub} />
+                                    <div className="text-right text-[10px] text-slate-400">Total Shift (Avail): {shiftTotals.avail + calc.av_sub}m</div>
+                                </div>
+                            </Card>
+                            
+                            <Card title="7. Process Details" icon={Activity} color="slate">
+                                <div className="space-y-3">
+                                    <TimeInputBlock title="Preparation" prefix="p_mat" formData={formData} handleChange={handleChange} subtotal={calc.prep_sub} />
+                                    <TimeInputBlock title="Machine Run" prefix="run" formData={formData} handleChange={handleChange} subtotal={calc.run_sub} />
+                                    <TimeInputBlock title="Rework" prefix="rework" formData={formData} handleChange={handleChange} subtotal={calc.rework_sub} />
+                                    <div className="h-px bg-white/5 my-2"></div>
+                                    <TimeInputBlock title="Line Clearance" prefix="clear" formData={formData} handleChange={handleChange} subtotal={calc.clear_sub} />
+                                </div>
+                                <div className="mt-4 p-3 bg-slate-900 rounded-xl">
+                                    <div className="flex justify-between items-center text-xs font-bold text-slate-400 mb-1"><span>Total Prep+Clear (8)</span><span className="text-white text-lg">{calc.total_prep_clear}m</span></div>
+                                    <div className="h-px bg-white/10 my-2"></div>
+                                    <div className="flex justify-between items-center text-xs font-bold text-orange-400"><span>Jeda Antar Batch (9)</span><span className="text-lg">{calc.jeda_batch}m</span></div>
+                                </div>
+                            </Card>
                             
                             {!isEditing && (
                                 <div className="mt-4 p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-xl flex items-center justify-between">
@@ -544,7 +550,7 @@ const InputRejectF = () => {
                         </div>
                     </div>
                     
-                    {/* TABLE ZONE F DIPANGGIL DI SINI */}
+                    {/* TABLE ZONE F */}
                     <HistoryTableF data={historyData} refresh={loadData} onEdit={handleEditClick} currentFilterDate={formData.tanggal} />
                 </form>
             </div>

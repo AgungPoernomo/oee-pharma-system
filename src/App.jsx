@@ -9,7 +9,7 @@ import SidebarAdmin from "./components/layout/SidebarAdmin";
 
 // --- 2. LAZY LOAD PAGES ---
 // Auth
-const AccessPortal = React.lazy(() => import('./pages/AUTH/AccessPortal')); 
+const AccessPortal = React.lazy(() => import('./pages/AUTH/AccessPortal'));
 // (Sesuaikan nama folder AUTH dan file AccessPortal-nya, huruf besar-kecilnya harus sama persis dengan yang ada di komputer Anda)
 // Foreman Data Entry
 const TacticalInputHub = React.lazy(() => import('./pages/foreman/Inputdata/TacticalInputHub'));
@@ -17,6 +17,7 @@ const SmartDowntimeC = React.lazy(() => import('./pages/foreman/Inputdata/SmartD
 const SmartDowntimeF = React.lazy(() => import('./pages/foreman/Inputdata/SmartDowntimeLoggerF'));
 const DefectCatcherC = React.lazy(() => import('./pages/foreman/Inputdata/DefectCatcherC'));
 const DefectCatcherF = React.lazy(() => import('./pages/foreman/Inputdata/DefectCatcherF'));
+const DailyOnesheet = React.lazy(() => import('./pages/foreman/DailyOnesheet'));
 
 // Admin Pages
 const AccessControl = React.lazy(() => import('./pages/admin/AccessControl'));
@@ -124,6 +125,7 @@ const App = () => {
           <Route path="foreman/input/reject/f" element={<DefectCatcherF />} />
           <Route path="foreman/input/downtime/c" element={<SmartDowntimeC />} />
           <Route path="foreman/input/downtime/f" element={<SmartDowntimeF />} />
+          <Route path="foreman/onesheet" element={<DailyOnesheet />} />
         </Route>
 
         {/* PROTECTED ROUTE: ADMIN (BARU DITAMBAHKAN) */}

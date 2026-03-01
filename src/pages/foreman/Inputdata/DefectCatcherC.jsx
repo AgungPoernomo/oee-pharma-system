@@ -1,12 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { submitOEEData, fetchValidationData, fetchTodayRejectC } from '../../../services/api'; 
+import { submitOEEData, fetchTodayRejectC } from '../../../services/api'; 
 import { Save, Database, Activity, Clock, Info, ChevronDown, CheckCircle, RefreshCw, Flag, ArrowLeft, BarChart2, Layers, AlertOctagon, Loader2, FileEdit, XCircle } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import toast, { Toaster } from 'react-hot-toast';
 
-const TEORI_BATCH = { "500 ML": 23076, "100 ML": 56880, "1000 ML": 6019 };
+// --- HARDCODED CONSTANTS (Fast Load) ---
+const SHIFTS = ["1", "2", "3"];
+const GROUPS = ["A", "B", "C", "D"];
+const VOLUMES = ["25 ML", "100 ML", "250 ML", "500 ML", "1000 ML"];
+const TEORI_BATCH = { "25 ML": 29412, "100 ML": 56880, "250 ML": 21509, "500 ML": 23076, "1000 ML": 60194 };
 
 const normalizeDate = (d) => {
     if (!d) return "";
@@ -59,8 +63,8 @@ const ModernSelect = ({ label, name, value, onChange, options }) => (
     <div className="group relative">
         <label className="text-[10px] font-bold uppercase tracking-widest mb-1 block text-blue-400">{label}</label>
         <select name={name} value={value} onChange={onChange} className="w-full bg-[#0f172a] text-white px-3 py-3 rounded-lg border border-slate-700 focus:border-blue-500 outline-none font-bold text-sm appearance-none cursor-pointer">
-            <option value="">-- PILIH --</option>
-            {options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+            <option value="" className="bg-slate-800 text-white">-- PILIH --</option>
+            {options.map(opt => <option key={opt} value={opt} className="bg-slate-800 text-white">{opt}</option>)}
         </select>
         <ChevronDown size={14} className="absolute right-3 top-[34px] text-slate-500 pointer-events-none"/>
     </div>
@@ -102,12 +106,10 @@ const HistoryTable = ({ data, refresh, onEdit, currentFilterDate }) => {
     const Th = ({ children, className="" }) => <th className={`px-3 py-3 border-b border-r border-slate-600 bg-slate-900 text-center font-bold text-[10px] text-slate-300 uppercase whitespace-nowrap ${className}`}>{children}</th>;
     const Td = ({ children, className="" }) => <td className={`px-3 py-2 border-b border-r border-white/5 text-center font-mono text-[11px] whitespace-nowrap ${className}`}>{children}</td>;
 
-    // 1. ENGINE KALKULASI DINAMIS UNTUK TABEL (Anti Update Anomaly)
     const shiftAggregates = {}; 
     const closedShifts = new Set();
 
     if (data && Array.isArray(data)) {
-        // Melakukan putaran pertama untuk menghitung ulang semua Total berdasarkan Sub-total terkini
         [...data].forEach(row => {
             const rowDate = normalizeDate(row[3]);
             const shift = String(row[4]).trim();
@@ -117,7 +119,6 @@ const HistoryTable = ({ data, refresh, onEdit, currentFilterDate }) => {
                 shiftAggregates[key] = { cnt: 0, good: 0, yield_sum: 0, count: 0 };
             }
             
-            // Menjumlahkan nilai sub-total yang sebenarnya (bukan total)
             const parseNum = (val) => parseFloat(String(val).replace(',', '.')) || 0;
             
             shiftAggregates[key].cnt += parseNum(row[10]);     // Sub Cycle
@@ -128,7 +129,6 @@ const HistoryTable = ({ data, refresh, onEdit, currentFilterDate }) => {
             shiftAggregates[key].yield_sum += yld;
             shiftAggregates[key].count += 1;
 
-            // Deteksi penutup shift
             if (row[13] && String(row[13]).trim() !== "" && String(row[13]).trim() !== "-") {
                 closedShifts.add(key);
             }
@@ -167,11 +167,7 @@ const HistoryTable = ({ data, refresh, onEdit, currentFilterDate }) => {
                                 const key = `${rowDate}_${s}`;
                                 const isClosed = closedShifts.has(key);
                                 
-                                // Apakah baris ini adalah baris tempat kita harus memunculkan angkanya? 
-                                // (Hanya memunculkan total pada baris yang is_closing nya tercentang)
                                 const isClosingRow = row[13] && String(row[13]).trim() !== "" && String(row[13]).trim() !== "-";
-
-                                // Ambil hasil perhitungan dinamis
                                 const agg = shiftAggregates[key];
                                 const dynamicAvgYield = agg.count > 0 ? (agg.yield_sum / agg.count).toFixed(2) : 0;
 
@@ -184,7 +180,6 @@ const HistoryTable = ({ data, refresh, onEdit, currentFilterDate }) => {
                                     
                                     <Td>{val(row, 10)}</Td>
                                     
-                                    {/* MENGGUNAKAN HASIL KALKULASI DINAMIS DARI FRONTEND */}
                                     <Td className="font-bold">{isClosingRow ? agg.cnt : "-"}</Td>
                                     <Td className="font-bold">{isClosingRow ? agg.good : "-"}</Td>
                                     <Td className="font-bold">{isClosingRow ? `${dynamicAvgYield}%` : "-"}</Td>
@@ -221,7 +216,6 @@ const InputRejectC = () => {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
     const [isClosingShift, setIsClosingShift] = useState(false);
-    const [dropdowns, setDropdowns] = useState({ shift: [], group: [] });
     const [historyData, setHistoryData] = useState([]);
     
     // STATE EDITING
@@ -248,7 +242,6 @@ const InputRejectC = () => {
     const [shiftTotals, setShiftTotals] = useState({ cnt: 0, good: 0, avail: 0, prep: 0, jeda: 0, yield_sum: 0, yield_count: 0, lastBatchNo: "" });
 
     const loadData = async () => {
-        try { const res = await fetchValidationData(); if(res.status==='success') setDropdowns({ shift: res.data['Shift'], group: res.data['Group'] }); } catch(e) {}
         if (user) {
             try {
                 const hist = await fetchTodayRejectC(user); 
@@ -259,7 +252,7 @@ const InputRejectC = () => {
         }
     };
 
-    // LOGIKA AKUMULASI (DIPERBARUI: EXCLUDE EDITED ROW)
+    // LOGIKA AKUMULASI 
     const calculateHistoryTotals = (data, currentShift, currentDate, editingState, currentEditId) => {
         if (!data || data.length === 0 || !currentShift || !currentDate) {
             setShiftTotals({ cnt: 0, good: 0, avail: 0, prep: 0, jeda: 0, yield_sum: 0, yield_count: 0, lastBatchNo: "" });
@@ -277,10 +270,7 @@ const InputRejectC = () => {
         const relevantData = [...data].reverse().filter(row => {
             const rowDateFmt = normalizeDate(row[3]); 
             const isSameShift = String(row[4]).trim() === String(currentShift).trim() && rowDateFmt === formDateFmt;
-            
-            // MAGIC FIX: Jika sedang edit, buang baris historis yang sedang diedit agar tidak double count!
             const isNotBeingEdited = editingState ? row[row.length - 1] !== currentEditId : true;
-            
             return isSameShift && isNotBeingEdited;
         });
 
@@ -304,7 +294,6 @@ const InputRejectC = () => {
         setShiftTotals(t);
     };
 
-    // Pantau perubahan form & status edit secara bersamaan
     useEffect(() => { 
         calculateHistoryTotals(historyData, formData.shift, formData.tanggal, isEditing, editRowId); 
     }, [formData.shift, formData.tanggal, historyData, isEditing, editRowId]);
@@ -315,7 +304,10 @@ const InputRejectC = () => {
     useEffect(() => {
         const val = (k) => { const v = formData[k]; return (v === "" || v === null || v === undefined) ? 0 : parseFloat(v); };
         const cnt_sub = val('cnt_end') - val('cnt_start');
-        const teori = TEORI_BATCH[formData.volume_botol] || 1;
+        
+        const volKey = formData.volume_botol || "500 ML";
+        const teori = TEORI_BATCH[volKey] || 23076;
+        
         const jml_batch = (cnt_sub / teori).toFixed(2);
         const r_sub = val('r_washing') + val('r_vk') + val('r_vl') + val('r_nocap') + val('r_sealnok') + val('r_others');
         const s_sub = val('s_ipc') + val('s_others');
@@ -508,24 +500,24 @@ const InputRejectC = () => {
                         <div className="lg:col-span-8 space-y-6">
                             <Card title="Data Batch & Produksi" icon={Layers} color="blue">
                                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                                    <ModernInput label="No Batch (1.1)" name="no_batch" type="text" placeholder="A123" value={formData.no_batch} onChange={handleChange} required disabled={isEditing} /> 
-                                    <ModernInput label="Tanggal (1.2)" name="tanggal" type="date" value={formData.tanggal} onChange={handleChange} required disabled={isEditing}/>
-                                    <ModernSelect label="Shift (1.3)" name="shift" value={formData.shift} options={dropdowns.shift} onChange={handleChange} required disabled={isEditing}/>
-                                    <ModernSelect label="Group (1.4)" name="group" value={formData.group} options={dropdowns.group} onChange={handleChange} required/>
-                                    <ModernInput label="Reject Blow (1.5)" name="reject_blow" value={formData.reject_blow} onChange={handleChange} required/>
-                                    <ModernSelect label="Volume (1.6)" name="volume_botol" value={formData.volume_botol} options={["100 ML", "500 ML", "1000 ML"]} onChange={handleChange} required/>
+                                    <ModernInput label="No Batch" name="no_batch" type="text" placeholder="A123" value={formData.no_batch} onChange={handleChange} required disabled={isEditing} /> 
+                                    <ModernInput label="Tanggal" name="tanggal" type="date" value={formData.tanggal} onChange={handleChange} required disabled={isEditing}/>
+                                    <ModernSelect label="Shift" name="shift" value={formData.shift} options={SHIFTS} onChange={handleChange} required disabled={isEditing}/>
+                                    <ModernSelect label="Group" name="group" value={formData.group} options={GROUPS} onChange={handleChange} required/>
+                                    <ModernInput label="Reject Blow" name="reject_blow" value={formData.reject_blow} onChange={handleChange} required/>
+                                    <ModernSelect label="Volume" name="volume_botol" value={formData.volume_botol} options={VOLUMES} onChange={handleChange} required/>
                                 </div>
                             </Card>
 
-                            <Card title="Counter Filling (Bagian 2)" icon={Activity} color="emerald">
+                            <Card title="Counter Filling" icon={Activity} color="emerald">
                                 <div className="grid grid-cols-2 gap-4 mb-4">
-                                    <ModernInput label="Start (2.1.1)" name="cnt_start" value={formData.cnt_start} onChange={handleChange} />
-                                    <ModernInput label="End (2.1.2)" name="cnt_end" value={formData.cnt_end} onChange={handleChange} required/>
+                                    <ModernInput label="Start" name="cnt_start" value={formData.cnt_start} onChange={handleChange} />
+                                    <ModernInput label="End" name="cnt_end" value={formData.cnt_end} onChange={handleChange} required/>
                                 </div>
                                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4 items-center">
-                                    <StatBox label="Subtotal (2.1.3)" value={calc.cnt_sub} unit="Pcs" />
-                                    <ModernSelect label="Utuh? (2.2)" name="utuh" value={formData.utuh} options={["Y", "N"]} onChange={handleChange} required/>
-                                    <StatBox label="Jml Batch (2.3)" value={calc.jml_batch} />
+                                    <StatBox label="Subtotal" value={calc.cnt_sub} unit="Pcs" />
+                                    <ModernSelect label="Utuh?" name="utuh" value={formData.utuh} options={["Y", "N"]} onChange={handleChange} required/>
+                                    <StatBox label="Jml Batch" value={calc.jml_batch} />
                                 </div>
                                 <div className="mt-4 p-3 bg-blue-900/10 border border-blue-500/20 rounded-xl flex justify-between items-center">
                                     <span className="text-xs text-blue-300 font-bold uppercase">Run Total Counter Shift</span>
@@ -534,18 +526,18 @@ const InputRejectC = () => {
                             </Card>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <Card title="Reject Filling (Bagian 3)" icon={AlertOctagon} color="red">
+                                <Card title="Reject Filling" icon={AlertOctagon} color="red">
                                     <div className="space-y-3">
-                                        <ModernInput label="Washing (3.1)" name="r_washing" value={formData.r_washing} onChange={handleChange}/>
+                                        <ModernInput label="Washing " name="r_washing" value={formData.r_washing} onChange={handleChange}/>
                                         <div className="grid grid-cols-2 gap-3">
-                                            <ModernInput label="VK (3.2.1)" name="r_vk" value={formData.r_vk} onChange={handleChange}/>
-                                            <ModernInput label="VL (3.2.2)" name="r_vl" value={formData.r_vl} onChange={handleChange}/>
+                                            <ModernInput label="VK" name="r_vk" value={formData.r_vk} onChange={handleChange}/>
+                                            <ModernInput label="VL" name="r_vl" value={formData.r_vl} onChange={handleChange}/>
                                         </div>
                                         <div className="grid grid-cols-2 gap-3">
-                                            <ModernInput label="No Cap (3.3.1)" name="r_nocap" value={formData.r_nocap} onChange={handleChange}/>
-                                            <ModernInput label="Seal N/OK (3.3.2)" name="r_sealnok" value={formData.r_sealnok} onChange={handleChange}/>
+                                            <ModernInput label="No Cap" name="r_nocap" value={formData.r_nocap} onChange={handleChange}/>
+                                            <ModernInput label="Seal N/OK" name="r_sealnok" value={formData.r_sealnok} onChange={handleChange}/>
                                         </div>
-                                        <ModernInput label="Others (3.4)" name="r_others" value={formData.r_others} onChange={handleChange}/>
+                                        <ModernInput label="Others" name="r_others" value={formData.r_others} onChange={handleChange}/>
                                         <div className="pt-2 border-t border-white/5 flex justify-between text-red-400 font-bold text-sm">
                                             <span>Sub Total (3.5)</span><span>{calc.r_sub}</span>
                                         </div>
@@ -553,14 +545,14 @@ const InputRejectC = () => {
                                 </Card>
 
                                 <div className="space-y-6">
-                                    <Card title="Samples (Bagian 4)" icon={Info} color="yellow">
+                                    <Card title="Samples" icon={Info} color="yellow">
                                         <div className="space-y-3">
-                                            <ModernInput label="IPC (4.1.1)" name="s_ipc" value={formData.s_ipc} onChange={handleChange}/>
-                                            <ModernInput label="Others (4.1.2)" name="s_others" value={formData.s_others} onChange={handleChange}/>
+                                            <ModernInput label="IPC" name="s_ipc" value={formData.s_ipc} onChange={handleChange}/>
+                                            <ModernInput label="Others" name="s_others" value={formData.s_others} onChange={handleChange}/>
                                             <div className="pt-2 border-t border-white/5 text-right text-xs text-yellow-500 font-bold">Sub Total (4.2): {calc.s_sub}</div>
                                         </div>
                                     </Card>
-                                    <Card title="Pre-Steril (Bagian 7)" icon={Layers} color="slate">
+                                    <Card title="Pre-Steril" icon={Layers} color="slate">
                                         <div className="grid grid-cols-2 gap-3">
                                             <ModernInput label="Bocor" name="pre_bocor" value={formData.pre_bocor} onChange={handleChange}/>
                                             <ModernInput label="No Cap" name="pre_nocap" value={formData.pre_nocap} onChange={handleChange}/>
@@ -569,7 +561,7 @@ const InputRejectC = () => {
                                             <ModernInput label="Lain" name="pre_lain" value={formData.pre_lain} onChange={handleChange}/>
                                         </div>
                                         <div className="mt-3 pt-3 border-t border-white/5 flex justify-between text-xs font-bold text-slate-300">
-                                            <span>Total Rej (7.2.6): {calc.pre_rej_total}</span><span className="text-emerald-400">Out (7.3): {calc.pre_out}</span>
+                                            <span>Total Rej: {calc.pre_rej_total}</span><span className="text-emerald-400">Out : {calc.pre_out}</span>
                                         </div>
                                     </Card>
                                 </div>
@@ -578,19 +570,19 @@ const InputRejectC = () => {
 
                         <div className="lg:col-span-4 space-y-6">
                             <div className="bg-gradient-to-br from-indigo-600 to-blue-700 rounded-2xl p-5 shadow-2xl shadow-blue-900/40 text-white">
-                                <h3 className="text-xs font-bold uppercase tracking-widest text-blue-200 mb-4">Hasil Produksi (Bagian 5 & 6)</h3>
+                                <h3 className="text-xs font-bold uppercase tracking-widest text-blue-200 mb-4">Hasil Produksi</h3>
                                 <div className="space-y-4">
                                     <div className="flex justify-between items-end pb-2 border-b border-white/20">
-                                        <span className="text-sm opacity-80">Trf to ST (5.1.1)</span><span className="text-2xl font-black">{calc.trf_st}</span>
+                                        <span className="text-sm opacity-80">Trf to ST</span><span className="text-2xl font-black">{calc.trf_st}</span>
                                     </div>
                                     <div className="flex justify-between items-end pb-2 border-b border-white/20">
                                         <span className="text-xs font-bold text-emerald-300">TOTAL HASIL SHIFT</span>
                                         <span className="text-xl font-black text-emerald-100">{(shiftTotals.good + calc.trf_st)}</span>
                                     </div>
                                     <div className="grid grid-cols-2 gap-4">
-                                        <div><span className="text-xs opacity-70 block">% Batch (6.1)</span><span className="text-xl font-bold">{calc.yield_batch}%</span></div>
+                                        <div><span className="text-xs opacity-70 block">% Yield Per Batch</span><span className="text-xl font-bold">{calc.yield_batch}%</span></div>
                                         <div className="text-right">
-                                            <span className="text-xs opacity-70 block">AVG Yield Shift</span>
+                                            <span className="text-xs opacity-70 block">AVG % Yield Per Shift</span>
                                             <span className="text-xl font-bold text-yellow-300">
                                                 {((shiftTotals.yield_sum + Number(calc.yield_batch)) / (shiftTotals.yield_count + 1)).toFixed(2)}%
                                             </span>
@@ -599,9 +591,9 @@ const InputRejectC = () => {
                                 </div>
                             </div>
 
-                            <Card title="Waktu Proses (8-12)" icon={Clock} color="slate">
+                            <Card title="Waktu Proses" icon={Clock} color="slate">
                                 <div className="space-y-3">
-                                    <TimeInputBlock title="Available (8.3)" prefix="av" formData={formData} handleChange={handleChange} subtotal={calc.av_sub} />
+                                    <TimeInputBlock title="Available" prefix="av" formData={formData} handleChange={handleChange} subtotal={calc.av_sub} />
                                     <div className="text-right text-[10px] text-slate-400">Total Avail Shift: {shiftTotals.avail + calc.av_sub}m</div>
                                     <div className="h-px bg-white/5 my-2"></div>
                                     <TimeInputBlock title="Mat Prep" prefix="prep_mat" formData={formData} handleChange={handleChange} subtotal={calc.p_mat} />
@@ -613,14 +605,14 @@ const InputRejectC = () => {
                                     <TimeInputBlock title="Clearance" prefix="lc" formData={formData} handleChange={handleChange} subtotal={calc.lc_sub} />
                                 </div>
                                 <div className="mt-4 p-3 bg-slate-900 rounded-xl flex justify-between items-center text-xs font-bold text-slate-400">
-                                    <span>Prep+Clear (12.1)</span><span className="text-white text-lg">{calc.total_prep_clear}m</span>
+                                    <span>Prep+Clear</span><span className="text-white text-lg">{calc.total_prep_clear}m</span>
                                 </div>
                             </Card>
 
-                            <Card title="Jeda Antar Batch (13)" icon={Clock} color="orange">
+                            <Card title="Jeda Antar Batch" icon={Clock} color="orange">
                                 <div className="space-y-2">
                                     <div className="flex justify-between items-center border-b border-white/5 pb-2">
-                                        <span className="text-xs text-slate-400">Jeda (13.1)</span><span className="text-xl font-mono font-bold text-white">{calc.jeda_batch} m</span>
+                                        <span className="text-xs text-slate-400">Jeda</span><span className="text-xl font-mono font-bold text-white">{calc.jeda_batch} m</span>
                                     </div>
                                     <div className="flex justify-between items-center">
                                         <span className="text-xs text-slate-400">Total Jeda Shift</span><span className="text-lg font-mono font-bold text-orange-400">{shiftTotals.jeda + calc.jeda_batch} m</span>

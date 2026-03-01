@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from "../../context/AuthContext";
-import { ClipboardList, LogOut, X, Hexagon, CalendarDays } from 'lucide-react';
+import { ClipboardList, LogOut, X, Hexagon, CalendarDays, LayoutDashboard } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const SidebarForeman = ({ isOpen, onClose }) => {
@@ -24,8 +24,22 @@ const SidebarForeman = ({ isOpen, onClose }) => {
 
   const formattedTime = currentTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
 
+  // --- MENU NAVIGATION ---
   const menus = [
-    { path: '/foreman/tactical-input', name: 'INPUT HUB', icon: <ClipboardList />, desc: 'Pusat Laporan OEE & DT', highlight: 'text-blue-400' }
+    { 
+        path: '/foreman/tactical-input', 
+        name: 'INPUT HUB', 
+        icon: <ClipboardList />, 
+        desc: 'Pusat Laporan OEE & DT', 
+        highlight: 'text-blue-400' 
+    },
+    { 
+        path: '/foreman/onesheet', 
+        name: 'DAILY ONESHEET', 
+        icon: <LayoutDashboard />, 
+        desc: 'Executive Summary Report', 
+        highlight: 'text-purple-400' 
+    }
   ];
 
   return (
