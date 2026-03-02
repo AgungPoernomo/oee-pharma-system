@@ -15,7 +15,6 @@ const AccessControl = () => {
 const fetchPending = async () => {
     setLoading(true);
     try {
-      // 1. Cek apakah file api.js sudah benar
       if (typeof getPendingApprovals !== 'function') {
          throw new Error("Fungsi getPendingApprovals tidak ditemukan di api.js!");
       }
@@ -25,11 +24,9 @@ const fetchPending = async () => {
       if (res && res.status === 'success') {
         setPendingUsers(res.data || []);
       } else {
-        // 2. Jika backend menolak request
         toast.error("Radar Backend Error: " + (res?.message || "Unknown Action"));
       }
     } catch (error) {
-      // 3. Menampilkan error aslinya ke layar Anda
       toast.error("Sistem Crash: " + error.message, { duration: 5000 });
       console.error(error);
     } finally {
@@ -37,7 +34,6 @@ const fetchPending = async () => {
     }
   };
   
-  // Polling data setiap 10 detik agar radar selalu update
   useEffect(() => {
     fetchPending();
     const interval = setInterval(fetchPending, 10000); 
@@ -50,7 +46,6 @@ const fetchPending = async () => {
       const res = await approveUserRequest(id_karyawan);
       if (res.status === 'success') {
         toast.success(`Akses Disetujui! Kode ditransmisikan ke layar ${nama}.`, { icon: '🚀' });
-        // Hapus user dari list UI secara instan
         setPendingUsers(prev => prev.filter(u => u.id_karyawan !== id_karyawan));
       } else {
         toast.error(res.message);
@@ -66,7 +61,7 @@ const fetchPending = async () => {
     <div className="min-h-screen bg-[#0B1120] text-slate-200 font-sans p-6 pb-24 relative overflow-hidden">
       <Toaster position="top-center" toastOptions={{style: {background: '#1e293b', color: '#fff'}}} />
       
-      {/* Background Radar Effect */}
+      {/* Radar Effect */}
       <div className="absolute top-[-20%] right-[-10%] w-[50%] h-[50%] bg-blue-600/5 rounded-full blur-[120px] pointer-events-none"></div>
 
       {/* HEADER */}
