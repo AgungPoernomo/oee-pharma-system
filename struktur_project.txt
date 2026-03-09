@@ -1,95 +1,65 @@
 Folder PATH listing
 Volume serial number is 783A-3CCA
 C:.
-|   .dockerignore
-|   .gitattributes
-|   .gitignore
-|   components.json
-|   Dockerfile
-|   eslint.config.js
-|   index.html
-|   jsconfig.json
-|   package-lock.json
-|   package.json
-|   postcss.config.cjs
-|   README.md
-|   struktur_project.txt
-|   tailwind.config.js
-|   vite.config.js
-|   
-+---node_modules
-|   \---@rolldown
-|       +---binding-win32-x64-msvc
-|       |       package.json
-|       |       README.md
-|       |       rolldown-binding.win32-x64-msvc.node
-|       |       
-|       \---pluginutils
-|           |   LICENSE
-|           |   package.json
-|           |   README.md
-|           |   
-|           \---dist
-|                   composable-filters.d.ts
-|                   composable-filters.js
-|                   filter-vite-plugins.d.ts
-|                   filter-vite-plugins.js
-|                   index.d.ts
-|                   index.js
-|                   simple-filters.d.ts
-|                   simple-filters.js
-|                   utils.d.ts
-|                   utils.js
-|                   
-+---public
-|       factory-bg.jpg
-|       logo-perusahaan.png
-|       vite.svg
-|       
-\---src
-    |   App.jsx
-    |   config.js
-    |   index.css
-    |   main.jsx
-    |   
-    +---assets
-    +---components
-    |   +---dashboard
-    |   |       ProductionChart.jsx
-    |   |       StatCard.jsx
-    |   |       
-    |   \---layout
-    |           Layout.jsx
-    |           NavbarManager.jsx
-    |           NavbarSupervisor.jsx
-    |           SidebarAdmin.jsx
-    |           SidebarForeman.jsx
-    |           SidebarManager.jsx
-    |           
-    +---context
-    |       AuthContext.jsx
-    |       
-    +---layout
-    +---lib
-    |       utils.js
-    |       
-    +---pages
-    |   +---AUTH
-    |   |       AccessPortal.jsx
-    |   |       
-    |   +---COMMON
-    |   |       AndonNotificationCenter.jsx
-    |   |       GlobalSearch_Genba.jsx
-    |   |       OperatorPassport.jsx
-    |   |       
-    |   \---foreman
-    |       \---Inputdata
-    |               DefectCatcherC.jsx
-    |               DefectCatcherF.jsx
-    |               SmartDowntimeLoggerC.jsx
-    |               SmartDowntimeLoggerF.jsx
-    |               TacticalInputHub.jsx
-    |               
-    \---services
+³   .dockerignore
+³   .gitattributes
+³   .gitignore
+³   components.json
+³   Dockerfile
+³   eslint.config.js
+³   index.html
+³   jsconfig.json
+³   package-lock.json
+³   package.json
+³   postcss.config.cjs
+³   README.md
+³   struktur_project.txt
+³   tailwind.config.js
+³   vercel.json
+³   vite.config.js
+³   
+ÃÄÄÄpublic
+³       factory-bg.jpg
+³       logo-perusahaan.png
+³       vite.svg
+³       
+ÀÄÄÄsrc
+    ³   App.jsx
+    ³   config.js
+    ³   index.css
+    ³   main.jsx
+    ³   
+    ÃÄÄÄassets
+    ÃÄÄÄcomponents
+    ³   ÀÄÄÄlayout
+    ³           SidebarAdmin.jsx
+    ³           SidebarForeman.jsx
+    ³           
+    ÃÄÄÄcontext
+    ³       AuthContext.jsx
+    ³       
+    ÃÄÄÄlib
+    ³       utils.js
+    ³       
+    ÃÄÄÄpages
+    ³   ÃÄÄÄadmin
+    ³   ³       AccessControl.jsx
+    ³   ³       MasterData_GeneEditor.jsx
+    ³   ³       NeuralSystemHealth.jsx
+    ³   ³       
+    ³   ÃÄÄÄAUTH
+    ³   ³       AccessPortal.jsx
+    ³   ³       
+    ³   ÀÄÄÄforeman
+    ³       ³   DailyOnesheet.jsx
+    ³       ³   
+    ³       ÀÄÄÄInputdata
+    ³               DefectCatcherC.jsx
+    ³               DefectCatcherF.jsx
+    ³               SmartDowntimeLoggerC.jsx
+    ³               SmartDowntimeLoggerF.jsx
+    ³               TacticalInputHub.jsx
+    ³               
+    ÀÄÄÄservices
             api.js
             

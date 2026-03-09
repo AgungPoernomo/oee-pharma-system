@@ -6,18 +6,21 @@ import { Menu, Hexagon, Loader2 } from 'lucide-react';
 // --- 1. LAYOUT COMPONENTS ---
 import SidebarForeman from "./components/layout/SidebarForeman";
 import SidebarAdmin from "./components/layout/SidebarAdmin";
+// [DIHAPUS] Import statis ForemanSettings dari sini sudah dihapus
 
 // --- 2. LAZY LOAD PAGES ---
 // Auth
 const AccessPortal = React.lazy(() => import('./pages/AUTH/AccessPortal'));
-// (Sesuaikan nama folder AUTH dan file AccessPortal-nya, huruf besar-kecilnya harus sama persis dengan yang ada di komputer Anda)
-// Foreman Data Entry
+
+// Foreman Data Entry & Pages
 const TacticalInputHub = React.lazy(() => import('./pages/foreman/Inputdata/TacticalInputHub'));
 const SmartDowntimeC = React.lazy(() => import('./pages/foreman/Inputdata/SmartDowntimeLoggerC'));
 const SmartDowntimeF = React.lazy(() => import('./pages/foreman/Inputdata/SmartDowntimeLoggerF'));
 const DefectCatcherC = React.lazy(() => import('./pages/foreman/Inputdata/DefectCatcherC'));
 const DefectCatcherF = React.lazy(() => import('./pages/foreman/Inputdata/DefectCatcherF'));
 const DailyOnesheet = React.lazy(() => import('./pages/foreman/DailyOnesheet'));
+// [DITAMBAHKAN] ForemanSettings kini menggunakan Lazy Load agar seragam
+const ForemanSettings = React.lazy(() => import('./pages/foreman/ForemanSettings')); 
 
 // Admin Pages
 const AccessControl = React.lazy(() => import('./pages/admin/AccessControl'));
@@ -94,7 +97,6 @@ const RequireAdmin = ({ children }) => {
 const App = () => {
   const { user } = useAuth();
 
-  // Helper untuk menentukan redirect default setelah login
   const getDefaultRoute = () => {
     if (!user) return "/access-portal";
     const role = String(user.jabatan || '').toLowerCase();
@@ -126,9 +128,12 @@ const App = () => {
           <Route path="foreman/input/downtime/c" element={<SmartDowntimeC />} />
           <Route path="foreman/input/downtime/f" element={<SmartDowntimeF />} />
           <Route path="foreman/onesheet" element={<DailyOnesheet />} />
+          
+          {/* [DIPERBAIKI] Path disamakan tanpa slash di depan agar selaras dengan nested route React Router */}
+          <Route path="foreman/settings" element={<ForemanSettings />} />
         </Route>
 
-        {/* PROTECTED ROUTE: ADMIN (BARU DITAMBAHKAN) */}
+        {/* PROTECTED ROUTE: ADMIN */}
         <Route 
           path="/admin" 
           element={<RequireAdmin><AdminLayout><Suspense fallback={<PageLoader />}><Outlet /></Suspense></AdminLayout></RequireAdmin>}

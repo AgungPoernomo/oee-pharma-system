@@ -4,7 +4,7 @@ import { fetchOnesheetData } from '../../services/api';
 import { 
   Calendar, Package, Activity, Zap, Target, 
   Clock, Database, AlertTriangle, TrendingDown, Loader2,
-  Sun, Moon, Download
+  Sun, Moon, Download, Search
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast, { Toaster } from 'react-hot-toast';
@@ -13,6 +13,19 @@ import { toPng } from 'html-to-image';
 // --- FORMATTER HELPER ---
 const formatRp = (num) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(num || 0);
 const formatNum = (num) => new Intl.NumberFormat('id-ID', { maximumFractionDigits: 2 }).format(num || 0);
+
+// --- HELPER UNTUK HIGHLIGHT BORDER MERAH ---
+const highlightLabels = [
+    "Plant Operating Time (POT)",
+    "Unplanned DT",
+    "Speed Blow",
+    "Standart / batch (100%)",
+    "Standart / batch (95%)",
+    "TOTAL BATCH",
+    "TOTAL BATCH \"FG\"",
+    "TOTAL (Dalam bentuk Jam)"
+];
+const isHighlightRow = (label) => highlightLabels.includes(label);
 
 // --- COMPONENT: PROGRESS BAR ---
 const ProgressBar = ({ label, value, colorClass, isDark }) => {
@@ -53,7 +66,6 @@ const OEEDisplay = ({ oee, avail, perf, qual, colorClass, isDark }) => {
 
   return (
     <div className="flex flex-col md:flex-row items-center gap-8 mb-4">
-      {/* OEE CIRCLE */}
       <div className="relative w-48 h-48 flex-shrink-0 flex items-center justify-center">
         <div className={`absolute inset-0 rounded-full blur-2xl opacity-20 ${colorClass === 'blue' ? 'bg-blue-500' : 'bg-purple-500'}`}></div>
         <svg xmlns="http://www.w3.org/2000/svg" className="w-full h-full transform -rotate-90 relative z-10" viewBox="0 0 160 160">
@@ -73,8 +85,6 @@ const OEEDisplay = ({ oee, avail, perf, qual, colorClass, isDark }) => {
           <span className={`text-1xl font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>OEE Score</span>
         </div>
       </div>
-
-      {/* APQ BARS */}
       <div className="flex-1 w-full flex flex-col justify-center">
         <ProgressBar label="Availability" value={avail} colorClass="yellow" isDark={isDark} />
         <ProgressBar label="Performance" value={perf} colorClass={colorClass} isDark={isDark} />
@@ -206,29 +216,30 @@ const useZoneFProcessor = (rawReject, rawDowntime, date, volume, headerMetrics) 
 
     const plannedSet = new Set();
     const unplannedSet = new Set();
-    const filteredReject = rawReject; 
+    
+    const filteredReject = rawReject.filter(r => String(r[7]).trim().toUpperCase() === String(volume).trim().toUpperCase()); 
     const filteredDowntime = rawDowntime;
 
     filteredReject.forEach(r => {
       const g = String(r[6]).trim().toUpperCase();
       if (!groups.includes(g)) return;
       
-      data[g].pot += (parseFloat(r[87]) || 0) / 60; // CJ
-      data[g].out_counter += parseFloat(r[7]) || 0; // H
-      data[g].q_samp_as += parseFloat(r[14]) || 0; // O
-      data[g].q_samp_ret += parseFloat(r[74]) || 0; // BW
-      data[g].rej_partikel += (parseFloat(r[66]) || 0); // BO
-      data[g].rej_kosmetik += (parseFloat(r[67]) || 0); // BP
+      data[g].pot += (parseFloat(r[41]) || 0) / 60; 
+      data[g].out_counter += parseFloat(r[19]) || 0; 
+      data[g].q_samp_as += parseFloat(r[25]) || 0;  
+      data[g].q_samp_ret += parseFloat(r[29]) || 0; 
+      data[g].rej_partikel += (parseFloat(r[21]) || 0); 
+      data[g].rej_kosmetik += (parseFloat(r[22]) || 0); 
     });
 
     filteredDowntime.forEach(r => {
       const g = String(r[4]).trim().toUpperCase();
       if (!groups.includes(g)) return;
       
-      const durasi = parseFloat(r[11]) || 0; // L
-      const type = String(r[12]).trim().toUpperCase(); // M
-      const category = String(r[13]).trim().toUpperCase(); // N
-      const kasus = String(r[16]).trim().toUpperCase(); // Q
+      const durasi = parseFloat(r[11]) || 0; 
+      const type = String(r[12]).trim().toUpperCase(); 
+      const category = String(r[13]).trim().toUpperCase(); 
+      const kasus = String(r[16]).trim().toUpperCase(); 
 
       if (type === 'PLANNED') { 
         plannedSet.add(kasus); 
@@ -311,11 +322,24 @@ const useZoneFProcessor = (rawReject, rawDowntime, date, volume, headerMetrics) 
 // --- MAIN COMPONENT ---
 const DailyOnesheet = () => {
   const { user } = useAuth();
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-  const [product, setProduct] = useState("500 ML");
-  const [isDarkMode, setIsDarkMode] = useState(true);
-  const [isFetching, setIsFetching] = useState(false); 
-  const [isPrinting, setIsPrinting] = useState(false); // STATE FIX UNTUK FORCE DESKTOP
+  const [inputDate, setInputDate] = useState(new Date().toISOString().split('T')[0]); 
+  const [inputVolume, setInputVolume] = useState("500 ML"); 
+  const [activeDate, setActiveDate] = useState(new Date().toISOString().split('T')[0]); 
+  const [activeVolume, setActiveVolume] = useState("500 ML"); 
+  
+// Mengambil state awal dari LocalStorage (Global)
+  const [isDarkMode, setIsDarkMode] = useState(() => (localStorage.getItem('appTheme') || 'dark') === 'dark');
+
+  // Menambahkan telinga (event listener) agar saat Settings merubah tema, halaman ini ikut berubah seketika!
+  useEffect(() => {
+    const handleThemeChange = () => {
+      const currentTheme = localStorage.getItem('appTheme') || 'dark';
+      setIsDarkMode(currentTheme === 'dark');
+    };
+    window.addEventListener('themeChange', handleThemeChange);
+    return () => window.removeEventListener('themeChange', handleThemeChange);
+  }, []);  const [isFetching, setIsFetching] = useState(false); 
+  const [isPrinting, setIsPrinting] = useState(false); 
   const printRef = useRef(); 
   
   const [rawRejectC, setRawRejectC] = useState([]);
@@ -323,31 +347,38 @@ const DailyOnesheet = () => {
   const [rawRejectF, setRawRejectF] = useState([]);
   const [rawDowntimeF, setRawDowntimeF] = useState([]);
 
-  useEffect(() => {
-    const loadData = async () => {
-      setIsFetching(true);
-      try {
-        const res = await fetchOnesheetData(date, user);
-        if (res.status === 'success') {
-          setRawRejectC(res.data.reject_c || []);
-          setRawDowntimeC(res.data.downtime_c || []);
-          setRawRejectF(res.data.reject_f || []);
-          setRawDowntimeF(res.data.downtime_f || []);
-        } else {
-          toast.error("Gagal menarik data: " + res.message);
-        }
-      } catch (e) {
-        toast.error("Koneksi terputus.");
-      } finally {
-        setIsFetching(false);
+  // Fungsi Fetch Data Utama dipanggil HANYA saat tombol ditekan
+  const executeSearch = async () => {
+    setIsFetching(true);
+    setActiveDate(inputDate);
+    setActiveVolume(inputVolume);
+    
+    try {
+      const res = await fetchOnesheetData(inputDate, user);
+      if (res.status === 'success') {
+        setRawRejectC(res.data.reject_c || []);
+        setRawDowntimeC(res.data.downtime_c || []);
+        setRawRejectF(res.data.reject_f || []);
+        setRawDowntimeF(res.data.downtime_f || []);
+        toast.success(`Data tanggal ${inputDate} berhasil dimuat!`);
+      } else {
+        toast.error("Gagal menarik data: " + res.message);
       }
-    };
-    if (user) loadData();
-  }, [date, user]);
+    } catch (e) {
+      toast.error("Koneksi terputus.");
+    } finally {
+      setIsFetching(false);
+    }
+  };
 
-  const metrics = useMemo(() => calculateZoneMetrics(product), [product]);
-  const { matrix: mockMatrixDataC, structure: zoneCMatrixStructure, oee: calculatedOEEC, avail: availC, perf: perfC, qual: qualC } = useZoneCProcessor(rawRejectC, rawDowntimeC, date, product, metrics);
-  const { matrix: mockMatrixDataF, structure: zoneFMatrixStructure, oee: calculatedOEEF, avail: availF, perf: perfF, qual: qualF } = useZoneFProcessor(rawRejectF, rawDowntimeF, date, product, metrics);
+  useEffect(() => {
+    if (user) executeSearch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const metrics = useMemo(() => calculateZoneMetrics(activeVolume), [activeVolume]);
+  const { matrix: mockMatrixDataC, structure: zoneCMatrixStructure, oee: calculatedOEEC, avail: availC, perf: perfC, qual: qualC } = useZoneCProcessor(rawRejectC, rawDowntimeC, activeDate, activeVolume, metrics);
+  const { matrix: mockMatrixDataF, structure: zoneFMatrixStructure, oee: calculatedOEEF, avail: availF, perf: perfF, qual: qualF } = useZoneFProcessor(rawRejectF, rawDowntimeF, activeDate, activeVolume, metrics);
 
   const dtJamC = parseFloat(mockMatrixDataC['TOTAL']?.['dt_tot_jam']) || 0;
   const lossUnitDtC = metrics.speed * dtJamC;
@@ -358,61 +389,64 @@ const DailyOnesheet = () => {
   const totalFinLossF = (lossUnitDtF * 6500) + ((parseFloat(mockMatrixDataF['TOTAL']?.['rej_tot_dec']) || 0) * 6500);
 
   // --- THEME CLASSES ---
-  const bgClass = isDarkMode ? 'bg-[#0B1120]' : 'bg-white';
-  const textClass = isDarkMode ? 'text-slate-200' : 'text-black';
-  const cardClass = isDarkMode ? 'bg-[#1e293b]/60 border-blue-500/20' : 'bg-white border-slate-300 shadow-none border-2';
-  const cardClassPurple = isDarkMode ? 'bg-[#1e293b]/60 border-purple-500/20' : 'bg-white border-slate-300 shadow-none border-2';
-  const tableHeaderClass = isDarkMode ? 'bg-slate-800' : 'bg-slate-100 border-b-2 border-slate-400';
-  const tableRowClass = isDarkMode ? 'hover:bg-slate-800/50' : 'hover:bg-slate-50';
+  const bgClass = isDarkMode ? 'bg-[#0B1120]' : 'bg-slate-50';
+  const textClass = isDarkMode ? 'text-slate-200' : 'text-slate-800';
+  const cardClass = isDarkMode ? 'bg-[#1e293b]/60 border-blue-500/20' : 'bg-white border-slate-300 shadow-xl border';
+  const cardClassPurple = isDarkMode ? 'bg-[#1e293b]/60 border-purple-500/20' : 'bg-white border-slate-300 shadow-xl border';
+  const tableHeaderClass = isDarkMode ? 'bg-slate-800' : 'bg-slate-200 border-b-2 border-slate-400';
+  const tableRowClass = isDarkMode ? 'hover:bg-slate-800/50' : 'hover:bg-slate-100';
   const tableRowClassPurple = isDarkMode ? 'hover:bg-slate-800/50' : 'hover:bg-purple-50/50';
   const tableBorderClass = isDarkMode ? 'border-slate-700/50' : 'border-slate-300';
   const subTextClass = isDarkMode ? 'text-slate-500' : 'text-slate-600 font-bold';
 
-  // --- DOWNLOAD JPG ENGINE (FULL HD DESKTOP VIEW) ---
   const handleDownloadJPG = () => {
     const element = printRef.current;
     if (!element) return;
-
-    // 1. Simpan mode awal
-    const prevMode = isDarkMode;
-    if (isDarkMode) setIsDarkMode(false);
     
-    // 2. Aktifkan State isPrinting (Trik Sakti memaksa Tailwind Desktop)
+    // Perbaikan: PDF mengikuti tema yang sedang aktif
     setIsPrinting(true);
-
     const toastId = toast.loading("Mempersiapkan File");
 
-    // 3. Beri jeda 1 detik agar React DOM mengubah struktur CSS (Mobile ke Desktop Grid)
     setTimeout(async () => {
       try {
         toast.loading("Mengunduh File", { id: toastId });
-        
-        // Eksekusi foto setelah Grid siap
         const dataUrl = await toPng(element, {
           quality: 1.0,
-          pixelRatio: 2, // 2x Resolusi
-          backgroundColor: '#ffffff',
+          pixelRatio: 2, 
+          backgroundColor: isDarkMode ? '#0B1120' : '#ffffff',
           skipAutoScale: true
         });
-
-        // Download file
         const link = document.createElement('a');
-        link.download = `OEE_ONESHEET_${date}_${product}.png`;
+        link.download = `OEE_ONESHEET_${activeDate}_${activeVolume}.png`;
         link.href = dataUrl;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-
         toast.success("Berhasil Diunduh", { id: toastId });
       } catch (err) {
         console.error("Print Error:", err);
         toast.error("Gagal! Coba gunakan Chrome/Edge.", { id: toastId });
       } finally {
-        // 4. Kembalikan State ke semula
-        setIsDarkMode(prevMode);
         setIsPrinting(false);
       }
-    }, 1000); 
+    }, 1500); 
+  };
+
+  // Helper untuk Cell Tabel Highlight (Garis Tepi Merah Memukau)
+  const getTdClass = (type, isHighlight) => {
+      let base = "py-2 px-1 align-middle border-b border-r text-center font-mono text-[11px] overflow-hidden ";
+      
+      if (isHighlight) {
+          base += `!border-[2px] !border-red-500 shadow-[inset_0_0_12px_rgba(239,68,68,0.3)] ${isDarkMode ? 'bg-red-500/10 text-white font-black' : 'bg-red-50 text-black font-black'} `;
+      } else {
+          base += `${tableBorderClass} `;
+          if (type === 'group') {
+              base += `${isDarkMode ? 'text-white' : 'text-black'} `;
+          } else if (type === 'total') {
+              base += `${isDarkMode ? 'text-white bg-slate-700/40' : 'text-black bg-slate-200'} font-bold `;
+          }
+      }
+      return base;
   };
 
   return (
@@ -426,125 +460,130 @@ const DailyOnesheet = () => {
         </>
       )}
 
-      {/* --- NAVIGATION BAR --- */}
-      <div className="max-w-[1600px] mx-auto mb-6 relative z-10 print-no-margin">
-        <div className={`${isDarkMode ? 'bg-[#1e293b]/60 backdrop-blur-xl border-white/10' : 'bg-slate-100 border-slate-300 border'} rounded-full py-3 px-6 shadow-lg flex justify-between items-center transition-colors duration-300`}>
-          <div className="flex items-center gap-4">
-             <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
-                <Zap size={16} className="text-white"/>
+      {/* --- NAVIGATION BAR & DATA INPUT --- */}
+      <div className="max-w-[1600px] mx-auto mb-8 relative z-50 print-no-margin">
+        <div className={`${isDarkMode ? 'bg-[#1e293b]/80 backdrop-blur-xl border-white/10' : 'bg-white border-slate-300 border'} rounded-2xl py-4 px-6 shadow-2xl flex flex-col md:flex-row justify-between items-center transition-colors duration-300 gap-4`}>
+          
+          <div className="flex items-center gap-4 w-full md:w-auto">
+             <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+                <Activity size={20} className="text-white"/>
              </div>
-             <span className={`font-black tracking-widest uppercase text-sm ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>Foreman Dashboard</span>
-             
-             <AnimatePresence>
-               {isFetching && (
-                 <motion.div initial={{opacity:0, x:-10}} animate={{opacity:1, x:0}} exit={{opacity:0}} className="flex items-center gap-2 ml-4">
-                    <Loader2 size={14} className="text-blue-500 animate-spin"/>
-                    <span className="text-xs font-bold text-blue-500 animate-pulse uppercase tracking-widest">Mengambil Data</span>
-                 </motion.div>
-               )}
-             </AnimatePresence>
+             <div>
+                <span className={`font-black tracking-widest uppercase text-lg block leading-none ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>ONESHEET</span>
+                <span className={`text-[10px] font-bold uppercase tracking-widest ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Analisis Performa Harian</span>
+             </div>
           </div>
           
-          <div className="flex items-center gap-3">
-            <button onClick={handleDownloadJPG} className={`p-2 rounded-full border ${isDarkMode ? 'bg-slate-800 border-slate-700 text-blue-400' : 'bg-white border-slate-300 text-blue-600'} hover:scale-105 transition-all shadow`} title="Download Onesheet">
-              <Download size={18} />
+          <div className="flex flex-wrap md:flex-nowrap items-center gap-3 w-full md:w-auto justify-center md:justify-end">
+            <div className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all ${isDarkMode ? 'bg-[#0f172a] border-slate-700 focus-within:border-blue-500' : 'bg-slate-50 border-slate-300 focus-within:border-blue-500'}`}>
+                <Calendar size={16} className={isDarkMode ? 'text-blue-400' : 'text-blue-600'}/>
+                <input type="date" value={inputDate} onChange={(e) => setInputDate(e.target.value)} className={`bg-transparent font-mono text-sm font-bold outline-none cursor-pointer ${isDarkMode ? 'text-white' : 'text-slate-800'}`}/>
+            </div>
+            <div className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all ${isDarkMode ? 'bg-[#0f172a] border-slate-700 focus-within:border-blue-500' : 'bg-slate-50 border-slate-300 focus-within:border-blue-500'}`}>
+                <Package size={16} className={isDarkMode ? 'text-blue-400' : 'text-blue-600'}/>
+                <select value={inputVolume} onChange={(e) => setInputVolume(e.target.value)} className={`bg-transparent font-bold text-sm outline-none cursor-pointer appearance-none ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
+                    <option value="25 ML" className={isDarkMode ? "bg-slate-800 text-white" : "bg-white text-black"}>25 ML</option>
+                    <option value="100 ML" className={isDarkMode ? "bg-slate-800 text-white" : "bg-white text-black"}>100 ML</option>
+                    <option value="250 ML" className={isDarkMode ? "bg-slate-800 text-white" : "bg-white text-black"}>250 ML</option>
+                    <option value="500 ML" className={isDarkMode ? "bg-slate-800 text-white" : "bg-white text-black"}>500 ML</option>
+                    <option value="1000 ML" className={isDarkMode ? "bg-slate-800 text-white" : "bg-white text-black"}>1000 ML</option>
+                </select>
+            </div>
+            
+            <button onClick={executeSearch} disabled={isFetching} className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all active:scale-95 shadow-lg ${isDarkMode ? 'bg-blue-600 hover:bg-blue-500 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}>
+                {isFetching ? <Loader2 size={16} className="animate-spin"/> : <Search size={16}/>}
+                CARI DATA
             </button>
-            <button onClick={() => setIsDarkMode(!isDarkMode)} className={`p-2 rounded-full border ${isDarkMode ? 'bg-slate-800 border-slate-700 text-yellow-400' : 'bg-white border-slate-300 text-slate-800'} hover:scale-105 transition-all shadow`}>
-              {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
+
+            <div className={`w-px h-8 mx-2 ${isDarkMode ? 'bg-slate-700' : 'bg-slate-300'} hidden md:block`}></div>
+
+            <button onClick={handleDownloadJPG} className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs border transition-all active:scale-95 shadow-sm ${isDarkMode ? 'bg-slate-800 border-slate-700 text-emerald-400 hover:bg-slate-700' : 'bg-white border-slate-300 text-emerald-600 hover:bg-slate-50'}`} title="Unduh Onesheet PDF/JPG">
+              <Download size={16} /> UNDUH
             </button>
           </div>
         </div>
       </div>
 
       {/* --- AREA PRINT / DOWNLOAD --- */}
-      {/* Penggunaan isPrinting untuk memanipulasi container utama menjadi width 1600px absolut saat di print */}
-      <div ref={printRef} className={`mx-auto relative z-10 ${!isDarkMode || isPrinting ? 'bg-white' : ''} ${isPrinting ? 'w-[1600px] min-w-[1600px] p-8' : 'max-w-[1600px]'}`}>
+      <div ref={printRef} className={`mx-auto relative z-10 ${!isDarkMode && isPrinting ? 'bg-white' : ''} ${isPrinting ? 'w-[1600px] min-w-[1600px] p-8' : 'max-w-[1600px]'}`}>
         
-        {/* HEADER IDENTITAS */}
-        <div className="flex flex-col items-center justify-center mb-8 border-b border-dashed border-slate-500/30 pb-6">
-           <h1 className={`text-4xl font-black ${isDarkMode && !isPrinting ? 'text-white' : 'text-black'} tracking-widest mb-4`}>DAILY ONESHEET</h1>
-           <div className="flex flex-wrap justify-center gap-4">
-              <div className={`flex items-center gap-2 px-4 py-2 rounded-lg ${isDarkMode && !isPrinting ? 'bg-slate-800/80 border border-slate-700' : 'bg-slate-100 border border-slate-300'}`}>
-                <Target size={16} className={isDarkMode && !isPrinting ? 'text-blue-400' : 'text-blue-600'}/>
-                <span className={`text-sm font-bold uppercase tracking-widest ${isDarkMode && !isPrinting ? 'text-white' : 'text-slate-800'}`}>{user?.line || 2}</span>
+        {/* HEADER IDENTITAS - FIXED LAYOUT (Rapi saat Print) */}
+        <div className="flex flex-col items-center justify-center mb-8 border-b border-dashed border-slate-500/30 pb-6 relative z-10 w-full">
+           <h1 className={`text-4xl font-black ${isDarkMode ? 'text-white' : 'text-slate-800'} tracking-widest mb-6`}>DAILY ONESHEET</h1>
+           <div className="flex items-center justify-center gap-12 w-full">
+              <div className="flex flex-col items-center justify-center min-w-[120px]">
+                <span className={`text-[10px] font-bold uppercase tracking-widest ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Line</span>
+                <span className={`text-xl font-black uppercase ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`}>{user?.line || 2}</span>
               </div>
-              
-              <div className={`flex items-center gap-2 px-4 py-2 rounded-lg ${isDarkMode && !isPrinting ? 'bg-slate-800/80 border border-slate-700' : 'bg-slate-100 border border-slate-300'}`}>
-                <Calendar size={16} className={isDarkMode && !isPrinting ? 'text-blue-400' : 'text-blue-600'}/>
-                {isPrinting ? (
-                  <span className={`font-mono text-sm font-bold leading-none ${isDarkMode && !isPrinting ? 'text-white' : 'text-slate-800'}`}>{date}</span>
-                ) : (
-                  <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={`bg-transparent font-mono text-sm font-bold outline-none cursor-pointer ${isDarkMode && !isPrinting ? 'text-white' : 'text-slate-800'}`}/>
-                )}
+              <div className={`w-px h-10 ${isDarkMode ? 'bg-slate-700' : 'bg-slate-300'}`}></div>
+              <div className="flex flex-col items-center justify-center min-w-[150px]">
+                <span className={`text-[10px] font-bold uppercase tracking-widest ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Tanggal</span>
+                <span className={`text-xl font-black font-mono ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`}>{activeDate}</span>
               </div>
-
-              <div className={`flex items-center gap-2 px-4 py-2 rounded-lg ${isDarkMode && !isPrinting ? 'bg-slate-800/80 border border-slate-700' : 'bg-slate-100 border border-slate-300'}`}>
-                <Package size={16} className={isDarkMode && !isPrinting ? 'text-blue-400' : 'text-blue-600'}/>
-                {isPrinting ? (
-                  <span className={`text-sm font-bold leading-none ${isDarkMode && !isPrinting ? 'text-white' : 'text-slate-800'}`}>{product}</span>
-                ) : (
-                  <select value={product} onChange={(e) => setProduct(e.target.value)} className={`bg-transparent font-bold text-sm outline-none cursor-pointer appearance-none ${isDarkMode && !isPrinting ? 'text-white' : 'text-slate-800'}`}>
-                    <option value="25 ML" className={isDarkMode && !isPrinting ? "bg-slate-800 text-white" : "bg-white text-black"}>25 ML</option>
-                    <option value="100 ML" className={isDarkMode && !isPrinting ? "bg-slate-800 text-white" : "bg-white text-black"}>100 ML</option>
-                    <option value="250 ML" className={isDarkMode && !isPrinting ? "bg-slate-800 text-white" : "bg-white text-black"}>250 ML</option>
-                    <option value="500 ML" className={isDarkMode && !isPrinting ? "bg-slate-800 text-white" : "bg-white text-black"}>500 ML</option>
-                    <option value="1000 ML" className={isDarkMode && !isPrinting ? "bg-slate-800 text-white" : "bg-white text-black"}>1000 ML</option>
-                  </select>
-                )}
+              <div className={`w-px h-10 ${isDarkMode ? 'bg-slate-700' : 'bg-slate-300'}`}></div>
+              <div className="flex flex-col items-center justify-center min-w-[150px]">
+                <span className={`text-[10px] font-bold uppercase tracking-widest ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Volume</span>
+                <span className={`text-xl font-black ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`}>{activeVolume}</span>
               </div>
            </div>
         </div>
 
-        {/* DUAL GRID: Penggunaan isPrinting untuk memaksa grid 2 kolom */}
-        <div className={`grid gap-8 ${isPrinting ? 'grid-cols-2' : 'grid-cols-1 xl:grid-cols-2'}`}>
+        <div className={`grid gap-8 relative z-10 ${isPrinting ? 'grid-cols-2' : 'grid-cols-1 xl:grid-cols-2'}`}>
           
           {/* =========================================
-              ZONE C
+              ZONE C (WITH TARGETED BLUR)
           ========================================= */}
-          <div className={`${cardClass} rounded-3xl overflow-hidden flex flex-col h-full`}>
-            <div className={`bg-gradient-to-r ${isDarkMode && !isPrinting ? 'from-blue-900/50' : 'from-blue-100'} to-transparent p-4 border-b ${isDarkMode && !isPrinting ? 'border-blue-500/20' : 'border-slate-300'} flex items-center justify-between`}>
-              <h2 className={`text-xl font-black ${isDarkMode && !isPrinting ? 'text-white' : 'text-black'} flex items-center gap-2`}><div className="w-3 h-3 rounded-full bg-blue-500"></div> OEE ZONE C</h2>
+          <div className={`${cardClass} rounded-3xl flex flex-col h-full relative overflow-hidden`}>
+            <AnimatePresence>
+              {isFetching && !isPrinting && (
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className={`absolute inset-0 z-[40] flex flex-col items-center justify-center backdrop-blur-sm ${isDarkMode ? 'bg-[#0f172a]/60' : 'bg-white/60'}`}>
+                   <Loader2 size={40} className="text-blue-500 animate-spin mb-2"/>
+                   <span className={`text-xs font-bold uppercase animate-pulse ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>Loading Data Zone C...</span>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <div className={`bg-gradient-to-r ${isDarkMode ? 'from-blue-900/50' : 'from-blue-100'} to-transparent p-4 border-b ${isDarkMode ? 'border-blue-500/20' : 'border-slate-300'} flex items-center justify-between`}>
+              <h2 className={`text-xl font-black ${isDarkMode ? 'text-white' : 'text-slate-800'} flex items-center gap-2`}><div className="w-3 h-3 rounded-full bg-blue-500"></div> OEE ZONE C</h2>
             </div>
             
             <div className="p-4 md:p-6 flex flex-col gap-6">
-              
-              <OEEDisplay oee={calculatedOEEC} avail={availC} perf={perfC} qual={qualC} colorClass="blue" isDark={isDarkMode && !isPrinting} />
+              <OEEDisplay oee={calculatedOEEC} avail={availC} perf={perfC} qual={qualC} colorClass="blue" isDark={isDarkMode} />
 
-              {/* Penggunaan isPrinting untuk memaksa grid 3 kolom */}
               <div className={`grid gap-4 print-no-margin ${isPrinting ? 'grid-cols-3' : 'grid-cols-1 sm:grid-cols-3'}`}>
-                <div className={`${isDarkMode && !isPrinting ? 'bg-slate-800/50 border-blue-500/20' : 'bg-slate-50 border-slate-300 border-2'} rounded-xl p-4 flex flex-col justify-center items-center text-center relative overflow-hidden`}>
+                <div className={`${isDarkMode ? 'bg-slate-800/50 border-blue-500/20' : 'bg-slate-50 border-slate-300 border'} rounded-xl p-4 flex flex-col justify-center items-center text-center relative overflow-hidden`}>
                   <span className={`text-[10px] font-bold ${subTextClass} uppercase tracking-widest mb-1`}>Speed</span>
                   <div className="flex items-baseline gap-1">
-                    <span className={`text-3xl font-black ${isDarkMode && !isPrinting ? 'text-white' : 'text-black'} font-mono`}>{metrics.speed.toLocaleString('id-ID')}</span>
+                    <span className={`text-3xl font-black ${isDarkMode ? 'text-white' : 'text-slate-800'} font-mono`}>{metrics.speed.toLocaleString('id-ID')}</span>
                     <span className="text-sm font-bold text-blue-500">bph</span>
                   </div>
                 </div>
-                <div className={`${isDarkMode && !isPrinting ? 'bg-slate-800/50 border-blue-500/20' : 'bg-slate-50 border-slate-300 border-2'} rounded-xl p-4 flex flex-col justify-center items-center text-center relative overflow-hidden`}>
-                  <span className={`text-[10px] font-bold ${subTextClass} uppercase tracking-widest mb-1`}>Teori Batch</span>
+                <div className={`${isDarkMode ? 'bg-slate-800/50 border-blue-500/20' : 'bg-slate-50 border-slate-300 border'} rounded-xl p-4 flex flex-col justify-center items-center text-center relative overflow-hidden`}>
+                  <span className={`text-[10px] font-bold ${subTextClass} uppercase tracking-widest mb-1`}>Unplanned DT</span>
                   <div className="flex items-baseline gap-1">
-                    <span className={`text-3xl font-black ${isDarkMode && !isPrinting ? 'text-white' : 'text-black'} font-mono`}>{metrics.teoriBatch.toLocaleString('id-ID')}</span>
-                    <span className="text-sm font-bold text-blue-500">btl/batch</span>
+                    <span className={`text-3xl font-black text-red-500 font-mono`}>{formatNum(mockMatrixDataC['TOTAL']?.['unplanned_dt'])}</span>
+                    <span className="text-sm font-bold text-red-500">Jam</span>
                   </div>
                 </div>
-                <div className={`${isDarkMode && !isPrinting ? 'bg-slate-800/50 border-blue-500/20' : 'bg-slate-50 border-slate-300 border-2'} rounded-xl p-4 flex flex-col justify-center items-center text-center relative overflow-hidden`}>
-                  <span className={`text-[10px] font-bold ${subTextClass} uppercase tracking-widest mb-1`}>Runtime</span>
+                <div className={`${isDarkMode ? 'bg-slate-800/50 border-blue-500/20' : 'bg-slate-50 border-slate-300 border'} rounded-xl p-4 flex flex-col justify-center items-center text-center relative overflow-hidden`}>
+                  <span className={`text-[10px] font-bold ${subTextClass} uppercase tracking-widest mb-1`}>TOTAL BATCH</span>
                   <div className="flex items-baseline gap-2">
-                    <span className={`text-3xl font-black ${isDarkMode && !isPrinting ? 'text-white' : 'text-black'} font-mono`}>{metrics.targetRuntimeHours.toFixed(2)}</span>
-                    <span className="text-sm font-bold text-emerald-600">Jam</span>
+                    <span className={`text-3xl font-black ${isDarkMode ? 'text-white' : 'text-slate-800'} font-mono`}>{formatNum(mockMatrixDataC['TOTAL']?.['ba_total'])}</span>
+                    <span className="text-sm font-bold text-emerald-600">Batch</span>
                   </div>
                 </div>
               </div>
 
-              <div className={`border ${isDarkMode && !isPrinting ? 'border-white/10 bg-[#0f172a]' : 'border-slate-400 bg-white border-2'} rounded-xl overflow-hidden`}>
+              <div className={`border ${isDarkMode ? 'border-white/10 bg-[#0f172a]' : 'border-slate-300 bg-white'} rounded-xl overflow-hidden`}>
                 <table className="w-full text-left border-collapse table-fixed">
                   <thead>
                     <tr className={tableHeaderClass}>
-                      <th className={`py-3 px-3 align-middle border-b border-r ${tableBorderClass} text-[11px] font-black ${isDarkMode && !isPrinting ? 'text-blue-500' : 'text-black'} uppercase tracking-widest w-[34%]`}>Parameter</th>
+                      <th className={`py-3 px-3 align-middle border-b border-r ${tableBorderClass} text-[11px] font-black ${isDarkMode ? 'text-blue-500' : 'text-blue-600'} uppercase tracking-widest w-[34%]`}>Parameter</th>
                       {['A', 'B', 'C', 'D'].map((group) => (
-                        <th key={group} className={`py-3 px-1 align-middle border-b border-r ${tableBorderClass} text-center text-[11px] font-black ${isDarkMode && !isPrinting ? 'text-slate-300' : 'text-black'} uppercase w-[8.5%]`}>{group}</th>
+                        <th key={group} className={`py-3 px-1 align-middle border-b border-r ${tableBorderClass} text-center text-[11px] font-black ${isDarkMode ? 'text-slate-300' : 'text-slate-700'} uppercase w-[8.5%]`}>{group}</th>
                       ))}
-                      <th className={`py-3 px-1 align-middle border-b border-r ${tableBorderClass} text-center text-[11px] font-black ${isDarkMode && !isPrinting ? 'text-yellow-400 bg-yellow-900/10' : 'text-black bg-slate-200'} uppercase w-[12%]`}>TOTAL</th>
-                      <th className={`py-3 px-2 align-middle border-b ${tableBorderClass} text-center text-[11px] font-black ${isDarkMode && !isPrinting ? 'text-emerald-400 bg-emerald-900/10' : 'text-black bg-slate-100'} uppercase w-[20%]`}>Satuan</th>
+                      <th className={`py-3 px-1 align-middle border-b border-r ${tableBorderClass} text-center text-[11px] font-black ${isDarkMode ? 'text-white bg-slate-700' : 'text-black bg-slate-200'} uppercase w-[12%]`}>TOTAL</th>
+                      <th className={`py-3 px-2 align-middle border-b ${tableBorderClass} text-center text-[11px] font-black ${isDarkMode ? 'text-white bg-slate-800' : 'text-black bg-slate-100'} uppercase w-[20%]`}>Satuan</th>
                     </tr>
                   </thead>
                   <tbody className="text-[12px]">
@@ -553,33 +592,36 @@ const DailyOnesheet = () => {
                       return (
                         <React.Fragment key={`c-sec-${sIdx}`}>
                           {isMergedSection ? (
-                            <tr className={`${isDarkMode && !isPrinting ? 'bg-slate-800' : 'bg-slate-200'} border-b ${tableBorderClass}`}>
-                              <td colSpan={7} className={`py-2 px-3 align-middle font-bold ${isDarkMode && !isPrinting ? 'text-slate-300' : 'text-black'} text-[12px] tracking-widest uppercase`}>{section.section}</td>
+                            <tr className={`${isDarkMode ? 'bg-slate-800' : 'bg-slate-200'} border-b ${tableBorderClass}`}>
+                              <td colSpan={7} className={`py-2 px-3 align-middle font-bold ${isDarkMode ? 'text-slate-300' : 'text-slate-800'} text-[12px] tracking-widest uppercase`}>{section.section}</td>
                             </tr>
                           ) : (
-                            <tr className={`${isDarkMode && !isPrinting ? 'bg-blue-900/30' : 'bg-blue-50'} border-b ${tableBorderClass}`}>
-                              <td className={`py-2 px-3 align-middle font-bold ${isDarkMode && !isPrinting ? 'text-blue-500' : 'text-blue-800'} text-[12px] tracking-widest uppercase border-r ${tableBorderClass}`}>{section.section}</td>
+                            <tr className={`${isDarkMode ? 'bg-blue-900/30' : 'bg-blue-50'} border-b ${tableBorderClass}`}>
+                              <td className={`py-2 px-3 align-middle font-bold ${isDarkMode ? 'text-blue-500' : 'text-blue-800'} text-[12px] tracking-widest uppercase border-r ${tableBorderClass}`}>{section.section}</td>
                               {['A', 'B', 'C', 'D'].map((group) => (
-                                <td key={`c-main-${group}`} className={`py-2 px-1 align-middle border-r ${tableBorderClass} text-center font-bold ${isDarkMode && !isPrinting ? 'text-white' : 'text-black'} text-[12px]`}>{formatNum(mockMatrixDataC[group]?.[section.key]) || "-"}</td>
+                                <td key={`c-main-${group}`} className={`py-2 px-1 align-middle border-r ${tableBorderClass} text-center font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'} text-[12px]`}>{formatNum(mockMatrixDataC[group]?.[section.key]) || "-"}</td>
                               ))}
-                              <td className={`py-2 px-1 align-middle border-r ${tableBorderClass} text-center font-black ${isDarkMode && !isPrinting ? 'text-yellow-400 bg-yellow-900/10' : 'text-black bg-slate-200'} text-[12px]`}>{formatNum(mockMatrixDataC['TOTAL']?.[section.key]) || "-"}</td>
-                              <td className={`py-2 px-2 align-middle text-center font-bold ${isDarkMode && !isPrinting ? 'text-emerald-400 bg-emerald-900/10' : 'text-black bg-slate-100'} text-[11px]`}>{section.unit}</td>
+                              <td className={`py-2 px-1 align-middle border-r ${tableBorderClass} text-center font-black ${isDarkMode ? 'text-white bg-slate-700/50' : 'text-black bg-slate-200'} text-[12px]`}>{formatNum(mockMatrixDataC['TOTAL']?.[section.key]) || "-"}</td>
+                              <td className={`py-2 px-2 align-middle text-center font-bold ${isDarkMode ? 'text-white bg-slate-800/50' : 'text-black bg-slate-100'} text-[11px]`}>{section.unit}</td>
                             </tr>
                           )}
                           {section.items.map((item, iIdx) => {
                             if (item.isGroupHeader) return (
-                              <tr key={`c-hdr-${iIdx}`} className={`${isDarkMode && !isPrinting ? 'bg-slate-800/30' : 'bg-slate-100'}`}>
-                                <td colSpan={7} className={`py-1.5 px-3 align-middle border-b ${tableBorderClass} ${isDarkMode && !isPrinting ? 'text-blue-400' : 'text-black'} text-[11px] font-bold italic pl-6`}>{item.label}</td>
+                              <tr key={`c-hdr-${iIdx}`} className={`${isDarkMode ? 'bg-slate-800/30' : 'bg-slate-100'}`}>
+                                <td colSpan={7} className={`py-1.5 px-3 align-middle border-b ${tableBorderClass} ${isDarkMode ? 'text-blue-400' : 'text-slate-600'} text-[11px] font-bold italic pl-6 whitespace-normal break-words leading-tight`}>{item.label}</td>
                               </tr>
                             );
+
+                            const isHl = isHighlightRow(item.label);
+
                             return (
                               <tr key={`c-item-${iIdx}`} className={`${tableRowClass} transition-colors`}>
-                                <td className={`py-2 px-3 align-middle border-b border-r ${tableBorderClass} ${isDarkMode && !isPrinting ? 'text-slate-300' : 'text-black font-medium'} text-[11px] leading-tight truncate ${item.isSubItem ? 'pl-8' : 'pl-4'}`}>{item.label}</td>
+                                <td className={`py-2 px-3 align-middle border-b border-r ${tableBorderClass} ${isHl ? 'text-red-500 font-black' : (isDarkMode ? 'text-slate-300 font-medium' : 'text-slate-700 font-medium')} text-[11px] whitespace-normal break-words leading-tight ${item.isSubItem ? 'pl-8' : 'pl-4'}`}>{item.label}</td>
                                 {['A', 'B', 'C', 'D'].map((group) => (
-                                  <td key={`c-${item.key}-${group}`} className={`py-2 px-1 align-middle border-b border-r ${tableBorderClass} text-center font-mono text-[11px] ${isDarkMode && !isPrinting ? 'text-white' : 'text-black'} overflow-hidden`}>{mockMatrixDataC[group]?.[item.key] !== undefined && mockMatrixDataC[group]?.[item.key] !== "-" ? formatNum(mockMatrixDataC[group][item.key]) : "-"}</td>
+                                  <td key={`c-${item.key}-${group}`} className={getTdClass('group', isHl)}>{mockMatrixDataC[group]?.[item.key] !== undefined && mockMatrixDataC[group]?.[item.key] !== "-" ? formatNum(mockMatrixDataC[group][item.key]) : "-"}</td>
                                 ))}
-                                <td className={`py-2 px-1 align-middle border-b border-r ${tableBorderClass} text-center font-mono text-[11px] font-bold ${isDarkMode && !isPrinting ? 'text-yellow-400 bg-yellow-900/5' : 'text-black bg-slate-200'} overflow-hidden`}>{mockMatrixDataC['TOTAL']?.[item.key] !== undefined && mockMatrixDataC['TOTAL']?.[item.key] !== "-" ? formatNum(mockMatrixDataC['TOTAL'][item.key]) : "-"}</td>
-                                <td className={`py-2 px-2 align-middle border-b ${tableBorderClass} text-center font-mono text-[10px] ${isDarkMode && !isPrinting ? 'text-emerald-400/80 bg-emerald-900/5' : 'text-black bg-slate-100'} overflow-hidden truncate`}>{item.unit}</td>
+                                <td className={getTdClass('total', isHl)}>{mockMatrixDataC['TOTAL']?.[item.key] !== undefined && mockMatrixDataC['TOTAL']?.[item.key] !== "-" ? formatNum(mockMatrixDataC['TOTAL'][item.key]) : "-"}</td>
+                                <td className={`py-2 px-2 align-middle border-b ${tableBorderClass} text-center font-mono text-[10px] ${isDarkMode ? 'text-white bg-slate-800/40' : 'text-black bg-slate-100'} overflow-hidden truncate`}>{item.unit}</td>
                               </tr>
                             );
                           })}
@@ -590,81 +632,89 @@ const DailyOnesheet = () => {
                 </table>
               </div>
 
-              {/* Penggunaan isPrinting untuk memaksa grid 2 kolom */}
-              <div className={`mt-4 ${isDarkMode && !isPrinting ? 'bg-red-900/10 border-red-500/30' : 'bg-red-50 border-red-500 border-2'} rounded-2xl overflow-hidden print-no-margin`}>
-                <div className={`bg-gradient-to-r ${isDarkMode && !isPrinting ? 'from-red-600/20' : 'from-red-200'} to-transparent px-5 py-3 border-b ${isDarkMode && !isPrinting ? 'border-red-500/20' : 'border-red-300'} flex items-center gap-3`}>
-                  <h3 className={`text-sm font-black ${isDarkMode && !isPrinting ? 'text-red-500' : 'text-red-700'} uppercase tracking-widest`}>Potential Loss - Kelas C</h3>
+              <div className={`mt-4 ${isDarkMode ? 'bg-red-900/10 border-red-500/30' : 'bg-red-50 border-red-300 border'} rounded-2xl overflow-hidden print-no-margin`}>
+                <div className={`bg-gradient-to-r ${isDarkMode ? 'from-red-600/20' : 'from-red-200'} to-transparent px-5 py-3 border-b ${isDarkMode ? 'border-red-500/20' : 'border-red-300'} flex items-center gap-3`}>
+                  <h3 className={`text-sm font-black ${isDarkMode ? 'text-red-500' : 'text-red-700'} uppercase tracking-widest`}>Potential Loss - Kelas C</h3>
                 </div>
                 <div className={`p-5 grid gap-5 ${isPrinting ? 'grid-cols-2' : 'grid-cols-1 md:grid-cols-2'}`}>
-                  <div className={`${isDarkMode && !isPrinting ? 'bg-[#0f172a]/80 border-red-500/10' : 'bg-white border-red-300 border-2'} rounded-xl p-4 shadow-inner relative overflow-hidden`}>
-                    <span className={`text-[11px] ${isDarkMode && !isPrinting ? 'text-red-400' : 'text-red-700'} uppercase tracking-wider font-bold mb-3 block border-b border-red-200/20 pb-1`}>Downtime</span>
+                  <div className={`${isDarkMode ? 'bg-[#0f172a]/80 border-red-500/10' : 'bg-white border-red-200 border'} rounded-xl p-4 shadow-inner relative overflow-hidden`}>
+                    <span className={`text-[11px] ${isDarkMode ? 'text-red-400' : 'text-red-600'} uppercase tracking-wider font-bold mb-3 block border-b border-red-200/20 pb-1`}>Downtime</span>
                     <div className="space-y-2">
-                      <div className="flex justify-between items-end"><span className={`text-[12px] ${subTextClass}`}>Jumlah Unit</span><span className={`text-sm font-mono font-bold ${isDarkMode && !isPrinting ? 'text-white' : 'text-black'}`}>{formatNum(lossUnitDtC)}</span></div>
-                      <div className="flex justify-between items-end"><span className={`text-[12px] ${subTextClass}`}>Finansial</span><span className={`text-base font-mono font-black ${isDarkMode && !isPrinting ? 'text-red-500' : 'text-red-700'}`}>{formatRp(lossUnitDtC * 6500)}</span></div>
+                      <div className="flex justify-between items-end"><span className={`text-[12px] ${subTextClass}`}>Jumlah Unit</span><span className={`text-sm font-mono font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{formatNum(lossUnitDtC)}</span></div>
+                      <div className="flex justify-between items-end"><span className={`text-[12px] ${subTextClass}`}>Finansial</span><span className={`text-base font-mono font-black ${isDarkMode ? 'text-red-500' : 'text-red-700'}`}>{formatRp(lossUnitDtC * 6500)}</span></div>
                     </div>
                   </div>
-                  <div className={`${isDarkMode && !isPrinting ? 'bg-[#0f172a]/80 border-red-500/10' : 'bg-white border-red-300 border-2'} rounded-xl p-4 shadow-inner relative overflow-hidden`}>
-                    <span className={`text-[11px] ${isDarkMode && !isPrinting ? 'text-red-400' : 'text-red-700'} uppercase tracking-wider font-bold mb-3 block border-b border-red-200/20 pb-1`}>Rejection</span>
+                  <div className={`${isDarkMode ? 'bg-[#0f172a]/80 border-red-500/10' : 'bg-white border-red-200 border'} rounded-xl p-4 shadow-inner relative overflow-hidden`}>
+                    <span className={`text-[11px] ${isDarkMode ? 'text-red-400' : 'text-red-600'} uppercase tracking-wider font-bold mb-3 block border-b border-red-200/20 pb-1`}>Rejection</span>
                     <div className="space-y-2">
-                      <div className="flex justify-between items-end"><span className={`text-[12px] ${subTextClass}`}>Jumlah Unit</span><span className={`text-sm font-mono font-bold ${isDarkMode && !isPrinting ? 'text-white' : 'text-black'}`}>{formatNum(parseFloat(mockMatrixDataC['TOTAL']?.['rej_tot_dec']) || 0)}</span></div>
-                      <div className="flex justify-between items-end"><span className={`text-[12px] ${subTextClass}`}>Finansial</span><span className={`text-base font-mono font-black ${isDarkMode && !isPrinting ? 'text-red-500' : 'text-red-700'}`}>{formatRp((parseFloat(mockMatrixDataC['TOTAL']?.['rej_tot_dec']) || 0) * 6500)}</span></div>
+                      <div className="flex justify-between items-end"><span className={`text-[12px] ${subTextClass}`}>Jumlah Unit</span><span className={`text-sm font-mono font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{formatNum(parseFloat(mockMatrixDataC['TOTAL']?.['rej_tot_dec']) || 0)}</span></div>
+                      <div className="flex justify-between items-end"><span className={`text-[12px] ${subTextClass}`}>Finansial</span><span className={`text-base font-mono font-black ${isDarkMode ? 'text-red-500' : 'text-red-700'}`}>{formatRp((parseFloat(mockMatrixDataC['TOTAL']?.['rej_tot_dec']) || 0) * 6500)}</span></div>
                     </div>
                   </div>
                 </div>
-                <div className={`${isDarkMode && !isPrinting ? 'bg-red-950/40 border-red-500/30' : 'bg-red-100 border-red-300 border-t-2'} px-6 py-4 flex justify-between items-center`}>
-                   <span className={`text-[13px] font-black ${isDarkMode && !isPrinting ? 'text-red-400' : 'text-red-800'} uppercase tracking-widest`}>Total Potential Loss (C)</span>
-                   <span className={`text-2xl font-black font-mono ${isDarkMode && !isPrinting ? 'text-red-500' : 'text-red-800'}`}>{formatRp(totalFinLossC)}</span>
+                <div className={`${isDarkMode ? 'bg-red-950/40 border-red-500/30' : 'bg-red-100 border-red-300 border-t'} px-6 py-4 flex justify-between items-center`}>
+                   <span className={`text-[13px] font-black ${isDarkMode ? 'text-red-400' : 'text-red-800'} uppercase tracking-widest`}>Total Potential Loss (C)</span>
+                   <span className={`text-2xl font-black font-mono ${isDarkMode ? 'text-red-500' : 'text-red-700'}`}>{formatRp(totalFinLossC)}</span>
                 </div>
               </div>
             </div>
           </div>
 
           {/* =========================================
-              ZONE F
+              ZONE F (WITH TARGETED BLUR)
           ========================================= */}
-          <div className={`${cardClassPurple} rounded-3xl overflow-hidden flex flex-col h-full`}>
-            <div className={`bg-gradient-to-r ${isDarkMode && !isPrinting ? 'from-purple-900/50' : 'from-purple-100'} to-transparent p-4 border-b ${isDarkMode && !isPrinting ? 'border-purple-500/20' : 'border-slate-300'} flex items-center justify-between`}>
-              <h2 className={`text-xl font-black ${isDarkMode && !isPrinting ? 'text-white' : 'text-black'} flex items-center gap-2`}><div className="w-3 h-3 rounded-full bg-purple-500"></div> OEE ZONE F</h2>
+          <div className={`${cardClassPurple} rounded-3xl flex flex-col h-full relative overflow-hidden`}>
+            
+            <AnimatePresence>
+              {isFetching && !isPrinting && (
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className={`absolute inset-0 z-[40] flex flex-col items-center justify-center backdrop-blur-sm ${isDarkMode ? 'bg-[#0f172a]/60' : 'bg-white/60'}`}>
+                   <Loader2 size={40} className="text-purple-500 animate-spin mb-2"/>
+                   <span className={`text-xs font-bold uppercase animate-pulse ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>Loading Data Zone F...</span>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <div className={`bg-gradient-to-r ${isDarkMode ? 'from-purple-900/50' : 'from-purple-100'} to-transparent p-4 border-b ${isDarkMode ? 'border-purple-500/20' : 'border-slate-300'} flex items-center justify-between`}>
+              <h2 className={`text-xl font-black ${isDarkMode ? 'text-white' : 'text-slate-800'} flex items-center gap-2`}><div className="w-3 h-3 rounded-full bg-purple-500"></div> OEE ZONE F</h2>
             </div>
             
-            <div className="p-4 md:p-6 flex flex-col gap-6 h-full">
-              
-              <OEEDisplay oee={calculatedOEEF} avail={availF} perf={perfF} qual={qualF} colorClass="purple" isDark={isDarkMode && !isPrinting} />
+            <div className="p-4 md:p-6 flex flex-col gap-6 h-full relative z-10">
+              <OEEDisplay oee={calculatedOEEF} avail={availF} perf={perfF} qual={qualF} colorClass="purple" isDark={isDarkMode} />
 
               <div className={`grid gap-4 print-no-margin ${isPrinting ? 'grid-cols-3' : 'grid-cols-1 sm:grid-cols-3'}`}>
-                <div className={`${isDarkMode && !isPrinting ? 'bg-slate-800/50 border-purple-500/20' : 'bg-slate-50 border-slate-300 border-2'} rounded-xl p-4 flex flex-col justify-center items-center text-center relative overflow-hidden`}>
+                <div className={`${isDarkMode ? 'bg-slate-800/50 border-purple-500/20' : 'bg-slate-50 border-slate-300 border'} rounded-xl p-4 flex flex-col justify-center items-center text-center relative overflow-hidden`}>
                   <span className={`text-[10px] font-bold ${subTextClass} uppercase tracking-widest mb-1`}>Speed</span>
                   <div className="flex items-baseline gap-1">
-                    <span className={`text-3xl font-black ${isDarkMode && !isPrinting ? 'text-white' : 'text-black'} font-mono`}>{metrics.speed.toLocaleString('id-ID')}</span>
+                    <span className={`text-3xl font-black ${isDarkMode ? 'text-white' : 'text-slate-800'} font-mono`}>{metrics.speed.toLocaleString('id-ID')}</span>
                     <span className="text-sm font-bold text-purple-500">bph</span>
                   </div>
                 </div>
-                <div className={`${isDarkMode && !isPrinting ? 'bg-slate-800/50 border-purple-500/20' : 'bg-slate-50 border-slate-300 border-2'} rounded-xl p-4 flex flex-col justify-center items-center text-center relative overflow-hidden`}>
-                  <span className={`text-[10px] font-bold ${subTextClass} uppercase tracking-widest mb-1`}>Teori Batch</span>
+                <div className={`${isDarkMode ? 'bg-slate-800/50 border-purple-500/20' : 'bg-slate-50 border-slate-300 border'} rounded-xl p-4 flex flex-col justify-center items-center text-center relative overflow-hidden`}>
+                  <span className={`text-[10px] font-bold ${subTextClass} uppercase tracking-widest mb-1`}>Unplanned DT</span>
                   <div className="flex items-baseline gap-1">
-                    <span className={`text-3xl font-black ${isDarkMode && !isPrinting ? 'text-white' : 'text-black'} font-mono`}>{metrics.teoriBatch.toLocaleString('id-ID')}</span>
-                    <span className="text-sm font-bold text-purple-500">btl/batch</span>
+                    <span className={`text-3xl font-black text-red-500 font-mono`}>{formatNum(mockMatrixDataF['TOTAL']?.['unplanned_dt'])}</span>
+                    <span className="text-sm font-bold text-red-500">Jam</span>
                   </div>
                 </div>
-                <div className={`${isDarkMode && !isPrinting ? 'bg-slate-800/50 border-purple-500/20' : 'bg-slate-50 border-slate-300 border-2'} rounded-xl p-4 flex flex-col justify-center items-center text-center relative overflow-hidden`}>
-                  <span className={`text-[10px] font-bold ${subTextClass} uppercase tracking-widest mb-1`}>Runtime</span>
+                <div className={`${isDarkMode ? 'bg-slate-800/50 border-purple-500/20' : 'bg-slate-50 border-slate-300 border'} rounded-xl p-4 flex flex-col justify-center items-center text-center relative overflow-hidden`}>
+                  <span className={`text-[10px] font-bold ${subTextClass} uppercase tracking-widest mb-1`}>TOTAL BATCH "FG"</span>
                   <div className="flex items-baseline gap-2">
-                    <span className={`text-3xl font-black ${isDarkMode && !isPrinting ? 'text-white' : 'text-black'} font-mono`}>{metrics.targetRuntimeHours.toFixed(2)}</span>
-                    <span className="text-sm font-bold text-emerald-600">Jam</span>
+                    <span className={`text-3xl font-black ${isDarkMode ? 'text-white' : 'text-slate-800'} font-mono`}>{formatNum(mockMatrixDataF['TOTAL']?.['ba_total_fg'])}</span>
+                    <span className="text-sm font-bold text-emerald-600">Batch</span>
                   </div>
                 </div>
               </div>
 
-              <div className={`border ${isDarkMode && !isPrinting ? 'border-white/10 bg-[#0f172a]' : 'border-slate-400 bg-white border-2'} rounded-xl overflow-hidden`}>
+              <div className={`border ${isDarkMode ? 'border-white/10 bg-[#0f172a]' : 'border-slate-300 bg-white'} rounded-xl overflow-hidden`}>
                 <table className="w-full text-left border-collapse table-fixed">
                   <thead>
                     <tr className={tableHeaderClass}>
-                      <th className={`py-3 px-3 align-middle border-b border-r ${tableBorderClass} text-[11px] font-black ${isDarkMode && !isPrinting ? 'text-purple-500' : 'text-black'} uppercase tracking-widest w-[34%]`}>Parameter</th>
+                      <th className={`py-3 px-3 align-middle border-b border-r ${tableBorderClass} text-[11px] font-black ${isDarkMode ? 'text-purple-500' : 'text-purple-600'} uppercase tracking-widest w-[34%]`}>Parameter</th>
                       {['A', 'B', 'C', 'D'].map((group) => (
-                        <th key={group} className={`py-3 px-1 align-middle border-b border-r ${tableBorderClass} text-center text-[11px] font-black ${isDarkMode && !isPrinting ? 'text-slate-300' : 'text-black'} uppercase w-[8.5%]`}>{group}</th>
+                        <th key={group} className={`py-3 px-1 align-middle border-b border-r ${tableBorderClass} text-center text-[11px] font-black ${isDarkMode ? 'text-slate-300' : 'text-slate-700'} uppercase w-[8.5%]`}>{group}</th>
                       ))}
-                      <th className={`py-3 px-1 align-middle border-b border-r ${tableBorderClass} text-center text-[11px] font-black ${isDarkMode && !isPrinting ? 'text-yellow-400 bg-yellow-900/10' : 'text-black bg-slate-200'} uppercase w-[12%]`}>TOTAL</th>
-                      <th className={`py-3 px-2 align-middle border-b ${tableBorderClass} text-center text-[11px] font-black ${isDarkMode && !isPrinting ? 'text-emerald-400 bg-emerald-900/10' : 'text-black bg-slate-100'} uppercase w-[20%]`}>Satuan</th>
+                      <th className={`py-3 px-1 align-middle border-b border-r ${tableBorderClass} text-center text-[11px] font-black ${isDarkMode ? 'text-white bg-slate-700' : 'text-black bg-slate-200'} uppercase w-[12%]`}>TOTAL</th>
+                      <th className={`py-3 px-2 align-middle border-b ${tableBorderClass} text-center text-[11px] font-black ${isDarkMode ? 'text-white bg-slate-800' : 'text-black bg-slate-100'} uppercase w-[20%]`}>Satuan</th>
                     </tr>
                   </thead>
                   <tbody className="text-[12px]">
@@ -673,33 +723,36 @@ const DailyOnesheet = () => {
                       return (
                         <React.Fragment key={`f-sec-${sIdx}`}>
                           {isMergedSection ? (
-                            <tr className={`${isDarkMode && !isPrinting ? 'bg-slate-800' : 'bg-slate-200'} border-b ${tableBorderClass}`}>
-                              <td colSpan={7} className={`py-2 px-3 align-middle font-bold ${isDarkMode && !isPrinting ? 'text-slate-300' : 'text-black'} text-[12px] tracking-widest uppercase`}>{section.section}</td>
+                            <tr className={`${isDarkMode ? 'bg-slate-800' : 'bg-slate-200'} border-b ${tableBorderClass}`}>
+                              <td colSpan={7} className={`py-2 px-3 align-middle font-bold ${isDarkMode ? 'text-slate-300' : 'text-slate-800'} text-[12px] tracking-widest uppercase`}>{section.section}</td>
                             </tr>
                           ) : (
-                            <tr className={`${isDarkMode && !isPrinting ? 'bg-purple-900/30' : 'bg-purple-50'} border-b ${tableBorderClass}`}>
-                              <td className={`py-2 px-3 align-middle font-bold ${isDarkMode && !isPrinting ? 'text-purple-500' : 'text-purple-800'} text-[12px] tracking-widest uppercase border-r ${tableBorderClass}`}>{section.section}</td>
+                            <tr className={`${isDarkMode ? 'bg-purple-900/30' : 'bg-purple-50'} border-b ${tableBorderClass}`}>
+                              <td className={`py-2 px-3 align-middle font-bold ${isDarkMode ? 'text-purple-500' : 'text-purple-800'} text-[12px] tracking-widest uppercase border-r ${tableBorderClass}`}>{section.section}</td>
                               {['A', 'B', 'C', 'D'].map((group) => (
-                                <td key={`f-main-${group}`} className={`py-2 px-1 align-middle border-r ${tableBorderClass} text-center font-bold ${isDarkMode && !isPrinting ? 'text-white' : 'text-black'} text-[12px]`}>{formatNum(mockMatrixDataF[group]?.[section.key]) || "-"}</td>
+                                <td key={`f-main-${group}`} className={`py-2 px-1 align-middle border-r ${tableBorderClass} text-center font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'} text-[12px]`}>{formatNum(mockMatrixDataF[group]?.[section.key]) || "-"}</td>
                               ))}
-                              <td className={`py-2 px-1 align-middle border-r ${tableBorderClass} text-center font-black ${isDarkMode && !isPrinting ? 'text-yellow-400 bg-yellow-900/10' : 'text-black bg-slate-200'} text-[12px]`}>{formatNum(mockMatrixDataF['TOTAL']?.[section.key]) || "-"}</td>
-                              <td className={`py-2 px-2 align-middle text-center font-bold ${isDarkMode && !isPrinting ? 'text-emerald-400 bg-emerald-900/10' : 'text-black bg-slate-100'} text-[11px]`}>{section.unit}</td>
+                              <td className={`py-2 px-1 align-middle border-r ${tableBorderClass} text-center font-black ${isDarkMode ? 'text-white bg-slate-700/50' : 'text-black bg-slate-200'} text-[12px]`}>{formatNum(mockMatrixDataF['TOTAL']?.[section.key]) || "-"}</td>
+                              <td className={`py-2 px-2 align-middle text-center font-bold ${isDarkMode ? 'text-white bg-slate-800/50' : 'text-black bg-slate-100'} text-[11px]`}>{section.unit}</td>
                             </tr>
                           )}
                           {section.items.map((item, iIdx) => {
                             if (item.isGroupHeader) return (
-                              <tr key={`f-hdr-${iIdx}`} className={`${isDarkMode && !isPrinting ? 'bg-slate-800/30' : 'bg-slate-100'}`}>
-                                <td colSpan={7} className={`py-1.5 px-3 align-middle border-b ${tableBorderClass} ${isDarkMode && !isPrinting ? 'text-purple-400' : 'text-black'} text-[11px] font-bold italic pl-6`}>{item.label}</td>
+                              <tr key={`f-hdr-${iIdx}`} className={`${isDarkMode ? 'bg-slate-800/30' : 'bg-slate-100'}`}>
+                                <td colSpan={7} className={`py-1.5 px-3 align-middle border-b ${tableBorderClass} ${isDarkMode ? 'text-purple-400' : 'text-slate-600'} text-[11px] font-bold italic pl-6 whitespace-normal break-words leading-tight`}>{item.label}</td>
                               </tr>
                             );
+
+                            const isHl = isHighlightRow(item.label);
+
                             return (
                               <tr key={`f-item-${iIdx}`} className={`${tableRowClassPurple} transition-colors`}>
-                                <td className={`py-2 px-3 align-middle border-b border-r ${tableBorderClass} ${isDarkMode && !isPrinting ? 'text-slate-300' : 'text-black font-medium'} text-[11px] leading-tight truncate ${item.isSubItem ? 'pl-8' : 'pl-4'}`}>{item.label}</td>
+                                <td className={`py-2 px-3 align-middle border-b border-r ${tableBorderClass} ${isHl ? 'text-red-500 font-black' : (isDarkMode ? 'text-slate-300 font-medium' : 'text-slate-700 font-medium')} text-[11px] whitespace-normal break-words leading-tight ${item.isSubItem ? 'pl-8' : 'pl-4'}`}>{item.label}</td>
                                 {['A', 'B', 'C', 'D'].map((group) => (
-                                  <td key={`f-${item.key}-${group}`} className={`py-2 px-1 align-middle border-b border-r ${tableBorderClass} text-center font-mono text-[11px] ${isDarkMode && !isPrinting ? 'text-white' : 'text-black'} overflow-hidden`}>{mockMatrixDataF[group]?.[item.key] !== undefined && mockMatrixDataF[group]?.[item.key] !== "-" ? formatNum(mockMatrixDataF[group][item.key]) : "-"}</td>
+                                  <td key={`f-${item.key}-${group}`} className={getTdClass('group', isHl)}>{mockMatrixDataF[group]?.[item.key] !== undefined && mockMatrixDataF[group]?.[item.key] !== "-" ? formatNum(mockMatrixDataF[group][item.key]) : "-"}</td>
                                 ))}
-                                <td className={`py-2 px-1 align-middle border-b border-r ${tableBorderClass} text-center font-mono text-[11px] font-bold ${isDarkMode && !isPrinting ? 'text-yellow-400 bg-yellow-900/5' : 'text-black bg-slate-200'} overflow-hidden`}>{mockMatrixDataF['TOTAL']?.[item.key] !== undefined && mockMatrixDataF['TOTAL']?.[item.key] !== "-" ? formatNum(mockMatrixDataF['TOTAL'][item.key]) : "-"}</td>
-                                <td className={`py-2 px-2 align-middle border-b ${tableBorderClass} text-center font-mono text-[10px] ${isDarkMode && !isPrinting ? 'text-emerald-400/80 bg-emerald-900/5' : 'text-black bg-slate-100'} overflow-hidden truncate`}>{item.unit}</td>
+                                <td className={getTdClass('total', isHl)}>{mockMatrixDataF['TOTAL']?.[item.key] !== undefined && mockMatrixDataF['TOTAL']?.[item.key] !== "-" ? formatNum(mockMatrixDataF['TOTAL'][item.key]) : "-"}</td>
+                                <td className={`py-2 px-2 align-middle border-b ${tableBorderClass} text-center font-mono text-[10px] ${isDarkMode ? 'text-white bg-slate-800/40' : 'text-black bg-slate-100'} overflow-hidden truncate`}>{item.unit}</td>
                               </tr>
                             );
                           })}
@@ -710,29 +763,29 @@ const DailyOnesheet = () => {
                 </table>
               </div>
 
-              <div className={`mt-4 ${isDarkMode && !isPrinting ? 'bg-red-900/10 border-red-500/30' : 'bg-red-50 border-red-500 border-2'} rounded-2xl overflow-hidden print-no-margin`}>
-                <div className={`bg-gradient-to-r ${isDarkMode && !isPrinting ? 'from-red-600/20' : 'from-red-200'} to-transparent px-5 py-3 border-b ${isDarkMode && !isPrinting ? 'border-red-500/20' : 'border-red-300'} flex items-center gap-3`}>
-                  <h3 className={`text-sm font-black ${isDarkMode && !isPrinting ? 'text-red-500' : 'text-red-700'} uppercase tracking-widest`}>Potential Loss - Kelas F</h3>
+              <div className={`mt-4 ${isDarkMode ? 'bg-red-900/10 border-red-500/30' : 'bg-red-50 border-red-300 border'} rounded-2xl overflow-hidden print-no-margin`}>
+                <div className={`bg-gradient-to-r ${isDarkMode ? 'from-red-600/20' : 'from-red-200'} to-transparent px-5 py-3 border-b ${isDarkMode ? 'border-red-500/20' : 'border-red-300'} flex items-center gap-3`}>
+                  <h3 className={`text-sm font-black ${isDarkMode ? 'text-red-500' : 'text-red-700'} uppercase tracking-widest`}>Potential Loss - Kelas F</h3>
                 </div>
                 <div className={`p-5 grid gap-5 ${isPrinting ? 'grid-cols-2' : 'grid-cols-1 md:grid-cols-2'}`}>
-                  <div className={`${isDarkMode && !isPrinting ? 'bg-[#0f172a]/80 border-red-500/10' : 'bg-white border-red-300 border-2'} rounded-xl p-4 shadow-inner relative overflow-hidden`}>
-                    <span className={`text-[11px] ${isDarkMode && !isPrinting ? 'text-red-400' : 'text-red-700'} uppercase tracking-wider font-bold mb-3 block border-b border-red-200/20 pb-1`}>Downtime</span>
+                  <div className={`${isDarkMode ? 'bg-[#0f172a]/80 border-red-500/10' : 'bg-white border-red-200 border'} rounded-xl p-4 shadow-inner relative overflow-hidden`}>
+                    <span className={`text-[11px] ${isDarkMode ? 'text-red-400' : 'text-red-600'} uppercase tracking-wider font-bold mb-3 block border-b border-red-200/20 pb-1`}>Downtime</span>
                     <div className="space-y-2">
-                      <div className="flex justify-between items-end"><span className={`text-[12px] ${subTextClass}`}>Jumlah Unit</span><span className={`text-sm font-mono font-bold ${isDarkMode && !isPrinting ? 'text-white' : 'text-black'}`}>{formatNum(lossUnitDtF)}</span></div>
-                      <div className="flex justify-between items-end"><span className={`text-[12px] ${subTextClass}`}>Finansial</span><span className={`text-base font-mono font-black ${isDarkMode && !isPrinting ? 'text-red-500' : 'text-red-700'}`}>{formatRp(lossUnitDtF * 6500)}</span></div>
+                      <div className="flex justify-between items-end"><span className={`text-[12px] ${subTextClass}`}>Jumlah Unit</span><span className={`text-sm font-mono font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{formatNum(lossUnitDtF)}</span></div>
+                      <div className="flex justify-between items-end"><span className={`text-[12px] ${subTextClass}`}>Finansial</span><span className={`text-base font-mono font-black ${isDarkMode ? 'text-red-500' : 'text-red-700'}`}>{formatRp(lossUnitDtF * 6500)}</span></div>
                     </div>
                   </div>
-                  <div className={`${isDarkMode && !isPrinting ? 'bg-[#0f172a]/80 border-red-500/10' : 'bg-white border-red-300 border-2'} rounded-xl p-4 shadow-inner relative overflow-hidden`}>
-                    <span className={`text-[11px] ${isDarkMode && !isPrinting ? 'text-red-400' : 'text-red-700'} uppercase tracking-wider font-bold mb-3 block border-b border-red-200/20 pb-1`}>Rejection</span>
+                  <div className={`${isDarkMode ? 'bg-[#0f172a]/80 border-red-500/10' : 'bg-white border-red-200 border'} rounded-xl p-4 shadow-inner relative overflow-hidden`}>
+                    <span className={`text-[11px] ${isDarkMode ? 'text-red-400' : 'text-red-600'} uppercase tracking-wider font-bold mb-3 block border-b border-red-200/20 pb-1`}>Rejection</span>
                     <div className="space-y-2">
-                      <div className="flex justify-between items-end"><span className={`text-[12px] ${subTextClass}`}>Jumlah Unit</span><span className={`text-sm font-mono font-bold ${isDarkMode && !isPrinting ? 'text-white' : 'text-black'}`}>{formatNum(parseFloat(mockMatrixDataF['TOTAL']?.['rej_tot_dec']) || 0)}</span></div>
-                      <div className="flex justify-between items-end"><span className={`text-[12px] ${subTextClass}`}>Finansial</span><span className={`text-base font-mono font-black ${isDarkMode && !isPrinting ? 'text-red-500' : 'text-red-700'}`}>{formatRp((parseFloat(mockMatrixDataF['TOTAL']?.['rej_tot_dec']) || 0) * 6500)}</span></div>
+                      <div className="flex justify-between items-end"><span className={`text-[12px] ${subTextClass}`}>Jumlah Unit</span><span className={`text-sm font-mono font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{formatNum(parseFloat(mockMatrixDataF['TOTAL']?.['rej_tot_dec']) || 0)}</span></div>
+                      <div className="flex justify-between items-end"><span className={`text-[12px] ${subTextClass}`}>Finansial</span><span className={`text-base font-mono font-black ${isDarkMode ? 'text-red-500' : 'text-red-700'}`}>{formatRp((parseFloat(mockMatrixDataF['TOTAL']?.['rej_tot_dec']) || 0) * 6500)}</span></div>
                     </div>
                   </div>
                 </div>
-                <div className={`${isDarkMode && !isPrinting ? 'bg-red-950/40 border-red-500/30' : 'bg-red-100 border-red-300 border-t-2'} px-6 py-4 flex justify-between items-center`}>
-                   <span className={`text-[13px] font-black ${isDarkMode && !isPrinting ? 'text-red-400' : 'text-red-800'} uppercase tracking-widest`}>Total Potential Loss (F)</span>
-                   <span className={`text-2xl font-black font-mono ${isDarkMode && !isPrinting ? 'text-red-500' : 'text-red-800'}`}>{formatRp(totalFinLossF)}</span>
+                <div className={`${isDarkMode ? 'bg-red-950/40 border-red-500/30' : 'bg-red-100 border-red-300 border-t'} px-6 py-4 flex justify-between items-center`}>
+                   <span className={`text-[13px] font-black ${isDarkMode ? 'text-red-400' : 'text-red-800'} uppercase tracking-widest`}>Total Potential Loss (F)</span>
+                   <span className={`text-2xl font-black font-mono ${isDarkMode ? 'text-red-500' : 'text-red-700'}`}>{formatRp(totalFinLossF)}</span>
                 </div>
               </div>
             </div>
