@@ -98,7 +98,7 @@ const TimeInputBlock = ({ title, prefix, formData, handleChange, subtotal, theme
     );
 };
 
-// --- KOMPONEN UI TABEL ZONE C (DENGAN STRUKTUR HEADER YANG DIPERBAIKI) ---
+// --- KOMPONEN UI TABEL ZONE C (FREEZE TANGGAL, BATCH, STATUS, AKSI) ---
 const HistoryTableC = ({ data, refresh, onEdit, onDelete, isLoading, theme }) => {
     const isDark = theme === 'dark';
     const [filterStartDate, setFilterStartDate] = useState("");
@@ -127,15 +127,15 @@ const HistoryTableC = ({ data, refresh, onEdit, onDelete, isLoading, theme }) =>
     const stBgTh = isDark ? 'bg-slate-900' : 'bg-slate-200';
     const stBgTd = isDark ? 'bg-slate-800' : 'bg-slate-50';
 
-    // PENGUNCIAN LEBAR STICKY COLUMNS SECARA MUTLAK (Mencegah Overlapping)
+    // PENYESUAIAN STICKY (Tanggal di 0, Batch di 90px. Sisa Data Umum dilepas)
     const stickyClasses = {
         tgl:   `sticky left-0 z-20 w-[90px] min-w-[90px] max-w-[90px] ${stBgTd}`,
-        batch: `sticky left-[90px] z-20 w-[90px] min-w-[90px] max-w-[90px] ${stBgTd}`,
-        shift: `sticky left-[180px] z-20 w-[60px] min-w-[60px] max-w-[60px] ${stBgTd}`,
-        grup:  `sticky left-[240px] z-20 w-[60px] min-w-[60px] max-w-[60px] ${stBgTd}`,
-        blow:  `sticky left-[300px] z-20 w-[80px] min-w-[80px] max-w-[80px] ${stBgTd}`,
-        vol:   `sticky left-[380px] z-20 w-[80px] min-w-[80px] max-w-[80px] ${stBgTd}`,
-        status:`sticky right-[80px] z-20 w-[85px] min-w-[85px] max-w-[85px] ${stBgTd}`,
+        batch: `sticky left-[90px] z-20 w-[90px] min-w-[90px] max-w-[90px] shadow-[2px_0_5px_rgba(0,0,0,0.15)] ${stBgTd}`,
+        shift: `w-[60px] min-w-[60px] max-w-[60px] ${stBgTd}`,
+        grup:  `w-[60px] min-w-[60px] max-w-[60px] ${stBgTd}`,
+        blow:  `w-[80px] min-w-[80px] max-w-[80px] ${stBgTd}`,
+        vol:   `w-[80px] min-w-[80px] max-w-[80px] ${stBgTd}`,
+        status:`sticky right-[80px] z-20 w-[85px] min-w-[85px] max-w-[85px] shadow-[-2px_0_5px_rgba(0,0,0,0.15)] ${stBgTd}`,
         aksi:  `sticky right-0 z-20 w-[80px] min-w-[80px] max-w-[80px] ${stBgTd}`
     };
 
@@ -146,7 +146,7 @@ const HistoryTableC = ({ data, refresh, onEdit, onDelete, isLoading, theme }) =>
     const TableContent = (
         <div className={`flex flex-col w-full h-full relative ${isFullView ? 'bg-[#0B1120]' : `rounded-2xl shadow-2xl overflow-hidden border ${bColor}`}`}>
             
-            {/* Header Kontrol (Tanpa Chart & PDF) */}
+            {/* Header Kontrol */}
             <div className={`p-3 border-b flex justify-between items-center ${bColor} ${isDark ? 'bg-slate-800' : 'bg-slate-100'}`}>
                 <div className="flex items-center gap-3">
                     <h3 className={`font-bold flex items-center gap-2 text-xs uppercase ${isDark ? 'text-white' : 'text-slate-800'}`}><Database size={14} className="text-blue-500"/> Monitoring C</h3>
@@ -182,11 +182,11 @@ const HistoryTableC = ({ data, refresh, onEdit, onDelete, isLoading, theme }) =>
                 <div className="overflow-auto w-full h-full custom-scrollbar">
                     <table className="w-full border-collapse border-hidden">
                         <thead className="sticky top-0 z-40 shadow-xl">
-                            {/* Baris 1: Header Grup yang Sudah Dipecah Sesuai Permintaan */}
+                            {/* Baris 1: Header */}
                             <tr>
                                 <ThGroup rowSpan={2} className={`sticky left-0 z-50 w-[90px] min-w-[90px] max-w-[90px] ${stBgTh} ${isDark?'text-white':'text-slate-800'}`}>Tanggal</ThGroup>
-                                <ThGroup rowSpan={2} className={`sticky left-[90px] z-50 w-[90px] min-w-[90px] max-w-[90px] ${stBgTh} ${isDark?'text-white':'text-slate-800'}`}>Batch</ThGroup>
-                                <ThGroup colSpan={4} className={`sticky left-[180px] z-50 w-[280px] min-w-[280px] max-w-[280px] ${isDark ? 'bg-slate-800 text-white' : 'bg-slate-200 text-slate-800'}`}>Data Umum</ThGroup>
+                                <ThGroup rowSpan={2} className={`sticky left-[90px] z-50 w-[90px] min-w-[90px] max-w-[90px] shadow-[2px_0_5px_rgba(0,0,0,0.15)] ${stBgTh} ${isDark?'text-white':'text-slate-800'}`}>Batch</ThGroup>
+                                <ThGroup colSpan={4} className={`w-[280px] min-w-[280px] max-w-[280px] ${isDark ? 'bg-slate-800 text-white' : 'bg-slate-200 text-slate-800'}`}>Data Umum</ThGroup>
                                 
                                 <ThGroup colSpan={6} className={isDark ? 'bg-emerald-900/60 text-emerald-200' : 'bg-emerald-200 text-emerald-900'}>Counter Filling</ThGroup>
                                 <ThGroup colSpan={7} className={isDark ? 'bg-red-900/60 text-red-200' : 'bg-red-200 text-red-900'}>Reject Filling</ThGroup>
@@ -200,15 +200,15 @@ const HistoryTableC = ({ data, refresh, onEdit, onDelete, isLoading, theme }) =>
                                 <ThGroup colSpan={1} className={isDark ? 'bg-fuchsia-900/60 text-fuchsia-200' : 'bg-fuchsia-200 text-fuchsia-900'}>Total Prep + Clearance Time</ThGroup>
                                 <ThGroup colSpan={2} className={isDark ? 'bg-orange-900/60 text-orange-200' : 'bg-orange-200 text-orange-900'}>Jeda Antar Batch</ThGroup>
                                 
-                                <ThGroup rowSpan={2} className={`sticky right-[80px] z-50 w-[85px] min-w-[85px] max-w-[85px] ${stBgTh} ${isDark?'text-white':'text-slate-800'}`}>Status</ThGroup>
+                                <ThGroup rowSpan={2} className={`sticky right-[80px] z-50 w-[85px] min-w-[85px] max-w-[85px] shadow-[-2px_0_5px_rgba(0,0,0,0.15)] ${stBgTh} ${isDark?'text-white':'text-slate-800'}`}>Status</ThGroup>
                                 <ThGroup rowSpan={2} className={`sticky right-0 z-50 w-[80px] min-w-[80px] max-w-[80px] ${stBgTh} ${isDark ? 'text-yellow-500' : 'text-orange-600'}`}>Aksi</ThGroup>
                             </tr>
                             {/* Baris 2: Sub Headers */}
                             <tr>
-                                <Th className={`sticky left-[180px] z-50 w-[60px] min-w-[60px] max-w-[60px] ${stBgTh}`}>Shift</Th>
-                                <Th className={`sticky left-[240px] z-50 w-[60px] min-w-[60px] max-w-[60px] ${stBgTh}`}>Grup</Th>
-                                <Th className={`sticky left-[300px] z-50 w-[80px] min-w-[80px] max-w-[80px] ${stBgTh}`}>Rej Blow</Th>
-                                <Th className={`sticky left-[380px] z-50 w-[80px] min-w-[80px] max-w-[80px] ${stBgTh}`}>Volume</Th>
+                                <Th className={`w-[60px] min-w-[60px] max-w-[60px] ${stBgTh}`}>Shift</Th>
+                                <Th className={`w-[60px] min-w-[60px] max-w-[60px] ${stBgTh}`}>Grup</Th>
+                                <Th className={`w-[80px] min-w-[80px] max-w-[80px] ${stBgTh}`}>Rej Blow</Th>
+                                <Th className={`w-[80px] min-w-[80px] max-w-[80px] ${stBgTh}`}>Volume</Th>
                                 
                                 <Th className={isDark?'bg-emerald-900/30':'bg-emerald-100'}>Start</Th><Th className={isDark?'bg-emerald-900/30':'bg-emerald-100'}>End</Th><Th className={`${isDark?'bg-emerald-900/30':'bg-emerald-100'} font-bold`}>Sub Cnt</Th><Th className={isDark?'bg-emerald-900/30':'bg-emerald-100'}>Utuh?</Th><Th className={isDark?'bg-emerald-900/30':'bg-emerald-100'}>Jml Btc</Th><Th className={`${isDark?'bg-emerald-900/30':'bg-emerald-100'} font-bold`}>Tot Cnt</Th>
                                 <Th className={isDark?'bg-red-900/30':'bg-red-100'}>Wash</Th><Th className={isDark?'bg-red-900/30':'bg-red-100'}>VK</Th><Th className={isDark?'bg-red-900/30':'bg-red-100'}>VL</Th><Th className={isDark?'bg-red-900/30':'bg-red-100'}>No Cap</Th><Th className={isDark?'bg-red-900/30':'bg-red-100'}>Seal</Th><Th className={isDark?'bg-red-900/30':'bg-red-100'}>Oth</Th><Th className={`${isDark?'bg-red-900/30':'bg-red-100'} font-bold`}>Sub Rej</Th>
@@ -489,7 +489,7 @@ const InputRejectC = () => {
                     <div className="flex items-center gap-4">
                         <button type="button" onClick={() => navigate('/foreman/tactical-input')} className={`p-2.5 rounded-xl transition-all active:scale-95 border ${theme === 'dark' ? 'bg-slate-800 border-white/5 text-slate-300' : 'bg-white border-slate-300 text-slate-600 shadow-sm'}`}><ArrowLeft size={20}/></button>
                         <div>
-                            <h1 className="text-xl font-black tracking-tight flex items-center gap-2">REJECT ZONE <span className="text-blue-500">C</span></h1>
+                            <h1 className="text-xl font-black tracking-tight flex items-center gap-2">INPUT DATA KELAS <span className="text-blue-500">C</span></h1>
                             <div className="flex items-center gap-2">
                                 {isEditing ? <span className="text-[10px] font-bold bg-yellow-500 text-black px-2 py-0.5 rounded animate-pulse">MODE EDITING</span> : <><span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span><span className={`text-[10px] font-mono uppercase tracking-widest ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>System Online</span></>}
                             </div>

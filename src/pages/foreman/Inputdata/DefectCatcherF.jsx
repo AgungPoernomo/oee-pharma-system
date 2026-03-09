@@ -101,6 +101,7 @@ const TimeInputBlock = ({ title, prefix, formData, handleChange, subtotal, theme
 };
 
 // --- KOMPONEN UI TABEL ZONE F ---
+// --- KOMPONEN UI TABEL ZONE F (FREEZE TANGGAL, BATCH, STATUS, AKSI) ---
 const HistoryTableF = ({ data, refresh, onEdit, onDelete, isLoading, theme }) => {
     const isDark = theme === 'dark';
     
@@ -132,14 +133,15 @@ const HistoryTableF = ({ data, refresh, onEdit, onDelete, isLoading, theme }) =>
     const stBgTh = isDark ? 'bg-slate-900' : 'bg-slate-200';
     const stBgTd = isDark ? 'bg-slate-800' : 'bg-slate-50';
 
+    // PENYESUAIAN STICKY (Tanggal di 0, Batch di 85px. Sisa Data Umum dilepas)
     const stickyClasses = {
         tgl:   `sticky left-0 z-20 min-w-[85px] max-w-[85px] ${stBgTd}`,
-        batch: `sticky left-[85px] z-20 min-w-[85px] max-w-[85px] ${stBgTd}`,
-        lot:   `sticky left-[170px] z-20 min-w-[85px] max-w-[85px] ${stBgTd}`,
-        shift: `sticky left-[255px] z-20 min-w-[50px] max-w-[50px] ${stBgTd}`,
-        grup:  `sticky left-[305px] z-20 min-w-[50px] max-w-[50px] ${stBgTd}`,
-        vol:   `sticky left-[355px] z-20 min-w-[70px] max-w-[70px] ${stBgTd}`,
-        status:`sticky right-[70px] z-20 min-w-[75px] max-w-[75px] ${stBgTd}`,
+        batch: `sticky left-[85px] z-20 min-w-[85px] max-w-[85px] shadow-[2px_0_5px_rgba(0,0,0,0.15)] ${stBgTd}`,
+        lot:   `min-w-[85px] max-w-[85px] ${stBgTd}`,
+        shift: `min-w-[50px] max-w-[50px] ${stBgTd}`,
+        grup:  `min-w-[50px] max-w-[50px] ${stBgTd}`,
+        vol:   `min-w-[70px] max-w-[70px] ${stBgTd}`,
+        status:`sticky right-[70px] z-20 min-w-[75px] max-w-[75px] shadow-[-2px_0_5px_rgba(0,0,0,0.15)] ${stBgTd}`,
         aksi:  `sticky right-0 z-20 min-w-[70px] max-w-[70px] ${stBgTd}`
     };
 
@@ -189,9 +191,13 @@ const HistoryTableF = ({ data, refresh, onEdit, onDelete, isLoading, theme }) =>
                     <table className="w-full border-collapse border-hidden">
                         <thead className="sticky top-0 z-40 shadow-xl">
                             <tr>
-                                <ThGroup rowSpan={2} className={`sticky left-0 z-40 ${stBgTh} ${isDark?'text-white':'text-slate-800'}`}>Tanggal</ThGroup>
-                                <ThGroup rowSpan={2} className={`sticky left-[85px] z-40 ${stBgTh} ${isDark?'text-white':'text-slate-800'}`}>Batch</ThGroup>
-                                <ThGroup colSpan={4} className={`sticky left-[170px] z-40 ${isDark ? 'bg-slate-800 text-white' : 'bg-slate-200 text-slate-800'}`}>Data Umum</ThGroup>
+                                {/* TANGGAL & BATCH SAJA YANG STICKY */}
+                                <ThGroup rowSpan={2} className={`sticky left-0 z-40 w-[85px] min-w-[85px] max-w-[85px] ${stBgTh} ${isDark?'text-white':'text-slate-800'}`}>Tanggal</ThGroup>
+                                <ThGroup rowSpan={2} className={`sticky left-[85px] z-40 w-[85px] min-w-[85px] max-w-[85px] shadow-[2px_0_5px_rgba(0,0,0,0.15)] ${stBgTh} ${isDark?'text-white':'text-slate-800'}`}>Batch</ThGroup>
+                                
+                                {/* SISA DATA UMUM DILEPAS (Lot, Shift, Grup, Vol) */}
+                                <ThGroup colSpan={4} className={`w-[255px] min-w-[255px] max-w-[255px] ${isDark ? 'bg-slate-800 text-white' : 'bg-slate-200 text-slate-800'}`}>Data Umum</ThGroup>
+                                
                                 <ThGroup colSpan={9} className={isDark ? 'bg-blue-900/60 text-blue-200' : 'bg-blue-200 text-blue-900'}>Output After Steril</ThGroup>
                                 <ThGroup colSpan={10} className={isDark ? 'bg-emerald-900/60 text-emerald-200' : 'bg-emerald-200 text-emerald-900'}>Output Visual Inspeksi</ThGroup>
                                 <ThGroup colSpan={8} className={isDark ? 'bg-teal-900/60 text-teal-200' : 'bg-teal-200 text-teal-900'}>Output Packaging</ThGroup>
@@ -200,17 +206,20 @@ const HistoryTableF = ({ data, refresh, onEdit, onDelete, isLoading, theme }) =>
                                 <ThGroup colSpan={13} className={isDark ? 'bg-indigo-900/60 text-indigo-200' : 'bg-indigo-200 text-indigo-900'}>Process Details</ThGroup>
                                 <ThGroup rowSpan={2} className={`${isDark ? 'bg-orange-900/60 text-orange-200' : 'bg-orange-200 text-orange-900'}`}>Total Prep+Clear</ThGroup>
                                 <ThGroup colSpan={2} className={isDark ? 'bg-red-900/60 text-red-200' : 'bg-red-200 text-red-900'}>Jeda Antar Batch</ThGroup>
-                                <ThGroup rowSpan={2} className={`sticky right-[70px] z-40 ${stBgTh} ${isDark?'text-white':'text-slate-800'}`}>Status</ThGroup>
-                                <ThGroup rowSpan={2} className={`sticky right-0 z-40 ${stBgTh} ${isDark ? 'text-yellow-500' : 'text-orange-600'}`}>Aksi</ThGroup>
+                                
+                                <ThGroup rowSpan={2} className={`sticky right-[70px] z-40 w-[75px] min-w-[75px] max-w-[75px] shadow-[-2px_0_5px_rgba(0,0,0,0.15)] ${stBgTh} ${isDark?'text-white':'text-slate-800'}`}>Status</ThGroup>
+                                <ThGroup rowSpan={2} className={`sticky right-0 z-40 w-[70px] min-w-[70px] max-w-[70px] ${stBgTh} ${isDark ? 'text-yellow-500' : 'text-orange-600'}`}>Aksi</ThGroup>
                             </tr>
                             <tr>
-                                <Th className={`sticky left-[170px] z-40 ${stBgTh}`}>Lot No</Th>
-                                <Th className={`sticky left-[255px] z-40 ${stBgTh}`}>Shift</Th>
-                                <Th className={`sticky left-[305px] z-40 ${stBgTh}`}>Grup</Th>
-                                <Th className={`sticky left-[355px] z-40 ${stBgTh}`}>Volume</Th>
+                                {/* Dilepas kelas sticky-nya */}
+                                <Th className={`w-[85px] min-w-[85px] max-w-[85px] ${stBgTh}`}>Lot No</Th>
+                                <Th className={`w-[50px] min-w-[50px] max-w-[50px] ${stBgTh}`}>Shift</Th>
+                                <Th className={`w-[50px] min-w-[50px] max-w-[50px] ${stBgTh}`}>Grup</Th>
+                                <Th className={`w-[70px] min-w-[70px] max-w-[70px] ${stBgTh}`}>Volume</Th>
+                                
                                 <Th className={isDark ? 'bg-blue-900/30' : 'bg-blue-100'}>In</Th><Th className={`${isDark ? 'bg-blue-900/30' : 'bg-blue-100'} text-red-500`}>Bocor</Th><Th className={`${isDark ? 'bg-blue-900/30' : 'bg-blue-100'} text-red-500`}>Pt Ring</Th><Th className={`${isDark ? 'bg-blue-900/30' : 'bg-blue-100'} text-red-500`}>Pt Ldh</Th><Th className={`${isDark ? 'bg-blue-900/30' : 'bg-blue-100'} text-red-500`}>Pt Llh</Th><Th className={`${isDark ? 'bg-blue-900/30' : 'bg-blue-100'} text-red-500`}>No Hng</Th><Th className={`${isDark ? 'bg-blue-900/30' : 'bg-blue-100'} text-red-500 font-bold`}>Rej Tot</Th><Th className={isDark ? 'bg-blue-900/30' : 'bg-blue-100'}>Samp</Th><Th className={`${isDark ? 'bg-blue-900/30' : 'bg-blue-100'} font-bold`}>Out</Th>
                                 <Th className={isDark ? 'bg-emerald-900/30' : 'bg-emerald-100'}>Start</Th><Th className={isDark ? 'bg-emerald-900/30' : 'bg-emerald-100'}>End</Th><Th className={`${isDark ? 'bg-emerald-900/30' : 'bg-emerald-100'} font-bold`}>Sub In</Th><Th className={`${isDark ? 'bg-emerald-900/30' : 'bg-emerald-100'} font-bold`}>Tot In</Th><Th className={`${isDark ? 'bg-emerald-900/30' : 'bg-emerald-100'} text-red-500`}>Prtkl</Th><Th className={`${isDark ? 'bg-emerald-900/30' : 'bg-emerald-100'} text-red-500`}>Kotik</Th><Th className={`${isDark ? 'bg-emerald-900/30' : 'bg-emerald-100'} text-red-500 font-bold`}>Tot Rej</Th><Th className={isDark ? 'bg-emerald-900/30' : 'bg-emerald-100'}>Baik</Th><Th className={isDark ? 'bg-emerald-900/30' : 'bg-emerald-100'}>Samp</Th><Th className={`${isDark ? 'bg-emerald-900/30' : 'bg-emerald-100'} font-bold`}>TF Pack</Th>
-                                <Th className={isDark ? 'bg-teal-900/30' : 'bg-teal-100'} text-red-500>Rej</Th><Th className={isDark ? 'bg-teal-900/30' : 'bg-teal-100'}>Baik</Th><Th className={isDark ? 'bg-teal-900/30' : 'bg-teal-100'}>S QC</Th><Th className={isDark ? 'bg-teal-900/30' : 'bg-teal-100'}>S Oth</Th><Th className={`${isDark ? 'bg-teal-900/30' : 'bg-teal-100'} font-bold`}>FG</Th><Th className={isDark ? 'bg-teal-900/30' : 'bg-teal-100'}>Utuh?</Th><Th className={isDark ? 'bg-teal-900/30' : 'bg-teal-100'}>Jml Btc</Th><Th className={`${isDark ? 'bg-teal-900/30' : 'bg-teal-100'} font-bold`}>Tot FG</Th>
+                                <Th className={`${isDark ? 'bg-teal-900/30' : 'bg-teal-100'} text-red-500`}>Rej</Th><Th className={isDark ? 'bg-teal-900/30' : 'bg-teal-100'}>Baik</Th><Th className={isDark ? 'bg-teal-900/30' : 'bg-teal-100'}>S QC</Th><Th className={isDark ? 'bg-teal-900/30' : 'bg-teal-100'}>S Oth</Th><Th className={`${isDark ? 'bg-teal-900/30' : 'bg-teal-100'} font-bold`}>FG</Th><Th className={isDark ? 'bg-teal-900/30' : 'bg-teal-100'}>Utuh?</Th><Th className={isDark ? 'bg-teal-900/30' : 'bg-teal-100'}>Jml Btc</Th><Th className={`${isDark ? 'bg-teal-900/30' : 'bg-teal-100'} font-bold`}>Tot FG</Th>
                                 <Th className={isDark ? 'bg-yellow-900/30' : 'bg-yellow-100'}>% Btc</Th><Th className={`${isDark ? 'bg-yellow-900/30' : 'bg-yellow-100'} font-bold`}>AVG Shf</Th>
                                 <Th className={isDark ? 'bg-slate-800' : 'bg-slate-200'}>Start</Th><Th className={isDark ? 'bg-slate-800' : 'bg-slate-200'}>End</Th><Th className={isDark ? 'bg-slate-800' : 'bg-slate-200'}>Sub</Th><Th className={`${isDark ? 'bg-slate-800' : 'bg-slate-200'} font-bold`}>Tot Avl</Th>
                                 <Th className={isDark ? 'bg-indigo-900/30' : 'bg-indigo-100'}>P Start</Th><Th className={isDark ? 'bg-indigo-900/30' : 'bg-indigo-100'}>P End</Th><Th className={`${isDark ? 'bg-indigo-900/30' : 'bg-indigo-100'}`}>P Sub</Th><Th className={isDark ? 'bg-indigo-900/30' : 'bg-indigo-100'}>R Start</Th><Th className={isDark ? 'bg-indigo-900/30' : 'bg-indigo-100'}>R End</Th><Th className={`${isDark ? 'bg-indigo-900/30' : 'bg-indigo-100'}`}>R Sub</Th><Th className={isDark ? 'bg-indigo-900/30' : 'bg-indigo-100'}>W Start</Th><Th className={isDark ? 'bg-indigo-900/30' : 'bg-indigo-100'}>W End</Th><Th className={`${isDark ? 'bg-indigo-900/30' : 'bg-indigo-100'}`}>W Sub</Th><Th className={isDark ? 'bg-indigo-900/30' : 'bg-indigo-100'}>C Start</Th><Th className={isDark ? 'bg-indigo-900/30' : 'bg-indigo-100'}>C End</Th><Th className={isDark ? 'bg-indigo-900/30' : 'bg-indigo-100'}>C Sub</Th><Th className={`${isDark ? 'bg-indigo-900/30' : 'bg-indigo-100'} font-bold`}>Tot Pro</Th>
@@ -265,7 +274,7 @@ const HistoryTableF = ({ data, refresh, onEdit, onDelete, isLoading, theme }) =>
             )}
         </div>
     );
-
+    
     if (isFullView) {
         return (
             <AnimatePresence>
@@ -477,7 +486,7 @@ const InputRejectF = () => {
                     <div className="flex items-center gap-4">
                         <button type="button" onClick={() => navigate('/foreman/tactical-input')} className={`p-2.5 rounded-xl transition-all active:scale-95 border ${theme === 'dark' ? 'bg-slate-800 border-white/5 text-slate-300' : 'bg-white border-slate-300 text-slate-600 shadow-sm'}`}><ArrowLeft size={20}/></button>
                         <div>
-                            <h1 className="text-xl font-black tracking-tight flex items-center gap-2">REJECT ZONE <span className="text-purple-500">F</span></h1>
+                            <h1 className="text-xl font-black tracking-tight flex items-center gap-2">INPUT DATA KELAS <span className="text-purple-500">F</span></h1>
                             <div className="flex items-center gap-2">
                                 {isEditing ? <span className="text-[10px] font-bold bg-yellow-500 text-black px-2 py-0.5 rounded animate-pulse">MODE EDITING</span> : <><span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span><span className={`text-[10px] font-mono uppercase tracking-widest ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>System Online</span></>}
                             </div>

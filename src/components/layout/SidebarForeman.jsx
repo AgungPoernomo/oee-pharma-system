@@ -61,9 +61,10 @@ const SidebarForeman = ({ isOpen, onClose }) => {
             {/* 1. BRANDING LOGO */}
             <div className="flex items-center justify-between mb-5">
                <div className="flex items-center gap-3">
-                   <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-800 rounded-xl flex items-center justify-center shadow-[0_0_15px_rgba(37,99,235,0.4)] border border-blue-400/20">
-                      <Hexagon className="text-white fill-white/10" size={20} strokeWidth={2.5}/>
-                   </div>
+                   <div className="w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center shadow-[0_0_15px_rgba(37,99,235,0.4)] border border-blue-400/20 bg-white">
+                      {/* Panggil logo dari folder public */}
+                      <img src="/logo-perusahaan.png" alt="Logo Perusahaan" className="w-full h-full object-contain p-1" />
+                    </div>
                    <div>
                       <h1 className={`text-lg font-black tracking-tight leading-none ${textMain}`}>OEE PRO</h1>
                       <p className="text-[9px] font-bold text-blue-500 tracking-[0.2em] uppercase mt-1">Foreman Mode</p>
