@@ -1,7 +1,7 @@
-import React, { useState, Suspense } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import React, { useState, Suspense, useEffect, useRef } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
-import { Menu, Hexagon, Loader2 } from 'lucide-react';
+import { Menu, Loader2 } from 'lucide-react';
 
 // --- 1. LAYOUT COMPONENTS ---
 import SidebarForeman from "./components/layout/SidebarForeman";
@@ -93,6 +93,62 @@ const RequireAdmin = ({ children }) => {
   return isAdmin ? children : <Navigate to="/foreman/tactical-input" replace />;
 };
 
+// --- SESSION GUARD (AUTO LOGOUT JIKA IDLE/AFK) ---
+const SessionGuard = () => {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const idleTimerRef = useRef(null);
+
+  // Waktu maksimal user diam (Misal: 15 menit)
+  // 15 menit * 60 detik * 1000 milidetik
+  const IDLE_TIMEOUT = 15 * 60 * 1000; 
+  // Catatan: Untuk keperluan uji coba/testing sekarang, Anda bisa ubah menjadi 10 * 1000 (10 detik) saja.
+
+  useEffect(() => {
+    // Jika tidak ada user yang login, matikan sistem pantau
+    if (!user) return; 
+
+    // Fungsi eksekusi tendang user
+    const forceLogout = () => {
+      logout();
+      navigate('/access-portal', { replace: true });
+      // Munculkan peringatan (menahan layar sampai user klik OK)
+      alert("⚠️ SESI BERAKHIR\n\nSistem mengamankan akun Anda karena tidak ada aktivitas selama 15 menit. Silakan Login kembali.");
+    };
+
+    let lastActivity = Date.now();
+
+    // Fungsi me-reset hitung mundur
+    const resetTimer = () => {
+      const now = Date.now();
+      // Throttle: Cegah reset berkali-kali dalam 1 detik yang sama agar tidak lag
+      if (now - lastActivity < 1000) return; 
+      lastActivity = now;
+
+      // Hapus bom waktu lama, pasang bom waktu baru
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+      idleTimerRef.current = setTimeout(forceLogout, IDLE_TIMEOUT);
+    };
+
+    // Daftar aktivitas yang dianggap "User Masih Hidup/Aktif"
+    const events = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll'];
+    
+    // Pasang telinga ke layar untuk mendengarkan aktivitas di atas
+    events.forEach(event => window.addEventListener(event, resetTimer));
+    
+    // Mulai hitung mundur sejak pertama kali komponen dimuat
+    resetTimer();
+
+    // Cleanup: Bersihkan telinga dan bom waktu saat user manual logout
+    return () => {
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+      events.forEach(event => window.removeEventListener(event, resetTimer));
+    };
+  }, [user, logout, navigate]);
+
+  return null; // Komponen siluman tidak merender UI apapun
+};
+
 // --- 5. ROUTING CONFIGURATION ---
 const App = () => {
   const { user } = useAuth();
@@ -107,6 +163,7 @@ const App = () => {
 
   return (
     <Router>
+      <SessionGuard /> 
       <Routes>
         
         {/* PUBLIC ROUTE: Login Page */}
