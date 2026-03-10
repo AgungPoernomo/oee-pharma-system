@@ -47,13 +47,15 @@ const SidebarForeman = ({ isOpen, onClose }) => {
   
   const footerBg = isDark ? 'bg-[#0B1120] border-white/5' : 'bg-slate-100 border-slate-300';
 
-  return (
+    return (
     <>
       <AnimatePresence>
-        {isOpen && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className={`fixed inset-0 z-40 lg:hidden backdrop-blur-sm ${isDark ? 'bg-black/80' : 'bg-slate-900/40'}`} />}
+        {/* 1. UBAH z-40 MENJADI z-[90] */}
+        {isOpen && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className={`fixed inset-0 z-[90] lg:hidden backdrop-blur-sm ${isDark ? 'bg-black/80' : 'bg-slate-900/40'}`} />}
       </AnimatePresence>
 
-      <aside className={`fixed top-0 left-0 z-50 h-screen w-[280px] shadow-2xl flex flex-col font-sans transition-transform duration-300 ease-in-out lg:static lg:translate-x-0 ${isOpen ? 'translate-x-0' : '-translate-x-full'} ${bgSidebar}`}>
+      {/* 2. UBAH z-50 MENJADI z-[100] */}
+      <aside className={`fixed top-0 left-0 z-[100] h-screen w-[280px] shadow-2xl flex flex-col font-sans transition-transform duration-300 ease-in-out lg:static lg:translate-x-0 ${isOpen ? 'translate-x-0' : '-translate-x-full'} ${bgSidebar}`}>
          
          {/* HEADER SIDEBAR (BRANDING, PROFILE, & WORKSTATION INFO) */}
          <div className={`relative z-10 px-5 pt-8 pb-5 border-b bg-gradient-to-b ${bgHeader}`}>

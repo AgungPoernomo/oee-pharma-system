@@ -507,27 +507,40 @@ const DailyOnesheet = () => {
       {/* --- AREA PRINT / DOWNLOAD --- */}
       <div ref={printRef} className={`mx-auto relative z-10 ${!isDarkMode && isPrinting ? 'bg-white' : ''} ${isPrinting ? 'w-[1600px] min-w-[1600px] p-8' : 'max-w-[1600px]'}`}>
         
-        {/* HEADER IDENTITAS - FIXED LAYOUT (Rapi saat Print) */}
+{/* HEADER IDENTITAS - RESPONSIVE & PRINT READY */}
         <div className="flex flex-col items-center justify-center mb-8 border-b border-dashed border-slate-500/30 pb-6 relative z-10 w-full">
-           <h1 className={`text-4xl font-black ${isDarkMode ? 'text-white' : 'text-slate-800'} tracking-widest mb-6`}>DAILY ONESHEET</h1>
-           <div className="flex items-center justify-center gap-12 w-full">
-              <div className="flex flex-col items-center justify-center min-w-[120px]">
-                <span className={`text-[10px] font-bold uppercase tracking-widest ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Line</span>
-                <span className={`text-xl font-black uppercase ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`}>{user?.line || 2}</span>
+           <h1 className={`text-3xl md:text-4xl font-black ${isDarkMode ? 'text-white' : 'text-slate-800'} tracking-widest mb-6 text-center`}>DAILY ONESHEET</h1>
+           
+           {/* Gunakan flex-wrap untuk mobile, dan nowrap untuk desktop/print */}
+           <div className="flex flex-row flex-wrap md:flex-nowrap items-center justify-center gap-4 md:gap-12 w-full px-2">
+              
+              {/* KOTAK 1: LINE */}
+              <div className="flex flex-col items-center justify-center flex-1 md:flex-none md:min-w-[120px]">
+                <span className={`text-[9px] md:text-[10px] font-bold uppercase tracking-widest ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Line</span>
+                <span className={`text-lg md:text-xl font-black uppercase ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`}>{user?.line || 2}</span>
               </div>
-              <div className={`w-px h-10 ${isDarkMode ? 'bg-slate-700' : 'bg-slate-300'}`}></div>
-              <div className="flex flex-col items-center justify-center min-w-[150px]">
-                <span className={`text-[10px] font-bold uppercase tracking-widest ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Tanggal</span>
-                <span className={`text-xl font-black font-mono ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`}>{activeDate}</span>
+              
+              {/* GARIS PEMBATAS 1 (Sembunyi di HP, Tampil di Desktop/Print) */}
+              <div className={`hidden md:block w-px h-10 ${isDarkMode ? 'bg-slate-700' : 'bg-slate-300'}`}></div>
+              
+              {/* KOTAK 2: TANGGAL */}
+              <div className={`flex flex-col items-center justify-center flex-1 md:flex-none md:min-w-[150px] border-l border-r md:border-none px-2 md:px-0 ${isDarkMode ? 'border-slate-700' : 'border-slate-300'}`}>
+                <span className={`text-[9px] md:text-[10px] font-bold uppercase tracking-widest ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Tanggal</span>
+                <span className={`text-lg md:text-xl font-black font-mono ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`}>{activeDate}</span>
               </div>
-              <div className={`w-px h-10 ${isDarkMode ? 'bg-slate-700' : 'bg-slate-300'}`}></div>
-              <div className="flex flex-col items-center justify-center min-w-[150px]">
-                <span className={`text-[10px] font-bold uppercase tracking-widest ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Volume</span>
-                <span className={`text-xl font-black ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`}>{activeVolume}</span>
+              
+              {/* GARIS PEMBATAS 2 (Sembunyi di HP, Tampil di Desktop/Print) */}
+              <div className={`hidden md:block w-px h-10 ${isDarkMode ? 'bg-slate-700' : 'bg-slate-300'}`}></div>
+              
+              {/* KOTAK 3: VOLUME */}
+              <div className="flex flex-col items-center justify-center flex-1 md:flex-none md:min-w-[150px]">
+                <span className={`text-[9px] md:text-[10px] font-bold uppercase tracking-widest ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Volume</span>
+                <span className={`text-lg md:text-xl font-black ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`}>{activeVolume}</span>
               </div>
+
            </div>
         </div>
-
+        
         <div className={`grid gap-8 relative z-10 ${isPrinting ? 'grid-cols-2' : 'grid-cols-1 xl:grid-cols-2'}`}>
           
           {/* =========================================

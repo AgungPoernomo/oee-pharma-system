@@ -46,10 +46,10 @@ const ForemanLayout = ({ children }) => {
       <div className="flex-1 flex flex-col h-screen overflow-hidden relative w-full">
          <header className="lg:hidden bg-[#0f172a]/95 backdrop-blur-md text-white p-4 flex items-center justify-between shadow-lg z-30 shrink-0 border-b border-white/10 sticky top-0">
             <div className="flex items-center gap-3">
-               <div className="w-9 h-9 bg-gradient-to-br from-blue-600 to-blue-800 rounded-xl flex items-center justify-center shadow-md border border-white/10">
-                  <Hexagon size={18} className="text-white fill-white/20"/>
-               </div>
-               <div className="flex flex-col">
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center shadow-md border border-white/10 bg-white overflow-hidden shrink-0">
+                <img src="/logo-perusahaan.png" alt="Logo" className="w-full h-full object-contain p-0.5" />
+                </div>
+                 <div className="flex flex-col">
                   <span className="font-black text-sm tracking-tight leading-none text-white">OEE PRO</span>
                   <span className="text-[9px] font-bold text-blue-400 tracking-widest uppercase mt-0.5">Foreman Mode</span>
                </div>
