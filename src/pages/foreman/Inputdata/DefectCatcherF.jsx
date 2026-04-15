@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { submitOEEData, fetchTodayRejectF } from '../../../services/api'; 
-import { Save, Database, Activity, Clock, Info, ChevronDown, RefreshCw, Flag, ArrowLeft, Layers, AlertOctagon, Loader2, Package, FileEdit, Trash2, XCircle, Sun, Moon, Maximize, Calendar } from 'lucide-react';
+import { Save, Database, Activity, Clock, Info, ChevronDown, RefreshCw, Flag, ArrowLeft, Layers, AlertOctagon, Loader2, Package, FileEdit, Trash2, XCircle, Maximize, Calendar, Plus, Download, ShoppingCart, Send } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast, { Toaster } from 'react-hot-toast';
 
@@ -12,6 +12,22 @@ const GROUPS = ["A", "B", "C", "D"];
 const VOLUMES = ["25 ML", "100 ML", "250 ML", "500 ML", "1000 ML"];
 const TEORI_BATCH = { "25 ML": 29412, "100 ML": 56880, "250 ML": 21509, "500 ML": 23076, "1000 ML": 60194 };
 const TEORI_YIELD = 21923;
+
+// HEADER EXCEL SESUAI DL_REJECT_F
+const EXCEL_HEADERS = [
+    "Timestamp", "User", "No Batch", "Lot No", "Tanggal", "Shift", "Group", "Volume",
+    "Steril In", "Steril Bocor", "Steril Patah Ring", "Steril Patah Lidah", "Steril Patah Leleh", "Steril No Hanger", "Steril Rej Total", "Steril Sample", "Steril Out",
+    "VI Start", "VI End", "VI Sub", "Tot VI Shift",
+    "VI Partikel", "VI Kotik", "VI Rej Total", "VI Hasil Baik", "VI Sample QC", "VI TF Packing",
+    "Pack Reject", "Pack Hasil Baik", "Pack Sample QC", "Pack Sample Oth", "Pack FG", "Pack Utuh", "Pack Jml Batch", "Tot FG Shift",
+    "Yield Batch (%)", "Avg Yield Shift (%)",
+    "Av Start H", "Av Start M", "Av End H", "Av End M", "Av Sub", "Tot Avail Shift",
+    "P Mat Start H", "P Mat Start M", "P Mat End H", "P Mat End M", "P Mat Sub",
+    "Run Start H", "Run Start M", "Run End H", "Run End M", "Run Sub",
+    "Rework Start H", "Rework Start M", "Rework End H", "Rework End M", "Rework Sub",
+    "Clear Start H", "Clear Start M", "Clear End H", "Clear End M", "Clear Sub",
+    "Total Process", "Total Prep+Clear", "Jeda Batch", "Tot Jeda Shift"
+];
 
 const parseToYMD = (val) => {
     if (!val) return new Date().toISOString().split('T')[0];
@@ -101,7 +117,6 @@ const TimeInputBlock = ({ title, prefix, formData, handleChange, subtotal, theme
 };
 
 // --- KOMPONEN UI TABEL ZONE F ---
-// --- KOMPONEN UI TABEL ZONE F (FREEZE TANGGAL, BATCH, STATUS, AKSI) ---
 const HistoryTableF = ({ data, refresh, onEdit, onDelete, isLoading, theme }) => {
     const isDark = theme === 'dark';
     
@@ -109,7 +124,6 @@ const HistoryTableF = ({ data, refresh, onEdit, onDelete, isLoading, theme }) =>
     const [filterEndDate, setFilterEndDate] = useState("");
     const [isFullView, setIsFullView] = useState(false);
 
-    // BORDER RULES (PUTIH UNTUK DARK, HITAM UNTUK BRIGHT) - GRID SEMPURNA 1PX
     const bColor = isDark ? 'border-white/30' : 'border-black/40';
 
     let processedData = data || [];
@@ -126,6 +140,35 @@ const HistoryTableF = ({ data, refresh, onEdit, onDelete, isLoading, theme }) =>
     
     if (!isFullView) processedData = processedData.slice(0, 50);
 
+    const handleDownloadExcel = () => {
+        if (!data || data.length === 0) {
+            toast.error("Tidak ada data untuk didownload");
+            return;
+        }
+
+        let csvRows = [];
+        csvRows.push(EXCEL_HEADERS.join(',')); 
+
+        data.forEach(row => {
+            const cleanRow = row.slice(0, EXCEL_HEADERS.length).map(val => {
+                let s = String(val === null || val === undefined ? "" : val);
+                return `"${s.replace(/"/g, '""')}"`;
+            });
+            csvRows.push(cleanRow.join(','));
+        });
+
+        const csvContent = csvRows.join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", `Data_Reject_F_${new Date().toISOString().split('T')[0]}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        toast.success("File Excel berhasil diunduh!");
+    };
+
     const val = (row, index) => (!row || row[index] === undefined || row[index] === null || String(row[index]).trim() === "") ? "-" : row[index];
     const formatTime = (h, m) => (h === "-" || h === "" || h == null) ? "-" : `${String(h).padStart(2, '0')}:${String(m || 0).padStart(2, '0')}`;
 
@@ -133,7 +176,6 @@ const HistoryTableF = ({ data, refresh, onEdit, onDelete, isLoading, theme }) =>
     const stBgTh = isDark ? 'bg-slate-900' : 'bg-slate-200';
     const stBgTd = isDark ? 'bg-slate-800' : 'bg-slate-50';
 
-    // PENYESUAIAN STICKY (Tanggal di 0, Batch di 85px. Sisa Data Umum dilepas)
     const stickyClasses = {
         tgl:   `sticky left-0 z-20 min-w-[85px] max-w-[85px] ${stBgTd}`,
         batch: `sticky left-[85px] z-20 min-w-[85px] max-w-[85px] shadow-[2px_0_5px_rgba(0,0,0,0.15)] ${stBgTd}`,
@@ -145,7 +187,6 @@ const HistoryTableF = ({ data, refresh, onEdit, onDelete, isLoading, theme }) =>
         aksi:  `sticky right-0 z-20 min-w-[70px] max-w-[70px] ${stBgTd}`
     };
 
-    // Sub-Komponen Grid Border (Seragam 1px)
     const ThGroup = ({ children, className="", colSpan=1, rowSpan=1 }) => <th colSpan={colSpan} rowSpan={rowSpan} className={`px-2 py-2 border ${bColor} text-center font-black text-[10px] uppercase whitespace-nowrap tracking-wider ${className}`}>{children}</th>;
     const Th = ({ children, className="" }) => <th className={`px-2 py-2 border ${bColor} text-center font-bold text-[9px] uppercase whitespace-nowrap ${className}`}>{children}</th>;
     const Td = ({ children, className="" }) => <td className={`px-2 py-2 border ${bColor} text-center font-mono text-[11px] whitespace-normal sm:whitespace-nowrap ${className}`}>{children}</td>;
@@ -153,8 +194,7 @@ const HistoryTableF = ({ data, refresh, onEdit, onDelete, isLoading, theme }) =>
     const TableContent = (
         <div className={`flex flex-col w-full h-full relative ${isFullView ? 'bg-[#0B1120]' : `rounded-2xl shadow-2xl overflow-hidden`}`}>
             
-            {/* Header Kontrol (Filter & Tombol) */}
-            <div className={`p-3 border-b flex justify-between items-center ${bColor} ${isDark ? 'bg-slate-800' : 'bg-slate-100'}`}>
+            <div className={`p-3 border-b flex flex-wrap justify-between items-center gap-2 ${bColor} ${isDark ? 'bg-slate-800' : 'bg-slate-100'}`}>
                 <div className="flex items-center gap-3">
                     <h3 className={`font-bold flex items-center gap-2 text-xs uppercase ${isDark ? 'text-white' : 'text-slate-800'}`}><Database size={14} className="text-purple-500"/> Monitoring F</h3>
                     <div className={`flex items-center gap-2 px-2 py-1 rounded-lg border ${isDark ? 'bg-[#0f172a] border-white/20' : 'bg-white border-black/20'}`}>
@@ -167,6 +207,7 @@ const HistoryTableF = ({ data, refresh, onEdit, onDelete, isLoading, theme }) =>
                 </div>
 
                 <div className="flex gap-2 items-center">
+                    <button type="button" onClick={handleDownloadExcel} className={`p-1.5 px-3 rounded flex items-center gap-1 text-[10px] font-bold border ${isDark ? 'bg-emerald-600/20 text-emerald-400 border-emerald-500/50' : 'bg-emerald-100 text-emerald-700 border-emerald-300'}`}><Download size={12}/> EXCEL</button>
                     <button type="button" onClick={refresh} className={`p-1.5 px-3 rounded transition-all flex items-center gap-1 text-[10px] active:scale-95 cursor-pointer border ${isDark ? 'bg-slate-700 hover:bg-slate-600 text-white border-white/10' : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-300 shadow-sm'}`}><RefreshCw size={12}/> REFRESH</button>
                     {isFullView ? (
                         <button type="button" onClick={() => setIsFullView(false)} className={`p-1.5 px-3 rounded transition-all flex items-center gap-1 text-[10px] active:scale-95 font-bold border ${isDark ? 'bg-orange-500/20 hover:bg-orange-500/40 text-orange-400 border-orange-500/50' : 'bg-orange-100 hover:bg-orange-200 text-orange-700 border-orange-300'}`}><ArrowLeft size={12}/> KEMBALI</button>
@@ -191,11 +232,9 @@ const HistoryTableF = ({ data, refresh, onEdit, onDelete, isLoading, theme }) =>
                     <table className="w-full border-collapse border-hidden">
                         <thead className="sticky top-0 z-40 shadow-xl">
                             <tr>
-                                {/* TANGGAL & BATCH SAJA YANG STICKY */}
                                 <ThGroup rowSpan={2} className={`sticky left-0 z-40 w-[85px] min-w-[85px] max-w-[85px] ${stBgTh} ${isDark?'text-white':'text-slate-800'}`}>Tanggal</ThGroup>
                                 <ThGroup rowSpan={2} className={`sticky left-[85px] z-40 w-[85px] min-w-[85px] max-w-[85px] shadow-[2px_0_5px_rgba(0,0,0,0.15)] ${stBgTh} ${isDark?'text-white':'text-slate-800'}`}>Batch</ThGroup>
                                 
-                                {/* SISA DATA UMUM DILEPAS (Lot, Shift, Grup, Vol) */}
                                 <ThGroup colSpan={4} className={`w-[255px] min-w-[255px] max-w-[255px] ${isDark ? 'bg-slate-800 text-white' : 'bg-slate-200 text-slate-800'}`}>Data Umum</ThGroup>
                                 
                                 <ThGroup colSpan={9} className={isDark ? 'bg-blue-900/60 text-blue-200' : 'bg-blue-200 text-blue-900'}>Output After Steril</ThGroup>
@@ -211,7 +250,6 @@ const HistoryTableF = ({ data, refresh, onEdit, onDelete, isLoading, theme }) =>
                                 <ThGroup rowSpan={2} className={`sticky right-0 z-40 w-[70px] min-w-[70px] max-w-[70px] ${stBgTh} ${isDark ? 'text-yellow-500' : 'text-orange-600'}`}>Aksi</ThGroup>
                             </tr>
                             <tr>
-                                {/* Dilepas kelas sticky-nya */}
                                 <Th className={`w-[85px] min-w-[85px] max-w-[85px] ${stBgTh}`}>Lot No</Th>
                                 <Th className={`w-[50px] min-w-[50px] max-w-[50px] ${stBgTh}`}>Shift</Th>
                                 <Th className={`w-[50px] min-w-[50px] max-w-[50px] ${stBgTh}`}>Grup</Th>
@@ -274,15 +312,15 @@ const HistoryTableF = ({ data, refresh, onEdit, onDelete, isLoading, theme }) =>
             )}
         </div>
     );
-    
-    if (isFullView) {
-        return (
-            <AnimatePresence>
-                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }} className="fixed inset-4 z-[9999] shadow-[0_0_50px_rgba(0,0,0,0.5)] flex flex-col rounded-2xl overflow-hidden">{TableContent}</motion.div>
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/80 z-[9998] backdrop-blur-sm"></motion.div>
-            </AnimatePresence>
-        );
-    }
+
+        if (isFullView) {
+            return (
+                <AnimatePresence>
+                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }} className="fixed inset-4 z-[9999] shadow-[0_0_50px_rgba(0,0,0,0.5)] flex flex-col rounded-2xl overflow-hidden">{TableContent}</motion.div>
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/80 z-[9998] backdrop-blur-sm"></motion.div>
+                </AnimatePresence>
+            );
+        }
     return <div className="mt-8">{TableContent}</div>;
 };
 
@@ -295,6 +333,7 @@ const InputRejectF = () => {
     const [loading, setLoading] = useState(false);
     const [isClosingShift, setIsClosingShift] = useState(false);
     const [historyData, setHistoryData] = useState([]); 
+    const [cart, setCart] = useState([]); // STATE KERANJANG DATA
     const [isEditing, setIsEditing] = useState(false);
     const [editRowId, setEditRowId] = useState(null);
     const [isTableLoading, setIsTableLoading] = useState(false);
@@ -458,7 +497,61 @@ const InputRejectF = () => {
         setIsEditing(false); setFormData(initialForm); setEditRowId(null); setIsClosingShift(false); toast.dismiss();
     };
 
-    const handleSubmit = async (e) => {
+    // --- FUNGSI KERANJANG (CART) ---
+    const handleAddToCart = () => {
+        if(!formData.no_batch || !formData.lot_no || !formData.shift) { 
+            toast.error("Data Wajib: No Batch, Lot No, Shift!"); 
+            return; 
+        }
+
+        const cartItem = { 
+            ...formData, 
+            ...calc, 
+            zone: 'F', 
+            is_closing: isClosingShift 
+        };
+
+        setCart(prev => [...prev, cartItem]);
+        toast.success(`Data Batch ${formData.no_batch} masuk ke Keranjang`);
+
+        setFormData(prev => ({
+            ...initialForm,
+            tanggal: prev.tanggal,
+            shift: prev.shift,
+            group: prev.group,
+            volume_botol: prev.volume_botol,
+            vi_start: prev.vi_end || 0
+        }));
+        setIsClosingShift(false);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    const removeFromCart = (index) => {
+        setCart(prev => prev.filter((_, i) => i !== index));
+    };
+
+    const handleSaveAll = async () => {
+        if (cart.length === 0) {
+            toast.error("Keranjang kosong!");
+            return;
+        }
+        
+        setLoading(true);
+        try {
+            for (const item of cart) {
+                await submitOEEData({ action: 'submit_reject_f', data: item }, user);
+            }
+            toast.success(`${cart.length} Data Batch Berhasil Disimpan Serentak!`);
+            setCart([]);
+            loadData();
+        } catch (err) {
+            toast.error("Terjadi kesalahan koneksi saat menyimpan antrean.");
+        }
+        setLoading(false);
+    };
+
+    // Fungsi Submit Tunggal (Untuk Edit Mode)
+    const handleSubmitSingle = async (e) => {
         e.preventDefault(); setLoading(true);
         if(!formData.no_batch || !formData.lot_no || !formData.shift) { toast.error("Data Wajib: No Batch, Lot No, Shift!"); setLoading(false); return; }
 
@@ -470,7 +563,7 @@ const InputRejectF = () => {
             setLoading(false);
             if(res.status === 'success') {
                 toast.success(isEditing ? "Data Diupdate!" : (isClosingShift ? "Shift Ditutup!" : "Data Tersimpan."));
-                setFormData(prev => ({ ...initialForm, shift: prev.shift, group: prev.group, tanggal: prev.tanggal, vi_start: 0, vi_end: '' }));
+                setFormData(prev => ({ ...initialForm, shift: prev.shift, group: prev.group, tanggal: prev.tanggal, volume_botol: prev.volume_botol, vi_start: prev.vi_end }));
                 setIsClosingShift(false); setIsEditing(false); setEditRowId(null);
                 loadData(); 
             } else { toast.error(res.message); }
@@ -496,7 +589,7 @@ const InputRejectF = () => {
             </div>
 
             <div className="max-w-6xl mx-auto px-4 mt-8">
-                <form onSubmit={handleSubmit}>
+                <form onSubmit={handleSubmitSingle}>
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                         <div className="lg:col-span-8 space-y-6">
                             <Card title="Data Batch & Umum" icon={Layers} color="purple" theme={theme}>
@@ -616,17 +709,66 @@ const InputRejectF = () => {
                                 </div>
                             )}
 
-                            <div className="flex gap-2 mt-4">
-                                {isEditing && (
-                                    <button type="button" onClick={handleCancelEdit} className="flex-1 py-4 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-xl font-bold flex items-center justify-center gap-2 transition-colors">
-                                        <XCircle size={20}/> BATAL
-                                    </button>
+                            {/* WIDGET KERANJANG (ANTREAN) DISAMPING TOMBOL SIMPAN */}
+                            {!isEditing && (
+                                <div className={`mt-6 rounded-2xl border overflow-hidden shadow-xl ${theme === 'dark' ? 'bg-[#1e293b] border-white/10' : 'bg-white border-slate-200'}`}>
+                                    <div className={`p-4 flex justify-between items-center ${theme === 'dark' ? 'bg-slate-800' : 'bg-slate-100'}`}>
+                                        <div className="flex items-center gap-2 font-bold text-sm text-purple-500">
+                                            <ShoppingCart size={16} /> KERANJANG DATA ({cart.length})
+                                        </div>
+                                        {cart.length > 0 && (
+                                            <button type="button" onClick={() => setCart([])} className="text-[10px] bg-red-500/20 text-red-500 px-2 py-1 rounded hover:bg-red-500 hover:text-white transition-colors">
+                                                KOSONGKAN
+                                            </button>
+                                        )}
+                                    </div>
+                                    
+                                    <div className="p-4 max-h-[250px] overflow-auto custom-scrollbar space-y-2">
+                                        {cart.length === 0 ? (
+                                            <div className={`text-center text-xs italic ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>
+                                                Belum ada data di keranjang.
+                                            </div>
+                                        ) : (
+                                            cart.map((item, idx) => (
+                                                <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} key={idx} className={`p-3 rounded-xl border flex justify-between items-center ${theme === 'dark' ? 'bg-slate-900 border-white/5' : 'bg-slate-50 border-slate-200'}`}>
+                                                    <div>
+                                                        <div className={`text-xs font-black ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>BATCH: {item.no_batch}</div>
+                                                        <div className={`text-[10px] ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Lot: {item.lot_no} | FG: {item.pack_fg}</div>
+                                                    </div>
+                                                    <button type="button" onClick={() => removeFromCart(idx)} className="p-1.5 text-red-500 hover:bg-red-500/20 rounded-lg transition-colors"><Trash2 size={14}/></button>
+                                                </motion.div>
+                                            ))
+                                        )}
+                                    </div>
+                                    
+                                    {/* TOMBOL TAMBAH KE KERANJANG */}
+                                    <div className={`p-4 border-t ${theme === 'dark' ? 'border-white/5 bg-slate-800/50' : 'border-slate-200 bg-slate-50'}`}>
+                                        <button type="button" onClick={handleAddToCart} className={`w-full py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all active:scale-95 border ${theme === 'dark' ? 'bg-slate-700 text-white border-white/10 hover:bg-slate-600' : 'bg-white text-slate-700 border-slate-300 shadow-sm hover:bg-slate-100'}`}>
+                                            <Plus size={18}/> TAMBAH KE KERANJANG
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* TOMBOL AKSI UTAMA */}
+                            <div className="flex flex-col gap-2 mt-4">
+                                {isEditing ? (
+                                    <div className="flex gap-2">
+                                        <button type="button" onClick={handleCancelEdit} className="flex-1 py-4 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-xl font-bold flex items-center justify-center gap-2 transition-colors">
+                                            <XCircle size={20}/> BATAL
+                                        </button>
+                                        <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} disabled={loading} type="submit" 
+                                            className={`flex-[2] py-4 rounded-xl font-bold text-lg shadow-lg flex items-center justify-center gap-3 transition-all bg-orange-500 hover:bg-orange-400 text-white`}>
+                                            {loading ? <Loader2 className="animate-spin"/> : <><FileEdit size={20}/> UPDATE DATA</>}
+                                        </motion.button>
+                                    </div>
+                                ) : (
+                                    <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} disabled={loading || cart.length === 0} type="button" onClick={handleSaveAll}
+                                        className={`w-full py-4 rounded-xl font-black text-lg shadow-lg flex items-center justify-center gap-3 transition-all ${isClosingShift ? 'bg-yellow-500 hover:bg-yellow-400 text-black' : 'bg-purple-600 hover:bg-purple-500 text-white'} disabled:opacity-50 disabled:cursor-not-allowed`}
+                                    >
+                                        {loading ? <Loader2 className="animate-spin"/> : <><Send size={20}/> SIMPAN SEMUA ({cart.length})</>}
+                                    </motion.button>
                                 )}
-                                <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} disabled={loading} type="submit" 
-                                    className={`flex-[2] py-4 rounded-xl font-bold text-lg shadow-lg flex items-center justify-center gap-3 transition-all ${isEditing ? 'bg-orange-500 hover:bg-orange-400 text-white' : (isClosingShift ? 'bg-yellow-500 hover:bg-yellow-400 text-black' : 'bg-purple-600 hover:bg-purple-500 text-white')}`}
-                                >
-                                    {loading ? <Loader2 className="animate-spin"/> : <>{isEditing ? <FileEdit size={20}/> : <Save size={20}/>} {isEditing ? "UPDATE DATA" : (isClosingShift ? "TUTUP SHIFT" : "SIMPAN DATA")}</>}
-                                </motion.button>
                             </div>
                         </div>
                     </div>
