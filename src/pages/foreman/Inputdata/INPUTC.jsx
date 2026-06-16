@@ -229,7 +229,6 @@ export default function InputC() {
   // KELAS UNTUK FREEZE (STICKY)
   const freezeLeft1 = "sticky left-0 z-20 min-w-[100px] max-w-[100px]";
   const freezeLeft2 = "sticky left-[100px] z-20 min-w-[100px] max-w-[100px] shadow-[2px_0_5px_rgba(0,0,0,0.1)]";
-  const freezeRight = "sticky right-0 z-20 min-w-[120px] max-w-[120px] shadow-[-2px_0_5px_rgba(0,0,0,0.1)] bg-gray-50";
 
   return (
     <div className="min-h-screen bg-white p-8 text-black font-sans">
@@ -373,7 +372,7 @@ export default function InputC() {
                   <Cell value={row.jeda_batch} onChange={(e) => handleOeeChange(row.rowId, 'jeda_batch', e.target.value)} />
                   <Cell value={row.jeda_shift} onChange={(e) => handleOeeChange(row.rowId, 'jeda_shift', e.target.value)} className={row.is_closing ? "bg-orange-200 font-bold" : ""} />
                   
-                  <td className={`border border-black p-2 bg-white ${freezeRight}`}>
+                  <td className={`border border-black p-2 bg-white min-w-[120px]`}>
                     {row.original_id ? (
                       <div className="flex gap-1 justify-center">
                         <button onClick={() => actionOEE(row, 'update_reject_c')} className="bg-yellow-400 text-black px-2 py-1.5 rounded font-bold shadow-sm active:scale-95 text-[10px]">Update</button>
@@ -436,7 +435,7 @@ export default function InputC() {
                   <Cell value={row.unit} onChange={(e) => handleDtChange(row.rowId, 'unit', e.target.value)} />
                   <Cell value={row.kasus} onChange={(e) => handleDtChange(row.rowId, 'kasus', e.target.value)} className="min-w-[150px]" />
                   
-                  <td className={`border border-black p-2 bg-white ${freezeRight}`}>
+                  <td className={`border border-black p-2 bg-white min-w-[120px]`}>
                     {row.original_id ? (
                       <div className="flex gap-1 justify-center">
                         <button onClick={() => actionDT(row, 'update_downtime_c')} className="bg-yellow-400 text-black px-2 py-1.5 rounded font-bold shadow-sm active:scale-95 text-[10px]">Update</button>

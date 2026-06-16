@@ -16,9 +16,9 @@ const getEmptyOEE = () => ({
   vi_partikel: '', vi_kotik: '', vi_rej_total: '', vi_hasil_baik: '', vi_sample_qc: '', vi_tf_packing: '',
   pack_reject: '', pack_hasil_baik: '', pack_s_qc: '', pack_s_others: '', pack_fg: '', pack_utuh: '', pack_jml_batch: '', tot_fg_shift: '',
   yield_batch: '', avg_yield_shift: '',
-  av_sh: '', av_sm: '', av_eh: '', av_em: '', av_sub: '',
+  av_sh: '', av_sm: '', av_eh: '', av_em: '', av_sub: '', total_avail_shift: '',
   run_sh: '', run_sm: '', run_eh: '', run_em: '', run_sub: '',
-  clear_sh: '', clear_sm: '', clear_eh: '', clear_em: '', clear_sub: '',
+  clear_sh: '', clear_sm: '', clear_eh: '', clear_em: '', clear_sub: '', process_total: '',
   total_prep_clear: '', jeda_batch: '', jeda_shift: ''
 });
 
@@ -46,7 +46,6 @@ const Cell = ({ value, onChange, className = "" }) => (
 export default function InputF() {
   const { user } = useAuth();
   
-  // State dengan inisiasi 5 baris kosong
   const [oeeRows, setOeeRows] = useState(Array.from({ length: 5 }, getEmptyOEE));
   const [dtRows, setDtRows] = useState(Array.from({ length: 5 }, getEmptyDT));
 
@@ -72,9 +71,9 @@ export default function InputF() {
             vi_partikel: row[21], vi_kotik: row[22], vi_rej_total: row[23], vi_hasil_baik: row[24], vi_sample_qc: row[25], vi_tf_packing: row[26],
             pack_reject: row[27], pack_hasil_baik: row[28], pack_s_qc: row[29], pack_s_others: row[30], pack_fg: row[31], pack_utuh: row[32], pack_jml_batch: row[33], tot_fg_shift: row[34],
             yield_batch: row[35], avg_yield_shift: row[36],
-            av_sh: row[37], av_sm: row[38], av_eh: row[39], av_em: row[40], av_sub: row[41],
+            av_sh: row[37], av_sm: row[38], av_eh: row[39], av_em: row[40], av_sub: row[41], total_avail_shift: row[42],
             run_sh: row[48], run_sm: row[49], run_eh: row[50], run_em: row[51], run_sub: row[52],
-            clear_sh: row[58], clear_sm: row[59], clear_eh: row[60], clear_em: row[61], clear_sub: row[62],
+            clear_sh: row[58], clear_sm: row[59], clear_eh: row[60], clear_em: row[61], clear_sub: row[62], process_total: row[63],
             total_prep_clear: row[64], jeda_batch: row[65], jeda_shift: row[66]
           }));
           setOeeRows(prev => [...mappedOEE, ...prev]);
@@ -83,7 +82,7 @@ export default function InputF() {
         if (resDT.status === 'success' && resDT.data) {
           const mappedDT = resDT.data.map(row => ({
             rowId: generateId(), original_id: row[row.length - 1],
-            tanggal: row[2], shift: row[3], group: row[4], no_batch: row[5], // Zone F downtime uses index 5 for batch, we skip lot locally
+            tanggal: row[2], shift: row[3], group: row[4], no_batch: row[5],
             start_h: row[7], start_m: row[8], end_h: row[9], end_m: row[10], duration: row[11],
             plan_unplan: row[12], root_cause: row[13], proses: row[14], unit: row[15], kasus: row[16]
           }));
@@ -156,14 +155,13 @@ export default function InputF() {
   };
 
   // ==========================================
-  // KELAS UNTUK FREEZE (STICKY)
+  // KELAS UNTUK FREEZE (STICKY) KIRI SAJA
   // ==========================================
   const freezeOEE1 = "sticky left-0 z-20 min-w-[90px] max-w-[90px]";
   const freezeOEE2 = "sticky left-[90px] z-20 min-w-[90px] max-w-[90px]";
   const freezeOEE3 = "sticky left-[180px] z-20 min-w-[90px] max-w-[90px] shadow-[2px_0_5px_rgba(0,0,0,0.1)]";
   
   const freezeDT1 = "sticky left-0 z-20 min-w-[90px] max-w-[90px] shadow-[2px_0_5px_rgba(0,0,0,0.1)]";
-  const freezeRight = "sticky right-0 z-20 min-w-[120px] max-w-[120px] shadow-[-2px_0_5px_rgba(0,0,0,0.1)] bg-gray-50";
 
   return (
     <div className="min-h-screen bg-white p-8 text-black font-sans">
@@ -174,16 +172,16 @@ export default function InputF() {
             1. SPREADSHEET OEE (ZONE F)
         ========================================================= */}
         <div className="mb-4">
-          <h1 className="text-2xl font-black tracking-wider uppercase">OEE - Zone F</h1>
+          <h1 className="text-2xl font-black tracking-wider uppercase">Spreadsheet OEE - Zone F</h1>
         </div>
 
         <div className="overflow-auto border-2 border-black shadow-lg mb-12 custom-scrollbar max-h-[600px] relative">
           <table className="w-max border-collapse text-xs text-center whitespace-nowrap">
             <thead className="sticky top-0 z-40 text-black font-bold uppercase tracking-wider bg-gray-50">
               <tr>
-                <th rowSpan="3" className={`border border-black px-4 py-2 align-middle bg-gray-100 ${freezeOEE1} z-50`}>No. Batch</th>
-                <th rowSpan="3" className={`border border-black px-4 py-2 align-middle bg-gray-100 ${freezeOEE2} z-50`}>Lot No</th>
-                <th rowSpan="3" className={`border border-black px-4 py-2 align-middle bg-gray-100 ${freezeOEE3} z-50`}>Tanggal</th>
+                <th rowSpan="3" className={`border border-black px-4 py-2 align-middle bg-gray-100 ${freezeOEE1}`}>No. Batch</th>
+                <th rowSpan="3" className={`border border-black px-4 py-2 align-middle bg-gray-100 ${freezeOEE2}`}>Lot No</th>
+                <th rowSpan="3" className={`border border-black px-4 py-2 align-middle bg-gray-100 ${freezeOEE3}`}>Tanggal</th>
                 <th rowSpan="3" className="border border-black px-4 py-2 align-middle bg-gray-50">Shift</th>
                 <th rowSpan="3" className="border border-black px-4 py-2 align-middle bg-gray-50">Grup</th>
                 <th rowSpan="3" className="border border-black px-4 py-2 align-middle bg-gray-50">Volume</th>
@@ -196,7 +194,9 @@ export default function InputF() {
                 <th colSpan="11" className="border border-black px-4 py-2 bg-gray-200">Process Details</th>
                 <th rowSpan="3" className="border border-black px-4 py-2 align-middle bg-gray-200">Total Preparation + Clearance Time</th>
                 <th colSpan="2" rowSpan="2" className="border border-black px-4 py-2 align-middle bg-gray-200">jeda antar batch</th>
-                <th rowSpan="3" className={`border border-black px-4 py-2 align-middle bg-gray-50 ${freezeRight} z-50`}>AKSI</th>
+                
+                {/* Kolom AKSI Normal (Tanpa sticky) */}
+                <th rowSpan="3" className="border border-black px-4 py-2 align-middle bg-gray-50 min-w-[120px]">AKSI</th>
               </tr>
               <tr>
                 <th rowSpan="2" className="border border-black px-4 py-2 align-middle bg-gray-50">Input (Botol dari chamber)</th>
@@ -225,7 +225,7 @@ export default function InputF() {
                 <th className="border border-black px-4 py-2 bg-gray-50">Start</th><th className="border border-black px-4 py-2 bg-gray-50">End</th><th className="border border-black px-4 py-2 bg-emerald-100">Sub total</th><th className="border border-black px-4 py-2 bg-emerald-200 text-emerald-800">Total per Shift</th>
                 <th className="border border-black px-4 py-2 bg-gray-50">Partikel</th><th className="border border-black px-4 py-2 bg-gray-50">Kosmetik</th><th className="border border-black px-4 py-2 bg-red-100">TOTAL</th>
                 <th className="border border-black px-4 py-2 bg-gray-50">QC</th><th className="border border-black px-4 py-2 bg-gray-50">Others</th>
-                <th className="border border-black px-4 py-2 bg-yellow-100">per Batch</th><th className="border border-black px-4 py-2 bg-yellow-200 text-yellow-800">AVG per shift</th>
+                <th className="border border-black px-4 py-2 bg-yellow-100">per Batch</th><th className="border border-black px-4 py-2 bg-yellow-200 text-yellow-800">AVERAGE per shift</th>
                 <th className="border border-black px-4 py-2 bg-gray-50">Start (Jam)</th><th className="border border-black px-4 py-2 bg-gray-50">Start (Menit)</th><th className="border border-black px-4 py-2 bg-gray-50">End (Jam)</th><th className="border border-black px-4 py-2 bg-gray-50">End (Menit)</th><th className="border border-black px-4 py-2 bg-purple-100 text-purple-800">Sub Total</th>
                 <th className="border border-black px-4 py-2 bg-gray-50">Start (Jam)</th><th className="border border-black px-4 py-2 bg-gray-50">Start (Menit)</th><th className="border border-black px-4 py-2 bg-gray-50">End (Jam)</th><th className="border border-black px-4 py-2 bg-gray-50">End (Menit)</th><th className="border border-black px-4 py-2 bg-cyan-100 text-cyan-800">Sub Total</th>
                 <th className="border border-black px-4 py-2 bg-gray-50">Start (Jam)</th><th className="border border-black px-4 py-2 bg-gray-50">Start (Menit)</th><th className="border border-black px-4 py-2 bg-gray-50">End (Jam)</th><th className="border border-black px-4 py-2 bg-gray-50">End (Menit)</th><th className="border border-black px-4 py-2 bg-sky-100 text-sky-800">Sub Total</th>
@@ -286,6 +286,9 @@ export default function InputF() {
                   <Cell value={row.av_eh} onChange={(e) => handleOeeChange(row.rowId, 'av_eh', e.target.value)} />
                   <Cell value={row.av_em} onChange={(e) => handleOeeChange(row.rowId, 'av_em', e.target.value)} />
                   <Cell value={row.av_sub} onChange={(e) => handleOeeChange(row.rowId, 'av_sub', e.target.value)} />
+                  
+                  {/* ✨ KOLOM TOTAL AVAILABLE SHIFT YANG DITAMBAHKAN ✨ */}
+                  <Cell value={row.total_avail_shift} onChange={(e) => handleOeeChange(row.rowId, 'total_avail_shift', e.target.value)} />
 
                   {/* Process Details - Machine Run & Line Clearance */}
                   <Cell value={row.run_sh} onChange={(e) => handleOeeChange(row.rowId, 'run_sh', e.target.value)} />
@@ -300,12 +303,15 @@ export default function InputF() {
                   <Cell value={row.clear_em} onChange={(e) => handleOeeChange(row.rowId, 'clear_em', e.target.value)} />
                   <Cell value={row.clear_sub} onChange={(e) => handleOeeChange(row.rowId, 'clear_sub', e.target.value)} />
 
+                  {/* ✨ KOLOM PROCESS TOTAL YANG DITAMBAHKAN ✨ */}
+                  <Cell value={row.process_total} onChange={(e) => handleOeeChange(row.rowId, 'process_total', e.target.value)} />
+
                   <Cell value={row.total_prep_clear} onChange={(e) => handleOeeChange(row.rowId, 'total_prep_clear', e.target.value)} />
                   <Cell value={row.jeda_batch} onChange={(e) => handleOeeChange(row.rowId, 'jeda_batch', e.target.value)} />
                   <Cell value={row.jeda_shift} onChange={(e) => handleOeeChange(row.rowId, 'jeda_shift', e.target.value)} />
 
-                  {/* Kolom Aksi */}
-                  <td className={`border border-black p-2 bg-white ${freezeRight}`}>
+                  {/* Kolom Aksi Normal (Tanpa sticky class) */}
+                  <td className="border border-black p-2 bg-white min-w-[120px]">
                     {row.original_id ? (
                       <div className="flex gap-1 justify-center">
                         <button onClick={() => actionOEE(row, 'update_reject_f')} className="bg-yellow-400 text-black px-2 py-1.5 rounded font-bold shadow-sm active:scale-95 text-[10px]">Update</button>
@@ -326,17 +332,18 @@ export default function InputF() {
             2. SPREADSHEET DOWNTIME (ZONE F)
         ========================================================= */}
         <div className="mb-4">
-          <h2 className="text-2xl font-black tracking-wider uppercase">Downtime - Zone F</h2>
+          <h2 className="text-2xl font-black tracking-wider uppercase">Spreadsheet Downtime - Zone F</h2>
         </div>
 
         <div className="overflow-auto border-2 border-black shadow-lg custom-scrollbar max-h-[600px] relative">
           <table className="w-max border-collapse text-xs text-center whitespace-nowrap">
             <thead className="sticky top-0 z-40 text-black font-bold uppercase tracking-wider bg-gray-50">
               <tr>
-                <th className={`border border-black px-4 py-3 bg-gray-100 ${freezeDT1} z-50`}>Tanggal</th>
+                <th className={`border border-black px-4 py-3 bg-gray-100 ${freezeDT1} z-50 shadow-[2px_0_5px_rgba(0,0,0,0.1)]`}>Tanggal</th>
                 <th className="border border-black px-4 py-3 bg-gray-50">Shift</th>
                 <th className="border border-black px-4 py-3 bg-gray-50">Grup</th>
                 <th className="border border-black px-4 py-3 bg-gray-50">No. Batch</th>
+                
                 <th className="border border-black px-4 py-3 bg-gray-50">Start (jam)</th>
                 <th className="border border-black px-4 py-3 bg-gray-50">Start (menit)</th>
                 <th className="border border-black px-4 py-3 bg-gray-50">End (jam)</th>
@@ -347,7 +354,9 @@ export default function InputF() {
                 <th className="border border-black px-4 py-3 bg-gray-50">Proses</th>
                 <th className="border border-black px-4 py-3 bg-gray-50">Unit</th>
                 <th className="border border-black px-4 py-3 bg-gray-50">Kasus</th>
-                <th className={`border border-black px-4 py-3 bg-gray-50 ${freezeRight} z-50`}>AKSI</th>
+                
+                {/* Kolom Aksi Normal (Tanpa sticky class) */}
+                <th className="border border-black px-4 py-3 bg-gray-50 min-w-[120px]">AKSI</th>
               </tr>
             </thead>
             
@@ -369,7 +378,7 @@ export default function InputF() {
                   <Cell value={row.unit} onChange={(e) => handleDtChange(row.rowId, 'unit', e.target.value)} />
                   <Cell value={row.kasus} onChange={(e) => handleDtChange(row.rowId, 'kasus', e.target.value)} className="min-w-[150px]" />
                   
-                  <td className={`border border-black p-2 bg-white ${freezeRight}`}>
+                  <td className="border border-black p-2 bg-white min-w-[120px]">
                     {row.original_id ? (
                       <div className="flex gap-1 justify-center">
                         <button onClick={() => actionDT(row, 'update_downtime_f')} className="bg-yellow-400 text-black px-2 py-1.5 rounded font-bold shadow-sm active:scale-95 text-[10px]">Update</button>
