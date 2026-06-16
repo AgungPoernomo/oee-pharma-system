@@ -172,7 +172,7 @@ export default function InputF() {
             1. SPREADSHEET OEE (ZONE F)
         ========================================================= */}
         <div className="mb-4">
-          <h1 className="text-2xl font-black tracking-wider uppercase">Spreadsheet OEE - Zone F</h1>
+          <h1 className="text-2xl font-black tracking-wider uppercase">OEE - Zone F</h1>
         </div>
 
         <div className="overflow-auto border-2 border-black shadow-lg mb-12 custom-scrollbar max-h-[600px] relative">
@@ -332,7 +332,7 @@ export default function InputF() {
             2. SPREADSHEET DOWNTIME (ZONE F)
         ========================================================= */}
         <div className="mb-4">
-          <h2 className="text-2xl font-black tracking-wider uppercase">Spreadsheet Downtime - Zone F</h2>
+          <h2 className="text-2xl font-black tracking-wider uppercase">Downtime - Zone F</h2>
         </div>
 
         <div className="overflow-auto border-2 border-black shadow-lg custom-scrollbar max-h-[600px] relative">
