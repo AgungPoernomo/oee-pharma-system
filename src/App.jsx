@@ -6,7 +6,6 @@ import { Menu, Loader2 } from 'lucide-react';
 // --- 1. LAYOUT COMPONENTS ---
 import SidebarForeman from "./components/layout/SidebarForeman";
 import SidebarAdmin from "./components/layout/SidebarAdmin";
-// [DIHAPUS] Import statis ForemanSettings dari sini sudah dihapus
 
 // --- 2. LAZY LOAD PAGES ---
 // Auth
@@ -19,8 +18,11 @@ const SmartDowntimeF = React.lazy(() => import('./pages/foreman/Inputdata/SmartD
 const DefectCatcherC = React.lazy(() => import('./pages/foreman/Inputdata/DefectCatcherC'));
 const DefectCatcherF = React.lazy(() => import('./pages/foreman/Inputdata/DefectCatcherF'));
 const DailyOnesheet = React.lazy(() => import('./pages/foreman/DailyOnesheet'));
-// [DITAMBAHKAN] ForemanSettings kini menggunakan Lazy Load agar seragam
 const ForemanSettings = React.lazy(() => import('./pages/foreman/ForemanSettings')); 
+
+// ✨ [NEW] IMPORT KOMPONEN SPREADSHEET BARU ✨
+const InputC = React.lazy(() => import('./pages/foreman/Inputdata/INPUTC'));
+const InputF = React.lazy(() => import('./pages/foreman/Inputdata/INPUTF'));
 
 // Admin Pages
 const AccessControl = React.lazy(() => import('./pages/admin/AccessControl'));
@@ -99,54 +101,40 @@ const SessionGuard = () => {
   const navigate = useNavigate();
   const idleTimerRef = useRef(null);
 
-  // Waktu maksimal user diam (Misal: 15 menit)
-  // 15 menit * 60 detik * 1000 milidetik
   const IDLE_TIMEOUT = 15 * 60 * 1000; 
-  // Catatan: Untuk keperluan uji coba/testing sekarang, Anda bisa ubah menjadi 10 * 1000 (10 detik) saja.
 
   useEffect(() => {
-    // Jika tidak ada user yang login, matikan sistem pantau
     if (!user) return; 
 
-    // Fungsi eksekusi tendang user
     const forceLogout = () => {
       logout();
       navigate('/access-portal', { replace: true });
-      // Munculkan peringatan (menahan layar sampai user klik OK)
       alert("⚠️ SESI BERAKHIR\n\nSistem mengamankan akun Anda karena tidak ada aktivitas selama 15 menit. Silakan Login kembali.");
     };
 
     let lastActivity = Date.now();
 
-    // Fungsi me-reset hitung mundur
     const resetTimer = () => {
       const now = Date.now();
-      // Throttle: Cegah reset berkali-kali dalam 1 detik yang sama agar tidak lag
       if (now - lastActivity < 1000) return; 
       lastActivity = now;
 
-      // Hapus bom waktu lama, pasang bom waktu baru
       if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
       idleTimerRef.current = setTimeout(forceLogout, IDLE_TIMEOUT);
     };
 
-    // Daftar aktivitas yang dianggap "User Masih Hidup/Aktif"
     const events = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll'];
-    
-    // Pasang telinga ke layar untuk mendengarkan aktivitas di atas
     events.forEach(event => window.addEventListener(event, resetTimer));
     
-    // Mulai hitung mundur sejak pertama kali komponen dimuat
     resetTimer();
 
-    // Cleanup: Bersihkan telinga dan bom waktu saat user manual logout
     return () => {
       if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
       events.forEach(event => window.removeEventListener(event, resetTimer));
     };
   }, [user, logout, navigate]);
 
-  return null; // Komponen siluman tidak merender UI apapun
+  return null;
 };
 
 // --- 5. ROUTING CONFIGURATION ---
@@ -185,9 +173,11 @@ const App = () => {
           <Route path="foreman/input/downtime/c" element={<SmartDowntimeC />} />
           <Route path="foreman/input/downtime/f" element={<SmartDowntimeF />} />
           <Route path="foreman/onesheet" element={<DailyOnesheet />} />
-          
-          {/* [DIPERBAIKI] Path disamakan tanpa slash di depan agar selaras dengan nested route React Router */}
           <Route path="foreman/settings" element={<ForemanSettings />} />
+
+          {/* ✨ [NEW] RUTE UNTUK SPREADSHEET ENGINE ✨ */}
+          <Route path="foreman/input-c" element={<InputC />} />
+          <Route path="foreman/input-f" element={<InputF />} />
         </Route>
 
         {/* PROTECTED ROUTE: ADMIN */}

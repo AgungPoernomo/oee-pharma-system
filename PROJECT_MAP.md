@@ -48,6 +48,7 @@ OEE-SYSTEM-PRODUCTION/
 ├── jsconfig.json
 ├── package.json // Konfigurasi project Node.js dan dependensi
 ├── postcss.config.cjs
+├── PROJECT_MAP.md // Dokumentasi struktur project (Auto-generated)
 ├── struktur_project.txt
 ├── tailwind.config.js
 ├── vercel.json
@@ -55,4 +56,4 @@ OEE-SYSTEM-PRODUCTION/
 
 ```
 
-*Terakhir diperbarui pada: 15/4/2026, 14.16.18 WIB*
+*Terakhir diperbarui pada: 16/6/2026, 13.48.30 WIB*
