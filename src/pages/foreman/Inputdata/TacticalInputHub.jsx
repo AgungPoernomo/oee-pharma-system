@@ -8,10 +8,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 const TacticalInputHub = () => {
   const navigate = useNavigate();
   
-  // STATE: Menyimpan pilihan tahap pertama (OEE atau Downtime) untuk mode Legacy
   const [selectedType, setSelectedType] = useState(null); 
 
-  // STATE TEMA (Mendengarkan ForemanSettings)
   const [isDark, setIsDark] = useState(() => (localStorage.getItem('appTheme') || 'dark') === 'dark');
 
   useEffect(() => {
@@ -22,7 +20,6 @@ const TacticalInputHub = () => {
     return () => window.removeEventListener('themeChange', handleThemeChange);
   }, []);
 
-  // --- NAVIGATION LOGIC (LEGACY CARD) ---
   const handleZoneSelect = (zone) => {
     if (selectedType === 'OEE') {
       navigate(zone === 'C' ? '/foreman/input/reject/c' : '/foreman/input/reject/f');
@@ -31,19 +28,15 @@ const TacticalInputHub = () => {
     }
   };
 
-  // --- NAVIGATION LOGIC (NEW SPREADSHEET) ---
   const handleSpreadsheetSelect = (zone) => {
-    // Mengarahkan ke rute komponen baru yang nanti akan kita buat
     navigate(`/foreman/input-${zone.toLowerCase()}`); 
   };
 
   const resetSelection = () => setSelectedType(null);
 
-  // --- ANIMATION ---
   const container = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.1 } } };
   const itemAnim = { hidden: { y: 20, opacity: 0 }, show: { y: 0, opacity: 1 } };
 
-  // --- THEME CLASSES ---
   const bgMain = isDark ? 'bg-[#0B1120]' : 'bg-slate-50';
   const textMain = isDark ? 'text-white' : 'text-slate-900';
   const textMuted = isDark ? 'text-slate-400' : 'text-slate-600';
@@ -54,7 +47,6 @@ const TacticalInputHub = () => {
 
   return (
     <div className={`min-h-screen font-sans overflow-hidden relative transition-colors duration-500 ${bgMain} ${textMain}`}>
-      {/* BACKGROUND FX (Hanya tampil di Dark Mode untuk estetika) */}
       {isDark && (
         <div className="absolute inset-0 pointer-events-none">
            <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-600/10 rounded-full blur-[120px] animate-pulse"></div>
@@ -64,7 +56,6 @@ const TacticalInputHub = () => {
 
       <div className="max-w-5xl mx-auto px-6 py-12 relative z-10 flex flex-col items-center justify-center min-h-[80vh]">
         
-        {/* HEADER DINAMIS */}
         <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-12 text-center">
            <div className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full border mb-4 backdrop-blur-md ${badgeBg}`}>
               <Hexagon size={14} className="text-blue-500 fill-blue-500/20"/>
@@ -88,43 +79,8 @@ const TacticalInputHub = () => {
            </p>
         </motion.div>
 
-        {/* STEP 1: MENU UTAMA (Menampilkan 4 Tombol) */}
         {!selectedType && (
            <motion.div variants={container} initial="hidden" animate="show" className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-4xl">
-              
-              {/* BUTTON INPUT OEE (LEGACY) */}
-              <motion.button variants={itemAnim} onClick={() => setSelectedType('OEE')} 
-                 whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-                 className={`group relative rounded-[2rem] border p-8 transition-all duration-300 shadow-xl text-left
-                 ${cardBg} ${isDark ? 'border-blue-500/20 hover:border-blue-500/50' : 'border-slate-200 hover:border-blue-400'}`}
-              >
-                 <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-4 transition-colors 
-                 ${isDark ? 'bg-blue-500/10 text-blue-400 group-hover:bg-blue-500 group-hover:text-white' : 'bg-blue-100 text-blue-600 group-hover:bg-blue-600 group-hover:text-white'}`}>
-                    <AlertOctagon size={28} />
-                 </div>
-                 <h2 className={`text-2xl font-black mb-1 transition-colors ${isDark ? 'text-white group-hover:text-blue-200' : 'text-slate-800 group-hover:text-blue-700'}`}>INPUT OEE</h2>
-                 <p className={`text-sm mb-4 ${textMuted}`}>Mode Kartu (Card Model)</p>
-                 <div className={`flex items-center gap-2 font-bold text-xs uppercase tracking-widest group-hover:translate-x-2 transition-transform ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>
-                    Lanjut <ArrowRight size={14}/>
-                 </div>
-              </motion.button>
-
-              {/* BUTTON INPUT DOWNTIME (LEGACY) */}
-              <motion.button variants={itemAnim} onClick={() => setSelectedType('DT')} 
-                 whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-                 className={`group relative rounded-[2rem] border p-8 transition-all duration-300 shadow-xl text-left
-                 ${cardBg} ${isDark ? 'border-orange-500/20 hover:border-orange-500/50' : 'border-slate-200 hover:border-orange-400'}`}
-              >
-                 <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-4 transition-colors 
-                 ${isDark ? 'bg-orange-500/10 text-orange-400 group-hover:bg-orange-500 group-hover:text-white' : 'bg-orange-100 text-orange-600 group-hover:bg-orange-500 group-hover:text-white'}`}>
-                    <Clock size={28} />
-                 </div>
-                 <h2 className={`text-2xl font-black mb-1 transition-colors ${isDark ? 'text-white group-hover:text-orange-200' : 'text-slate-800 group-hover:text-orange-700'}`}>INPUT DOWNTIME</h2>
-                 <p className={`text-sm mb-4 ${textMuted}`}>Mode Kartu (Card Model)</p>
-                 <div className={`flex items-center gap-2 font-bold text-xs uppercase tracking-widest group-hover:translate-x-2 transition-transform ${isDark ? 'text-orange-400' : 'text-orange-600'}`}>
-                    Lanjut <ArrowRight size={14}/>
-                 </div>
-              </motion.button>
 
               {/* ✨ BUTTON BARU: INPUT C (SPREADSHEET REAL-TIME) ✨ */}
               <motion.button variants={itemAnim} onClick={() => handleSpreadsheetSelect('C')} 
