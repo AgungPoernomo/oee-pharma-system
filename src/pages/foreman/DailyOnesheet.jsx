@@ -1,107 +1,38 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { fetchOnesheetData } from '../../services/api';
-import { 
-  Calendar, Package, Activity, Zap, Target, 
-  Clock, Database, AlertTriangle, TrendingDown, Loader2,
-  Sun, Moon, Download, Search
-} from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { Calendar, Package, Search, Download, Loader2 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import { toPng } from 'html-to-image';
 
-// --- FORMATTER HELPER ---
+// ==========================================
+// CONSTANTS & HELPERS
+// ==========================================
+const VOLUMES = ["25 ML", "100 ML", "250 ML", "500 ML", "1000 ML"];
+
 const formatRp = (num) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(num || 0);
 const formatNum = (num) => new Intl.NumberFormat('id-ID', { maximumFractionDigits: 2 }).format(num || 0);
 
-// --- HELPER UNTUK HIGHLIGHT BORDER MERAH ---
 const highlightLabels = [
-    "Plant Operating Time (POT)",
-    "Unplanned DT",
-    "Speed Blow",
-    "Standart / batch (100%)",
-    "Standart / batch (95%)",
-    "TOTAL BATCH",
-    "TOTAL BATCH \"FG\"",
-    "TOTAL (Dalam bentuk Jam)"
+  "Plant Operating Time (POT)",
+  "Unplanned DT",
+  "Speed Blow",
+  "Standart / batch (100%)",
+  "Standart / batch (95%)",
+  "TOTAL BATCH",
+  "TOTAL BATCH \"FG\"",
+  "TOTAL (Dalam bentuk Jam)"
 ];
 const isHighlightRow = (label) => highlightLabels.includes(label);
 
-// --- COMPONENT: PROGRESS BAR ---
-const ProgressBar = ({ label, value, colorClass, isDark }) => {
-  const safeValue = isNaN(value) || value === Infinity ? 0 : Math.min(Math.max(value, 0), 100);
-  const bgTrack = isDark ? "bg-slate-800" : "bg-slate-200";
-  const textColor = isDark ? "text-slate-300" : "text-slate-700";
-  
-  let barColor = "bg-blue-500";
-  if (colorClass === 'purple') barColor = "bg-purple-500";
-  if (colorClass === 'emerald') barColor = "bg-emerald-500";
-  if (colorClass === 'yellow') barColor = "bg-yellow-500";
-  if (colorClass === 'red') barColor = "bg-red-500";
-
-  return (
-    <div className="w-full mb-3">
-      <div className="flex justify-between items-center mb-1">
-        <span className={`text-[10px] font-bold uppercase tracking-widest ${textColor}`}>{label}</span>
-        <span className={`text-[10px] font-black font-mono ${textColor}`}>{safeValue.toFixed(1)}%</span>
-      </div>
-      <div className={`h-2 w-full rounded-full overflow-hidden ${bgTrack}`}>
-        <motion.div 
-          initial={{ width: 0 }}
-          animate={{ width: `${safeValue}%` }}
-          transition={{ duration: 1, ease: "easeOut" }}
-          className={`h-full ${barColor}`}
-        />
-      </div>
-    </div>
-  );
-};
-
-// --- HELPER COMPONENT: OEE CIRCLE + APQ BARS ---
-const OEEDisplay = ({ oee, avail, perf, qual, colorClass, isDark }) => {
-  const safePercentage = isNaN(oee) || oee === Infinity ? 0 : Math.min(Math.max(oee, 0), 100);
-  const strokeDasharray = 440; 
-  const strokeDashoffset = strokeDasharray - (strokeDasharray * safePercentage) / 100;
-  const trackColor = isDark ? "text-slate-800" : "text-slate-200";
-
-  return (
-    <div className="flex flex-col md:flex-row items-center gap-8 mb-4">
-      <div className="relative w-48 h-48 flex-shrink-0 flex items-center justify-center">
-        <div className={`absolute inset-0 rounded-full blur-2xl opacity-20 ${colorClass === 'blue' ? 'bg-blue-500' : 'bg-purple-500'}`}></div>
-        <svg xmlns="http://www.w3.org/2000/svg" className="w-full h-full transform -rotate-90 relative z-10" viewBox="0 0 160 160">
-          <circle cx="80" cy="80" r="70" stroke="currentColor" strokeWidth="8" fill="transparent" className={trackColor} />
-          <motion.circle 
-            initial={{ strokeDashoffset: strokeDasharray }}
-            animate={{ strokeDashoffset }}
-            transition={{ duration: 1.5, ease: "easeOut" }}
-            cx="80" cy="80" r="70" stroke="currentColor" strokeWidth="8" fill="transparent" 
-            strokeDasharray={strokeDasharray}
-            strokeLinecap="round"
-            className={colorClass === 'blue' ? 'text-blue-500' : 'text-purple-500'}
-          />
-        </svg>
-        <div className="absolute inset-0 flex flex-col items-center justify-center z-20">
-          <span className={`text-4xl font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>{safePercentage.toFixed(1)}%</span>
-          <span className={`text-1xl font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>OEE Score</span>
-        </div>
-      </div>
-      <div className="flex-1 w-full flex flex-col justify-center">
-        <ProgressBar label="Availability" value={avail} colorClass="yellow" isDark={isDark} />
-        <ProgressBar label="Performance" value={perf} colorClass={colorClass} isDark={isDark} />
-        <ProgressBar label="Quality" value={qual} colorClass="emerald" isDark={isDark} />
-      </div>
-    </div>
-  );
-};
-
 // ==========================================
-// ENGINE 1: HEADER CALCULATOR
+// CALCULATORS
 // ==========================================
 const calculateZoneMetrics = (volume) => {
   let speed = 11500;
   let teoriBatch = 23076;
 
-  if (volume === '25 ML') { speed = 12000; teoriBatch = 29412; }
+  if (volume === '25 ML') { speed = 6300; teoriBatch = 29412; }
   else if (volume === '100 ML') { speed = 11500; teoriBatch = 56880; }
   else if (volume === '250 ML') { speed = 12000; teoriBatch = 21509; }
   else if (volume === '500 ML') { speed = 12000; teoriBatch = 23076; }
@@ -112,9 +43,6 @@ const calculateZoneMetrics = (volume) => {
   return { speed, teoriBatch, targetRuntimeHours, targetRuntimeMins };
 };
 
-// ==========================================
-// ENGINE 2: DATA PROCESSOR ZONE C
-// ==========================================
 const useZoneCProcessor = (rawReject, rawDowntime, date, volume, headerMetrics) => {
   return useMemo(() => {
     const groups = ['A', 'B', 'C', 'D'];
@@ -201,9 +129,6 @@ const useZoneCProcessor = (rawReject, rawDowntime, date, volume, headerMetrics) 
   }, [rawReject, rawDowntime, date, volume, headerMetrics]);
 };
 
-// ==========================================
-// ENGINE 3: DATA PROCESSOR ZONE F 
-// ==========================================
 const useZoneFProcessor = (rawReject, rawDowntime, date, volume, headerMetrics) => {
   return useMemo(() => {
     const groups = ['A', 'B', 'C', 'D'];
@@ -319,7 +244,112 @@ const useZoneFProcessor = (rawReject, rawDowntime, date, volume, headerMetrics) 
   }, [rawReject, rawDowntime, date, volume, headerMetrics]);
 };
 
-// --- MAIN COMPONENT ---
+// ==========================================
+// COMPONENT: SUMMARY TABLE (CLEAN DESIGN)
+// ==========================================
+const SummaryTable = ({ zoneTitle, structure, matrixData, oee, avail, perf, qual, metrics, dtJam, lossUnit, totalFinLoss }) => {
+  return (
+    <div className="border border-black shadow-lg bg-white mb-12 w-full overflow-x-auto">
+      {/* HEADER ZONE */}
+      <div className="bg-gray-100 p-4 border-b border-black flex flex-col md:flex-row justify-between items-center gap-4">
+        <h2 className="text-xl font-black uppercase tracking-widest text-black">{zoneTitle}</h2>
+        <div className="flex gap-4 md:gap-6 text-sm font-bold text-gray-700">
+          <div className="flex flex-col"><span className="text-[10px] text-gray-500 uppercase tracking-wider">OEE Score</span><span className="text-xl text-black">{oee.toFixed(1)}%</span></div>
+          <div className="flex flex-col"><span className="text-[10px] text-gray-500 uppercase tracking-wider">Avail</span><span className="text-xl text-yellow-600">{avail.toFixed(1)}%</span></div>
+          <div className="flex flex-col"><span className="text-[10px] text-gray-500 uppercase tracking-wider">Perf</span><span className="text-xl text-blue-600">{perf.toFixed(1)}%</span></div>
+          <div className="flex flex-col"><span className="text-[10px] text-gray-500 uppercase tracking-wider">Qual</span><span className="text-xl text-emerald-600">{qual.toFixed(1)}%</span></div>
+        </div>
+      </div>
+
+      {/* QUICK STATS */}
+      <div className="grid grid-cols-3 border-b border-black divide-x divide-black bg-gray-50">
+        <div className="p-3 text-center">
+          <span className="block text-[10px] font-bold text-gray-600 uppercase tracking-widest">Speed</span>
+          <span className="text-xl font-black text-black">{metrics.speed.toLocaleString('id-ID')} <span className="text-sm font-bold text-gray-500">bph</span></span>
+        </div>
+        <div className="p-3 text-center">
+          <span className="block text-[10px] font-bold text-gray-600 uppercase tracking-widest">Unplanned DT</span>
+          <span className="text-xl font-black text-red-600">{formatNum(matrixData['TOTAL']?.['unplanned_dt'])} <span className="text-sm font-bold text-red-400">Jam</span></span>
+        </div>
+        <div className="p-3 text-center">
+          <span className="block text-[10px] font-bold text-gray-600 uppercase tracking-widest">Total Batch</span>
+          <span className="text-xl font-black text-black">{formatNum(matrixData['TOTAL']?.[zoneTitle.includes('F') ? 'ba_total_fg' : 'ba_total'])} <span className="text-sm font-bold text-gray-500">Batch</span></span>
+        </div>
+      </div>
+
+      {/* MAIN TABLE */}
+      <table className="w-full text-left border-collapse text-xs">
+        <thead className="bg-gray-100 border-b-2 border-black">
+          <tr>
+            <th className="py-2 px-3 border-r border-black font-bold uppercase tracking-wider text-black w-[40%]">Parameter</th>
+            {['A', 'B', 'C', 'D'].map(g => <th key={g} className="py-2 px-2 border-r border-black font-bold text-center text-black w-[10%]">{g}</th>)}
+            <th className="py-2 px-2 border-r border-black font-bold text-center bg-gray-200 text-black w-[10%]">TOTAL</th>
+            <th className="py-2 px-2 font-bold text-center text-black w-[10%]">Satuan</th>
+          </tr>
+        </thead>
+        <tbody className="text-gray-800">
+          {structure.map((section, sIdx) => {
+            const isMergedSection = ["DETAIL DOWNTIME", "JENIS DOWNTIME", "DETAIL QC SAMPLE", "DETAIL REJECT"].includes(section.section);
+            return (
+              <React.Fragment key={`sec-${sIdx}`}>
+                {isMergedSection ? (
+                  <tr className="bg-gray-200 border-y border-black">
+                    <td colSpan={7} className="py-2 px-3 font-bold text-black uppercase tracking-widest">{section.section}</td>
+                  </tr>
+                ) : (
+                  <tr className="bg-gray-100 border-y border-black">
+                    <td className="py-2 px-3 border-r border-black font-bold text-black uppercase tracking-widest">{section.section}</td>
+                    {['A', 'B', 'C', 'D'].map(g => <td key={`main-${g}`} className="py-2 px-2 border-r border-black text-center font-bold text-black">{formatNum(matrixData[g]?.[section.key]) || "-"}</td>)}
+                    <td className="py-2 px-2 border-r border-black text-center font-bold bg-gray-200 text-black">{formatNum(matrixData['TOTAL']?.[section.key]) || "-"}</td>
+                    <td className="py-2 px-2 text-center text-black">{section.unit}</td>
+                  </tr>
+                )}
+                {section.items.map((item, iIdx) => {
+                  if (item.isGroupHeader) return (
+                    <tr key={`hdr-${iIdx}`} className="bg-gray-50 border-b border-gray-300">
+                      <td colSpan={7} className="py-1 px-3 border-r border-black text-[10px] font-bold text-gray-500 italic uppercase pl-6">{item.label}</td>
+                    </tr>
+                  );
+                  const isHl = isHighlightRow(item.label);
+                  return (
+                    <tr key={`item-${iIdx}`} className="border-b border-gray-300 hover:bg-gray-50">
+                      <td className={`py-1.5 px-3 border-r border-black ${isHl ? 'font-bold text-black' : 'text-gray-700'} ${item.isSubItem ? 'pl-8' : 'pl-4'}`}>{item.label}</td>
+                      {['A', 'B', 'C', 'D'].map(g => <td key={`val-${g}`} className="py-1.5 px-2 border-r border-gray-300 text-center text-black">{matrixData[g]?.[item.key] !== undefined && matrixData[g]?.[item.key] !== "-" ? formatNum(matrixData[g][item.key]) : "-"}</td>)}
+                      <td className="py-1.5 px-2 border-r border-black text-center font-bold bg-gray-100 text-black">{matrixData['TOTAL']?.[item.key] !== undefined && matrixData['TOTAL']?.[item.key] !== "-" ? formatNum(matrixData['TOTAL'][item.key]) : "-"}</td>
+                      <td className="py-1.5 px-2 text-center text-gray-500">{item.unit}</td>
+                    </tr>
+                  );
+                })}
+              </React.Fragment>
+            );
+          })}
+        </tbody>
+      </table>
+
+      {/* POTENTIAL LOSS FOOTER */}
+      <div className="bg-white border-t border-black p-4">
+        <div className="flex justify-between items-center mb-3">
+          <h3 className="text-sm font-black uppercase tracking-widest text-red-600">Potential Loss</h3>
+          <span className="text-xl font-black text-red-600">{formatRp(totalFinLoss)}</span>
+        </div>
+        <div className="grid grid-cols-2 gap-4 text-xs">
+          <div className="border border-gray-300 p-3 bg-gray-50 flex justify-between">
+            <span className="font-bold text-gray-600">Downtime ({formatNum(lossUnit)} unit)</span>
+            <span className="font-bold text-black">{formatRp(lossUnit * 6500)}</span>
+          </div>
+          <div className="border border-gray-300 p-3 bg-gray-50 flex justify-between">
+            <span className="font-bold text-gray-600">Rejection ({formatNum(parseFloat(matrixData['TOTAL']?.['rej_tot_dec']) || 0)} unit)</span>
+            <span className="font-bold text-black">{formatRp((parseFloat(matrixData['TOTAL']?.['rej_tot_dec']) || 0) * 6500)}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ==========================================
+// MAIN DASHBOARD COMPONENT
+// ==========================================
 const DailyOnesheet = () => {
   const { user } = useAuth();
   const [inputDate, setInputDate] = useState(new Date().toISOString().split('T')[0]); 
@@ -327,19 +357,7 @@ const DailyOnesheet = () => {
   const [activeDate, setActiveDate] = useState(new Date().toISOString().split('T')[0]); 
   const [activeVolume, setActiveVolume] = useState("500 ML"); 
   
-// Mengambil state awal dari LocalStorage (Global)
-  const [isDarkMode, setIsDarkMode] = useState(() => (localStorage.getItem('appTheme') || 'dark') === 'dark');
-
-  // Menambahkan telinga (event listener) agar saat Settings merubah tema, halaman ini ikut berubah seketika!
-  useEffect(() => {
-    const handleThemeChange = () => {
-      const currentTheme = localStorage.getItem('appTheme') || 'dark';
-      setIsDarkMode(currentTheme === 'dark');
-    };
-    window.addEventListener('themeChange', handleThemeChange);
-    return () => window.removeEventListener('themeChange', handleThemeChange);
-  }, []);  const [isFetching, setIsFetching] = useState(false); 
-  const [isPrinting, setIsPrinting] = useState(false); 
+  const [isFetching, setIsFetching] = useState(false); 
   const printRef = useRef(); 
   
   const [rawRejectC, setRawRejectC] = useState([]);
@@ -347,7 +365,6 @@ const DailyOnesheet = () => {
   const [rawRejectF, setRawRejectF] = useState([]);
   const [rawDowntimeF, setRawDowntimeF] = useState([]);
 
-  // Fungsi Fetch Data Utama dipanggil HANYA saat tombol ditekan
   const executeSearch = async () => {
     setIsFetching(true);
     setActiveDate(inputDate);
@@ -360,7 +377,7 @@ const DailyOnesheet = () => {
         setRawDowntimeC(res.data.downtime_c || []);
         setRawRejectF(res.data.reject_f || []);
         setRawDowntimeF(res.data.downtime_f || []);
-        toast.success(`Data tanggal ${inputDate} berhasil dimuat!`);
+        toast.success(`Data ${inputDate} dimuat!`);
       } else {
         toast.error("Gagal menarik data: " + res.message);
       }
@@ -373,7 +390,6 @@ const DailyOnesheet = () => {
 
   useEffect(() => {
     if (user) executeSearch();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const metrics = useMemo(() => calculateZoneMetrics(activeVolume), [activeVolume]);
@@ -388,423 +404,81 @@ const DailyOnesheet = () => {
   const lossUnitDtF = metrics.speed * dtJamF;
   const totalFinLossF = (lossUnitDtF * 6500) + ((parseFloat(mockMatrixDataF['TOTAL']?.['rej_tot_dec']) || 0) * 6500);
 
-  // --- THEME CLASSES ---
-  const bgClass = isDarkMode ? 'bg-[#0B1120]' : 'bg-slate-50';
-  const textClass = isDarkMode ? 'text-slate-200' : 'text-slate-800';
-  const cardClass = isDarkMode ? 'bg-[#1e293b]/60 border-blue-500/20' : 'bg-white border-slate-300 shadow-xl border';
-  const cardClassPurple = isDarkMode ? 'bg-[#1e293b]/60 border-purple-500/20' : 'bg-white border-slate-300 shadow-xl border';
-  const tableHeaderClass = isDarkMode ? 'bg-slate-800' : 'bg-slate-200 border-b-2 border-slate-400';
-  const tableRowClass = isDarkMode ? 'hover:bg-slate-800/50' : 'hover:bg-slate-100';
-  const tableRowClassPurple = isDarkMode ? 'hover:bg-slate-800/50' : 'hover:bg-purple-50/50';
-  const tableBorderClass = isDarkMode ? 'border-slate-700/50' : 'border-slate-300';
-  const subTextClass = isDarkMode ? 'text-slate-500' : 'text-slate-600 font-bold';
-
   const handleDownloadJPG = () => {
     const element = printRef.current;
     if (!element) return;
     
-    // Perbaikan: PDF mengikuti tema yang sedang aktif
-    setIsPrinting(true);
     const toastId = toast.loading("Mempersiapkan File");
-
     setTimeout(async () => {
       try {
         toast.loading("Mengunduh File", { id: toastId });
-        const dataUrl = await toPng(element, {
-          quality: 1.0,
-          pixelRatio: 2, 
-          backgroundColor: isDarkMode ? '#0B1120' : '#ffffff',
-          skipAutoScale: true
-        });
+        const dataUrl = await toPng(element, { quality: 1.0, pixelRatio: 2, backgroundColor: '#ffffff' });
         const link = document.createElement('a');
-        link.download = `OEE_ONESHEET_${activeDate}_${activeVolume}.png`;
+        link.download = `ONESHEET_${activeDate}_${activeVolume}.png`;
         link.href = dataUrl;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
         toast.success("Berhasil Diunduh", { id: toastId });
       } catch (err) {
-        console.error("Print Error:", err);
-        toast.error("Gagal! Coba gunakan Chrome/Edge.", { id: toastId });
-      } finally {
-        setIsPrinting(false);
+        toast.error("Gagal Download.", { id: toastId });
       }
-    }, 1500); 
-  };
-
-  // Helper untuk Cell Tabel Highlight (Garis Tepi Merah Memukau)
-  const getTdClass = (type, isHighlight) => {
-      let base = "py-2 px-1 align-middle border-b border-r text-center font-mono text-[11px] overflow-hidden ";
-      
-      if (isHighlight) {
-          base += `!border-[2px] !border-red-500 shadow-[inset_0_0_12px_rgba(239,68,68,0.3)] ${isDarkMode ? 'bg-red-500/10 text-white font-black' : 'bg-red-50 text-black font-black'} `;
-      } else {
-          base += `${tableBorderClass} `;
-          if (type === 'group') {
-              base += `${isDarkMode ? 'text-white' : 'text-black'} `;
-          } else if (type === 'total') {
-              base += `${isDarkMode ? 'text-white bg-slate-700/40' : 'text-black bg-slate-200'} font-bold `;
-          }
-      }
-      return base;
+    }, 1000); 
   };
 
   return (
-    <div className={`min-h-screen ${bgClass} ${textClass} font-sans p-4 md:p-6 pb-32 overflow-hidden relative transition-colors duration-300`}>
-      <Toaster position="top-center" toastOptions={{style: {background: isDarkMode ? '#1e293b' : '#fff', color: isDarkMode ? '#fff' : '#000', fontWeight: 'bold'}}} />
+    <div className="min-h-screen bg-gray-50 text-black font-sans p-4 md:p-8 pb-32">
+      <Toaster position="top-center" />
       
-      {isDarkMode && (
-        <>
-          <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-blue-600/5 rounded-full blur-[120px] pointer-events-none"></div>
-          <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-purple-600/5 rounded-full blur-[120px] pointer-events-none"></div>
-        </>
-      )}
-
-      {/* --- NAVIGATION BAR & DATA INPUT --- */}
-      <div className="max-w-[1600px] mx-auto mb-8 relative z-50 print-no-margin">
-        <div className={`${isDarkMode ? 'bg-[#1e293b]/80 backdrop-blur-xl border-white/10' : 'bg-white border-slate-300 border'} rounded-2xl py-4 px-6 shadow-2xl flex flex-col md:flex-row justify-between items-center transition-colors duration-300 gap-4`}>
-          
-          <div className="flex items-center gap-4 w-full md:w-auto">
-             <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
-                <Activity size={20} className="text-white"/>
-             </div>
-             <div>
-                <span className={`font-black tracking-widest uppercase text-lg block leading-none ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>ONESHEET</span>
-                <span className={`text-[10px] font-bold uppercase tracking-widest ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Analisis Performa Harian</span>
-             </div>
-          </div>
-          
-          <div className="flex flex-wrap md:flex-nowrap items-center gap-3 w-full md:w-auto justify-center md:justify-end">
-            <div className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all ${isDarkMode ? 'bg-[#0f172a] border-slate-700 focus-within:border-blue-500' : 'bg-slate-50 border-slate-300 focus-within:border-blue-500'}`}>
-                <Calendar size={16} className={isDarkMode ? 'text-blue-400' : 'text-blue-600'}/>
-                <input type="date" value={inputDate} onChange={(e) => setInputDate(e.target.value)} className={`bg-transparent font-mono text-sm font-bold outline-none cursor-pointer ${isDarkMode ? 'text-white' : 'text-slate-800'}`}/>
-            </div>
-            <div className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all ${isDarkMode ? 'bg-[#0f172a] border-slate-700 focus-within:border-blue-500' : 'bg-slate-50 border-slate-300 focus-within:border-blue-500'}`}>
-                <Package size={16} className={isDarkMode ? 'text-blue-400' : 'text-blue-600'}/>
-                <select value={inputVolume} onChange={(e) => setInputVolume(e.target.value)} className={`bg-transparent font-bold text-sm outline-none cursor-pointer appearance-none ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
-                    <option value="25 ML" className={isDarkMode ? "bg-slate-800 text-white" : "bg-white text-black"}>25 ML</option>
-                    <option value="100 ML" className={isDarkMode ? "bg-slate-800 text-white" : "bg-white text-black"}>100 ML</option>
-                    <option value="250 ML" className={isDarkMode ? "bg-slate-800 text-white" : "bg-white text-black"}>250 ML</option>
-                    <option value="500 ML" className={isDarkMode ? "bg-slate-800 text-white" : "bg-white text-black"}>500 ML</option>
-                    <option value="1000 ML" className={isDarkMode ? "bg-slate-800 text-white" : "bg-white text-black"}>1000 ML</option>
-                </select>
-            </div>
-            
-            <button onClick={executeSearch} disabled={isFetching} className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all active:scale-95 shadow-lg ${isDarkMode ? 'bg-blue-600 hover:bg-blue-500 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}>
-                {isFetching ? <Loader2 size={16} className="animate-spin"/> : <Search size={16}/>}
-                CARI DATA
-            </button>
-
-            <div className={`w-px h-8 mx-2 ${isDarkMode ? 'bg-slate-700' : 'bg-slate-300'} hidden md:block`}></div>
-
-            <button onClick={handleDownloadJPG} className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs border transition-all active:scale-95 shadow-sm ${isDarkMode ? 'bg-slate-800 border-slate-700 text-emerald-400 hover:bg-slate-700' : 'bg-white border-slate-300 text-emerald-600 hover:bg-slate-50'}`} title="Unduh Onesheet PDF/JPG">
-              <Download size={16} /> UNDUH
-            </button>
-          </div>
+      {/* CONTROLS (NON-PRINTABLE) */}
+      <div className="max-w-[1600px] mx-auto mb-8 bg-white border border-black shadow-lg p-4 flex flex-wrap justify-between items-center gap-4">
+        <h1 className="text-xl font-black uppercase tracking-widest">Daily Onesheet</h1>
+        <div className="flex gap-3 items-center">
+          <input type="date" value={inputDate} onChange={(e) => setInputDate(e.target.value)} className="border border-black p-2 text-sm outline-none" />
+          <select value={inputVolume} onChange={(e) => setInputVolume(e.target.value)} className="border border-black p-2 font-bold text-sm outline-none">
+            {VOLUMES.map(v => <option key={v} value={v}>{v}</option>)}
+          </select>
+          <button onClick={executeSearch} disabled={isFetching} className="bg-black text-white px-4 py-2 font-bold flex items-center gap-2 hover:bg-gray-800 transition-colors">
+            {isFetching ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />} CARI
+          </button>
+          <button onClick={handleDownloadJPG} className="border border-black px-4 py-2 font-bold flex items-center gap-2 hover:bg-gray-100 transition-colors">
+            <Download size={16} /> UNDUH
+          </button>
         </div>
       </div>
 
-      {/* --- AREA PRINT / DOWNLOAD --- */}
-      <div ref={printRef} className={`mx-auto relative z-10 ${!isDarkMode && isPrinting ? 'bg-white' : ''} ${isPrinting ? 'w-[1600px] min-w-[1600px] p-8' : 'max-w-[1600px]'}`}>
+      {/* PRINTABLE AREA (Lebar diperbesar untuk menampung grid menyamping) */}
+      <div ref={printRef} className="w-full max-w-[1800px] mx-auto bg-white p-8 border border-gray-200">
         
-{/* HEADER IDENTITAS - RESPONSIVE & PRINT READY */}
-        <div className="flex flex-col items-center justify-center mb-8 border-b border-dashed border-slate-500/30 pb-6 relative z-10 w-full">
-           <h1 className={`text-3xl md:text-4xl font-black ${isDarkMode ? 'text-white' : 'text-slate-800'} tracking-widest mb-6 text-center`}>DAILY ONESHEET</h1>
-           
-           {/* Gunakan flex-wrap untuk mobile, dan nowrap untuk desktop/print */}
-           <div className="flex flex-row flex-wrap md:flex-nowrap items-center justify-center gap-4 md:gap-12 w-full px-2">
-              
-              {/* KOTAK 1: LINE */}
-              <div className="flex flex-col items-center justify-center flex-1 md:flex-none md:min-w-[120px]">
-                <span className={`text-[9px] md:text-[10px] font-bold uppercase tracking-widest ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Line</span>
-                <span className={`text-lg md:text-xl font-black uppercase ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`}>{user?.line || 2}</span>
-              </div>
-              
-              {/* GARIS PEMBATAS 1 (Sembunyi di HP, Tampil di Desktop/Print) */}
-              <div className={`hidden md:block w-px h-10 ${isDarkMode ? 'bg-slate-700' : 'bg-slate-300'}`}></div>
-              
-              {/* KOTAK 2: TANGGAL */}
-              <div className={`flex flex-col items-center justify-center flex-1 md:flex-none md:min-w-[150px] border-l border-r md:border-none px-2 md:px-0 ${isDarkMode ? 'border-slate-700' : 'border-slate-300'}`}>
-                <span className={`text-[9px] md:text-[10px] font-bold uppercase tracking-widest ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Tanggal</span>
-                <span className={`text-lg md:text-xl font-black font-mono ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`}>{activeDate}</span>
-              </div>
-              
-              {/* GARIS PEMBATAS 2 (Sembunyi di HP, Tampil di Desktop/Print) */}
-              <div className={`hidden md:block w-px h-10 ${isDarkMode ? 'bg-slate-700' : 'bg-slate-300'}`}></div>
-              
-              {/* KOTAK 3: VOLUME */}
-              <div className="flex flex-col items-center justify-center flex-1 md:flex-none md:min-w-[150px]">
-                <span className={`text-[9px] md:text-[10px] font-bold uppercase tracking-widest ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Volume</span>
-                <span className={`text-lg md:text-xl font-black ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`}>{activeVolume}</span>
-              </div>
-
-           </div>
+        {/* REPORT HEADER */}
+        <div className="border-b-4 border-black pb-4 mb-8 text-center flex flex-col items-center">
+          <h1 className="text-4xl font-black uppercase tracking-widest mb-4">Laporan Onesheet</h1>
+          <div className="flex gap-12 text-sm font-bold">
+            <div className="flex flex-col"><span className="text-gray-500 uppercase tracking-widest text-[10px]">Line</span><span className="text-xl">{user?.line || 2}</span></div>
+            <div className="flex flex-col"><span className="text-gray-500 uppercase tracking-widest text-[10px]">Tanggal</span><span className="text-xl">{activeDate}</span></div>
+            <div className="flex flex-col"><span className="text-gray-500 uppercase tracking-widest text-[10px]">Volume</span><span className="text-xl">{activeVolume}</span></div>
+          </div>
         </div>
-        
-        <div className={`grid gap-8 relative z-10 ${isPrinting ? 'grid-cols-2' : 'grid-cols-1 xl:grid-cols-2'}`}>
+
+        {/* DATA TABLES (Grid Menyamping/Side-by-side) */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 w-full">
+          <SummaryTable 
+            zoneTitle="OEE Zone C" 
+            structure={zoneCMatrixStructure} 
+            matrixData={mockMatrixDataC} 
+            oee={calculatedOEEC} avail={availC} perf={perfC} qual={qualC} metrics={metrics} 
+            lossUnit={lossUnitDtC} totalFinLoss={totalFinLossC} 
+          />
           
-          {/* =========================================
-              ZONE C (WITH TARGETED BLUR)
-          ========================================= */}
-          <div className={`${cardClass} rounded-3xl flex flex-col h-full relative overflow-hidden`}>
-            <AnimatePresence>
-              {isFetching && !isPrinting && (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className={`absolute inset-0 z-[40] flex flex-col items-center justify-center backdrop-blur-sm ${isDarkMode ? 'bg-[#0f172a]/60' : 'bg-white/60'}`}>
-                   <Loader2 size={40} className="text-blue-500 animate-spin mb-2"/>
-                   <span className={`text-xs font-bold uppercase animate-pulse ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>Loading Data Zone C...</span>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            <div className={`bg-gradient-to-r ${isDarkMode ? 'from-blue-900/50' : 'from-blue-100'} to-transparent p-4 border-b ${isDarkMode ? 'border-blue-500/20' : 'border-slate-300'} flex items-center justify-between`}>
-              <h2 className={`text-xl font-black ${isDarkMode ? 'text-white' : 'text-slate-800'} flex items-center gap-2`}><div className="w-3 h-3 rounded-full bg-blue-500"></div> OEE ZONE C</h2>
-            </div>
-            
-            <div className="p-4 md:p-6 flex flex-col gap-6">
-              <OEEDisplay oee={calculatedOEEC} avail={availC} perf={perfC} qual={qualC} colorClass="blue" isDark={isDarkMode} />
-
-              <div className={`grid gap-4 print-no-margin ${isPrinting ? 'grid-cols-3' : 'grid-cols-1 sm:grid-cols-3'}`}>
-                <div className={`${isDarkMode ? 'bg-slate-800/50 border-blue-500/20' : 'bg-slate-50 border-slate-300 border'} rounded-xl p-4 flex flex-col justify-center items-center text-center relative overflow-hidden`}>
-                  <span className={`text-[10px] font-bold ${subTextClass} uppercase tracking-widest mb-1`}>Speed</span>
-                  <div className="flex items-baseline gap-1">
-                    <span className={`text-3xl font-black ${isDarkMode ? 'text-white' : 'text-slate-800'} font-mono`}>{metrics.speed.toLocaleString('id-ID')}</span>
-                    <span className="text-sm font-bold text-blue-500">bph</span>
-                  </div>
-                </div>
-                <div className={`${isDarkMode ? 'bg-slate-800/50 border-blue-500/20' : 'bg-slate-50 border-slate-300 border'} rounded-xl p-4 flex flex-col justify-center items-center text-center relative overflow-hidden`}>
-                  <span className={`text-[10px] font-bold ${subTextClass} uppercase tracking-widest mb-1`}>Unplanned DT</span>
-                  <div className="flex items-baseline gap-1">
-                    <span className={`text-3xl font-black text-red-500 font-mono`}>{formatNum(mockMatrixDataC['TOTAL']?.['unplanned_dt'])}</span>
-                    <span className="text-sm font-bold text-red-500">Jam</span>
-                  </div>
-                </div>
-                <div className={`${isDarkMode ? 'bg-slate-800/50 border-blue-500/20' : 'bg-slate-50 border-slate-300 border'} rounded-xl p-4 flex flex-col justify-center items-center text-center relative overflow-hidden`}>
-                  <span className={`text-[10px] font-bold ${subTextClass} uppercase tracking-widest mb-1`}>TOTAL BATCH</span>
-                  <div className="flex items-baseline gap-2">
-                    <span className={`text-3xl font-black ${isDarkMode ? 'text-white' : 'text-slate-800'} font-mono`}>{formatNum(mockMatrixDataC['TOTAL']?.['ba_total'])}</span>
-                    <span className="text-sm font-bold text-emerald-600">Batch</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className={`border ${isDarkMode ? 'border-white/10 bg-[#0f172a]' : 'border-slate-300 bg-white'} rounded-xl overflow-hidden`}>
-                <table className="w-full text-left border-collapse table-fixed">
-                  <thead>
-                    <tr className={tableHeaderClass}>
-                      <th className={`py-3 px-3 align-middle border-b border-r ${tableBorderClass} text-[11px] font-black ${isDarkMode ? 'text-blue-500' : 'text-blue-600'} uppercase tracking-widest w-[34%]`}>Parameter</th>
-                      {['A', 'B', 'C', 'D'].map((group) => (
-                        <th key={group} className={`py-3 px-1 align-middle border-b border-r ${tableBorderClass} text-center text-[11px] font-black ${isDarkMode ? 'text-slate-300' : 'text-slate-700'} uppercase w-[8.5%]`}>{group}</th>
-                      ))}
-                      <th className={`py-3 px-1 align-middle border-b border-r ${tableBorderClass} text-center text-[11px] font-black ${isDarkMode ? 'text-white bg-slate-700' : 'text-black bg-slate-200'} uppercase w-[12%]`}>TOTAL</th>
-                      <th className={`py-3 px-2 align-middle border-b ${tableBorderClass} text-center text-[11px] font-black ${isDarkMode ? 'text-white bg-slate-800' : 'text-black bg-slate-100'} uppercase w-[20%]`}>Satuan</th>
-                    </tr>
-                  </thead>
-                  <tbody className="text-[12px]">
-                    {zoneCMatrixStructure.map((section, sIdx) => {
-                      const isMergedSection = ["DETAIL DOWNTIME", "JENIS DOWNTIME", "DETAIL QC SAMPLE", "DETAIL REJECT"].includes(section.section);
-                      return (
-                        <React.Fragment key={`c-sec-${sIdx}`}>
-                          {isMergedSection ? (
-                            <tr className={`${isDarkMode ? 'bg-slate-800' : 'bg-slate-200'} border-b ${tableBorderClass}`}>
-                              <td colSpan={7} className={`py-2 px-3 align-middle font-bold ${isDarkMode ? 'text-slate-300' : 'text-slate-800'} text-[12px] tracking-widest uppercase`}>{section.section}</td>
-                            </tr>
-                          ) : (
-                            <tr className={`${isDarkMode ? 'bg-blue-900/30' : 'bg-blue-50'} border-b ${tableBorderClass}`}>
-                              <td className={`py-2 px-3 align-middle font-bold ${isDarkMode ? 'text-blue-500' : 'text-blue-800'} text-[12px] tracking-widest uppercase border-r ${tableBorderClass}`}>{section.section}</td>
-                              {['A', 'B', 'C', 'D'].map((group) => (
-                                <td key={`c-main-${group}`} className={`py-2 px-1 align-middle border-r ${tableBorderClass} text-center font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'} text-[12px]`}>{formatNum(mockMatrixDataC[group]?.[section.key]) || "-"}</td>
-                              ))}
-                              <td className={`py-2 px-1 align-middle border-r ${tableBorderClass} text-center font-black ${isDarkMode ? 'text-white bg-slate-700/50' : 'text-black bg-slate-200'} text-[12px]`}>{formatNum(mockMatrixDataC['TOTAL']?.[section.key]) || "-"}</td>
-                              <td className={`py-2 px-2 align-middle text-center font-bold ${isDarkMode ? 'text-white bg-slate-800/50' : 'text-black bg-slate-100'} text-[11px]`}>{section.unit}</td>
-                            </tr>
-                          )}
-                          {section.items.map((item, iIdx) => {
-                            if (item.isGroupHeader) return (
-                              <tr key={`c-hdr-${iIdx}`} className={`${isDarkMode ? 'bg-slate-800/30' : 'bg-slate-100'}`}>
-                                <td colSpan={7} className={`py-1.5 px-3 align-middle border-b ${tableBorderClass} ${isDarkMode ? 'text-blue-400' : 'text-slate-600'} text-[11px] font-bold italic pl-6 whitespace-normal break-words leading-tight`}>{item.label}</td>
-                              </tr>
-                            );
-
-                            const isHl = isHighlightRow(item.label);
-
-                            return (
-                              <tr key={`c-item-${iIdx}`} className={`${tableRowClass} transition-colors`}>
-                                <td className={`py-2 px-3 align-middle border-b border-r ${tableBorderClass} ${isHl ? 'text-red-500 font-black' : (isDarkMode ? 'text-slate-300 font-medium' : 'text-slate-700 font-medium')} text-[11px] whitespace-normal break-words leading-tight ${item.isSubItem ? 'pl-8' : 'pl-4'}`}>{item.label}</td>
-                                {['A', 'B', 'C', 'D'].map((group) => (
-                                  <td key={`c-${item.key}-${group}`} className={getTdClass('group', isHl)}>{mockMatrixDataC[group]?.[item.key] !== undefined && mockMatrixDataC[group]?.[item.key] !== "-" ? formatNum(mockMatrixDataC[group][item.key]) : "-"}</td>
-                                ))}
-                                <td className={getTdClass('total', isHl)}>{mockMatrixDataC['TOTAL']?.[item.key] !== undefined && mockMatrixDataC['TOTAL']?.[item.key] !== "-" ? formatNum(mockMatrixDataC['TOTAL'][item.key]) : "-"}</td>
-                                <td className={`py-2 px-2 align-middle border-b ${tableBorderClass} text-center font-mono text-[10px] ${isDarkMode ? 'text-white bg-slate-800/40' : 'text-black bg-slate-100'} overflow-hidden truncate`}>{item.unit}</td>
-                              </tr>
-                            );
-                          })}
-                        </React.Fragment>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className={`mt-4 ${isDarkMode ? 'bg-red-900/10 border-red-500/30' : 'bg-red-50 border-red-300 border'} rounded-2xl overflow-hidden print-no-margin`}>
-                <div className={`bg-gradient-to-r ${isDarkMode ? 'from-red-600/20' : 'from-red-200'} to-transparent px-5 py-3 border-b ${isDarkMode ? 'border-red-500/20' : 'border-red-300'} flex items-center gap-3`}>
-                  <h3 className={`text-sm font-black ${isDarkMode ? 'text-red-500' : 'text-red-700'} uppercase tracking-widest`}>Potential Loss - Kelas C</h3>
-                </div>
-                <div className={`p-5 grid gap-5 ${isPrinting ? 'grid-cols-2' : 'grid-cols-1 md:grid-cols-2'}`}>
-                  <div className={`${isDarkMode ? 'bg-[#0f172a]/80 border-red-500/10' : 'bg-white border-red-200 border'} rounded-xl p-4 shadow-inner relative overflow-hidden`}>
-                    <span className={`text-[11px] ${isDarkMode ? 'text-red-400' : 'text-red-600'} uppercase tracking-wider font-bold mb-3 block border-b border-red-200/20 pb-1`}>Downtime</span>
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-end"><span className={`text-[12px] ${subTextClass}`}>Jumlah Unit</span><span className={`text-sm font-mono font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{formatNum(lossUnitDtC)}</span></div>
-                      <div className="flex justify-between items-end"><span className={`text-[12px] ${subTextClass}`}>Finansial</span><span className={`text-base font-mono font-black ${isDarkMode ? 'text-red-500' : 'text-red-700'}`}>{formatRp(lossUnitDtC * 6500)}</span></div>
-                    </div>
-                  </div>
-                  <div className={`${isDarkMode ? 'bg-[#0f172a]/80 border-red-500/10' : 'bg-white border-red-200 border'} rounded-xl p-4 shadow-inner relative overflow-hidden`}>
-                    <span className={`text-[11px] ${isDarkMode ? 'text-red-400' : 'text-red-600'} uppercase tracking-wider font-bold mb-3 block border-b border-red-200/20 pb-1`}>Rejection</span>
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-end"><span className={`text-[12px] ${subTextClass}`}>Jumlah Unit</span><span className={`text-sm font-mono font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{formatNum(parseFloat(mockMatrixDataC['TOTAL']?.['rej_tot_dec']) || 0)}</span></div>
-                      <div className="flex justify-between items-end"><span className={`text-[12px] ${subTextClass}`}>Finansial</span><span className={`text-base font-mono font-black ${isDarkMode ? 'text-red-500' : 'text-red-700'}`}>{formatRp((parseFloat(mockMatrixDataC['TOTAL']?.['rej_tot_dec']) || 0) * 6500)}</span></div>
-                    </div>
-                  </div>
-                </div>
-                <div className={`${isDarkMode ? 'bg-red-950/40 border-red-500/30' : 'bg-red-100 border-red-300 border-t'} px-6 py-4 flex justify-between items-center`}>
-                   <span className={`text-[13px] font-black ${isDarkMode ? 'text-red-400' : 'text-red-800'} uppercase tracking-widest`}>Total Potential Loss (C)</span>
-                   <span className={`text-2xl font-black font-mono ${isDarkMode ? 'text-red-500' : 'text-red-700'}`}>{formatRp(totalFinLossC)}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* =========================================
-              ZONE F (WITH TARGETED BLUR)
-          ========================================= */}
-          <div className={`${cardClassPurple} rounded-3xl flex flex-col h-full relative overflow-hidden`}>
-            
-            <AnimatePresence>
-              {isFetching && !isPrinting && (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className={`absolute inset-0 z-[40] flex flex-col items-center justify-center backdrop-blur-sm ${isDarkMode ? 'bg-[#0f172a]/60' : 'bg-white/60'}`}>
-                   <Loader2 size={40} className="text-purple-500 animate-spin mb-2"/>
-                   <span className={`text-xs font-bold uppercase animate-pulse ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>Loading Data Zone F...</span>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            <div className={`bg-gradient-to-r ${isDarkMode ? 'from-purple-900/50' : 'from-purple-100'} to-transparent p-4 border-b ${isDarkMode ? 'border-purple-500/20' : 'border-slate-300'} flex items-center justify-between`}>
-              <h2 className={`text-xl font-black ${isDarkMode ? 'text-white' : 'text-slate-800'} flex items-center gap-2`}><div className="w-3 h-3 rounded-full bg-purple-500"></div> OEE ZONE F</h2>
-            </div>
-            
-            <div className="p-4 md:p-6 flex flex-col gap-6 h-full relative z-10">
-              <OEEDisplay oee={calculatedOEEF} avail={availF} perf={perfF} qual={qualF} colorClass="purple" isDark={isDarkMode} />
-
-              <div className={`grid gap-4 print-no-margin ${isPrinting ? 'grid-cols-3' : 'grid-cols-1 sm:grid-cols-3'}`}>
-                <div className={`${isDarkMode ? 'bg-slate-800/50 border-purple-500/20' : 'bg-slate-50 border-slate-300 border'} rounded-xl p-4 flex flex-col justify-center items-center text-center relative overflow-hidden`}>
-                  <span className={`text-[10px] font-bold ${subTextClass} uppercase tracking-widest mb-1`}>Speed</span>
-                  <div className="flex items-baseline gap-1">
-                    <span className={`text-3xl font-black ${isDarkMode ? 'text-white' : 'text-slate-800'} font-mono`}>{metrics.speed.toLocaleString('id-ID')}</span>
-                    <span className="text-sm font-bold text-purple-500">bph</span>
-                  </div>
-                </div>
-                <div className={`${isDarkMode ? 'bg-slate-800/50 border-purple-500/20' : 'bg-slate-50 border-slate-300 border'} rounded-xl p-4 flex flex-col justify-center items-center text-center relative overflow-hidden`}>
-                  <span className={`text-[10px] font-bold ${subTextClass} uppercase tracking-widest mb-1`}>Unplanned DT</span>
-                  <div className="flex items-baseline gap-1">
-                    <span className={`text-3xl font-black text-red-500 font-mono`}>{formatNum(mockMatrixDataF['TOTAL']?.['unplanned_dt'])}</span>
-                    <span className="text-sm font-bold text-red-500">Jam</span>
-                  </div>
-                </div>
-                <div className={`${isDarkMode ? 'bg-slate-800/50 border-purple-500/20' : 'bg-slate-50 border-slate-300 border'} rounded-xl p-4 flex flex-col justify-center items-center text-center relative overflow-hidden`}>
-                  <span className={`text-[10px] font-bold ${subTextClass} uppercase tracking-widest mb-1`}>TOTAL BATCH "FG"</span>
-                  <div className="flex items-baseline gap-2">
-                    <span className={`text-3xl font-black ${isDarkMode ? 'text-white' : 'text-slate-800'} font-mono`}>{formatNum(mockMatrixDataF['TOTAL']?.['ba_total_fg'])}</span>
-                    <span className="text-sm font-bold text-emerald-600">Batch</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className={`border ${isDarkMode ? 'border-white/10 bg-[#0f172a]' : 'border-slate-300 bg-white'} rounded-xl overflow-hidden`}>
-                <table className="w-full text-left border-collapse table-fixed">
-                  <thead>
-                    <tr className={tableHeaderClass}>
-                      <th className={`py-3 px-3 align-middle border-b border-r ${tableBorderClass} text-[11px] font-black ${isDarkMode ? 'text-purple-500' : 'text-purple-600'} uppercase tracking-widest w-[34%]`}>Parameter</th>
-                      {['A', 'B', 'C', 'D'].map((group) => (
-                        <th key={group} className={`py-3 px-1 align-middle border-b border-r ${tableBorderClass} text-center text-[11px] font-black ${isDarkMode ? 'text-slate-300' : 'text-slate-700'} uppercase w-[8.5%]`}>{group}</th>
-                      ))}
-                      <th className={`py-3 px-1 align-middle border-b border-r ${tableBorderClass} text-center text-[11px] font-black ${isDarkMode ? 'text-white bg-slate-700' : 'text-black bg-slate-200'} uppercase w-[12%]`}>TOTAL</th>
-                      <th className={`py-3 px-2 align-middle border-b ${tableBorderClass} text-center text-[11px] font-black ${isDarkMode ? 'text-white bg-slate-800' : 'text-black bg-slate-100'} uppercase w-[20%]`}>Satuan</th>
-                    </tr>
-                  </thead>
-                  <tbody className="text-[12px]">
-                    {zoneFMatrixStructure.map((section, sIdx) => {
-                      const isMergedSection = ["DETAIL DOWNTIME", "JENIS DOWNTIME", "DETAIL QC SAMPLE", "DETAIL REJECT"].includes(section.section);
-                      return (
-                        <React.Fragment key={`f-sec-${sIdx}`}>
-                          {isMergedSection ? (
-                            <tr className={`${isDarkMode ? 'bg-slate-800' : 'bg-slate-200'} border-b ${tableBorderClass}`}>
-                              <td colSpan={7} className={`py-2 px-3 align-middle font-bold ${isDarkMode ? 'text-slate-300' : 'text-slate-800'} text-[12px] tracking-widest uppercase`}>{section.section}</td>
-                            </tr>
-                          ) : (
-                            <tr className={`${isDarkMode ? 'bg-purple-900/30' : 'bg-purple-50'} border-b ${tableBorderClass}`}>
-                              <td className={`py-2 px-3 align-middle font-bold ${isDarkMode ? 'text-purple-500' : 'text-purple-800'} text-[12px] tracking-widest uppercase border-r ${tableBorderClass}`}>{section.section}</td>
-                              {['A', 'B', 'C', 'D'].map((group) => (
-                                <td key={`f-main-${group}`} className={`py-2 px-1 align-middle border-r ${tableBorderClass} text-center font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'} text-[12px]`}>{formatNum(mockMatrixDataF[group]?.[section.key]) || "-"}</td>
-                              ))}
-                              <td className={`py-2 px-1 align-middle border-r ${tableBorderClass} text-center font-black ${isDarkMode ? 'text-white bg-slate-700/50' : 'text-black bg-slate-200'} text-[12px]`}>{formatNum(mockMatrixDataF['TOTAL']?.[section.key]) || "-"}</td>
-                              <td className={`py-2 px-2 align-middle text-center font-bold ${isDarkMode ? 'text-white bg-slate-800/50' : 'text-black bg-slate-100'} text-[11px]`}>{section.unit}</td>
-                            </tr>
-                          )}
-                          {section.items.map((item, iIdx) => {
-                            if (item.isGroupHeader) return (
-                              <tr key={`f-hdr-${iIdx}`} className={`${isDarkMode ? 'bg-slate-800/30' : 'bg-slate-100'}`}>
-                                <td colSpan={7} className={`py-1.5 px-3 align-middle border-b ${tableBorderClass} ${isDarkMode ? 'text-purple-400' : 'text-slate-600'} text-[11px] font-bold italic pl-6 whitespace-normal break-words leading-tight`}>{item.label}</td>
-                              </tr>
-                            );
-
-                            const isHl = isHighlightRow(item.label);
-
-                            return (
-                              <tr key={`f-item-${iIdx}`} className={`${tableRowClassPurple} transition-colors`}>
-                                <td className={`py-2 px-3 align-middle border-b border-r ${tableBorderClass} ${isHl ? 'text-red-500 font-black' : (isDarkMode ? 'text-slate-300 font-medium' : 'text-slate-700 font-medium')} text-[11px] whitespace-normal break-words leading-tight ${item.isSubItem ? 'pl-8' : 'pl-4'}`}>{item.label}</td>
-                                {['A', 'B', 'C', 'D'].map((group) => (
-                                  <td key={`f-${item.key}-${group}`} className={getTdClass('group', isHl)}>{mockMatrixDataF[group]?.[item.key] !== undefined && mockMatrixDataF[group]?.[item.key] !== "-" ? formatNum(mockMatrixDataF[group][item.key]) : "-"}</td>
-                                ))}
-                                <td className={getTdClass('total', isHl)}>{mockMatrixDataF['TOTAL']?.[item.key] !== undefined && mockMatrixDataF['TOTAL']?.[item.key] !== "-" ? formatNum(mockMatrixDataF['TOTAL'][item.key]) : "-"}</td>
-                                <td className={`py-2 px-2 align-middle border-b ${tableBorderClass} text-center font-mono text-[10px] ${isDarkMode ? 'text-white bg-slate-800/40' : 'text-black bg-slate-100'} overflow-hidden truncate`}>{item.unit}</td>
-                              </tr>
-                            );
-                          })}
-                        </React.Fragment>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className={`mt-4 ${isDarkMode ? 'bg-red-900/10 border-red-500/30' : 'bg-red-50 border-red-300 border'} rounded-2xl overflow-hidden print-no-margin`}>
-                <div className={`bg-gradient-to-r ${isDarkMode ? 'from-red-600/20' : 'from-red-200'} to-transparent px-5 py-3 border-b ${isDarkMode ? 'border-red-500/20' : 'border-red-300'} flex items-center gap-3`}>
-                  <h3 className={`text-sm font-black ${isDarkMode ? 'text-red-500' : 'text-red-700'} uppercase tracking-widest`}>Potential Loss - Kelas F</h3>
-                </div>
-                <div className={`p-5 grid gap-5 ${isPrinting ? 'grid-cols-2' : 'grid-cols-1 md:grid-cols-2'}`}>
-                  <div className={`${isDarkMode ? 'bg-[#0f172a]/80 border-red-500/10' : 'bg-white border-red-200 border'} rounded-xl p-4 shadow-inner relative overflow-hidden`}>
-                    <span className={`text-[11px] ${isDarkMode ? 'text-red-400' : 'text-red-600'} uppercase tracking-wider font-bold mb-3 block border-b border-red-200/20 pb-1`}>Downtime</span>
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-end"><span className={`text-[12px] ${subTextClass}`}>Jumlah Unit</span><span className={`text-sm font-mono font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{formatNum(lossUnitDtF)}</span></div>
-                      <div className="flex justify-between items-end"><span className={`text-[12px] ${subTextClass}`}>Finansial</span><span className={`text-base font-mono font-black ${isDarkMode ? 'text-red-500' : 'text-red-700'}`}>{formatRp(lossUnitDtF * 6500)}</span></div>
-                    </div>
-                  </div>
-                  <div className={`${isDarkMode ? 'bg-[#0f172a]/80 border-red-500/10' : 'bg-white border-red-200 border'} rounded-xl p-4 shadow-inner relative overflow-hidden`}>
-                    <span className={`text-[11px] ${isDarkMode ? 'text-red-400' : 'text-red-600'} uppercase tracking-wider font-bold mb-3 block border-b border-red-200/20 pb-1`}>Rejection</span>
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-end"><span className={`text-[12px] ${subTextClass}`}>Jumlah Unit</span><span className={`text-sm font-mono font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{formatNum(parseFloat(mockMatrixDataF['TOTAL']?.['rej_tot_dec']) || 0)}</span></div>
-                      <div className="flex justify-between items-end"><span className={`text-[12px] ${subTextClass}`}>Finansial</span><span className={`text-base font-mono font-black ${isDarkMode ? 'text-red-500' : 'text-red-700'}`}>{formatRp((parseFloat(mockMatrixDataF['TOTAL']?.['rej_tot_dec']) || 0) * 6500)}</span></div>
-                    </div>
-                  </div>
-                </div>
-                <div className={`${isDarkMode ? 'bg-red-950/40 border-red-500/30' : 'bg-red-100 border-red-300 border-t'} px-6 py-4 flex justify-between items-center`}>
-                   <span className={`text-[13px] font-black ${isDarkMode ? 'text-red-400' : 'text-red-800'} uppercase tracking-widest`}>Total Potential Loss (F)</span>
-                   <span className={`text-2xl font-black font-mono ${isDarkMode ? 'text-red-500' : 'text-red-700'}`}>{formatRp(totalFinLossF)}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
+          <SummaryTable 
+            zoneTitle="OEE Zone F" 
+            structure={zoneFMatrixStructure} 
+            matrixData={mockMatrixDataF} 
+            oee={calculatedOEEF} avail={availF} perf={perfF} qual={qualF} metrics={metrics} 
+            lossUnit={lossUnitDtF} totalFinLoss={totalFinLossF} 
+          />
         </div>
+
       </div>
     </div>
   );

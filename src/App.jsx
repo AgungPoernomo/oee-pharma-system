@@ -3,15 +3,11 @@ import { BrowserRouter as Router, Routes, Route, Navigate, Outlet, useNavigate }
 import { useAuth } from './context/AuthContext';
 import { Menu, Loader2 } from 'lucide-react';
 
-// --- 1. LAYOUT COMPONENTS ---
 import SidebarForeman from "./components/layout/SidebarForeman";
 import SidebarAdmin from "./components/layout/SidebarAdmin";
 
-// --- 2. LAZY LOAD PAGES ---
-// Auth
 const AccessPortal = React.lazy(() => import('./pages/AUTH/AccessPortal'));
 
-// Foreman Data Entry & Pages
 const TacticalInputHub = React.lazy(() => import('./pages/foreman/Inputdata/TacticalInputHub'));
 const SmartDowntimeC = React.lazy(() => import('./pages/foreman/Inputdata/SmartDowntimeLoggerC'));
 const SmartDowntimeF = React.lazy(() => import('./pages/foreman/Inputdata/SmartDowntimeLoggerF'));
@@ -20,16 +16,13 @@ const DefectCatcherF = React.lazy(() => import('./pages/foreman/Inputdata/Defect
 const DailyOnesheet = React.lazy(() => import('./pages/foreman/DailyOnesheet'));
 const ForemanSettings = React.lazy(() => import('./pages/foreman/ForemanSettings')); 
 
-// ✨ [NEW] IMPORT KOMPONEN SPREADSHEET BARU ✨
 const InputC = React.lazy(() => import('./pages/foreman/Inputdata/INPUTC'));
 const InputF = React.lazy(() => import('./pages/foreman/Inputdata/INPUTF'));
 
-// Admin Pages
 const AccessControl = React.lazy(() => import('./pages/admin/AccessControl'));
 const NeuralSystemHealth = React.lazy(() => import('./pages/admin/NeuralSystemHealth'));
 const MasterDataEditor = React.lazy(() => import('./pages/admin/MasterData_GeneEditor'));
 
-// --- 3. LOADING SPINNER ---
 const PageLoader = () => (
   <div className="flex h-screen w-full items-center justify-center bg-[#0B1120]">
     <div className="flex flex-col items-center gap-4">
@@ -39,7 +32,6 @@ const PageLoader = () => (
   </div>
 );
 
-// --- 4. LAYOUTS ---
 const ForemanLayout = ({ children }) => {
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   return (
@@ -86,7 +78,6 @@ const AdminLayout = ({ children }) => {
   );
 };
 
-// --- ROUTE GUARD (Role Checker) ---
 const RequireAdmin = ({ children }) => {
   const { user } = useAuth();
   if (!user) return <Navigate to="/access-portal" replace />;
@@ -95,7 +86,6 @@ const RequireAdmin = ({ children }) => {
   return isAdmin ? children : <Navigate to="/foreman/tactical-input" replace />;
 };
 
-// --- SESSION GUARD (AUTO LOGOUT JIKA IDLE/AFK) ---
 const SessionGuard = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -137,7 +127,6 @@ const SessionGuard = () => {
   return null;
 };
 
-// --- 5. ROUTING CONFIGURATION ---
 const App = () => {
   const { user } = useAuth();
 
