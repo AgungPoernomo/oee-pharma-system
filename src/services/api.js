@@ -1,10 +1,4 @@
 import { API_BASE_URL } from '../config';
-
-// =================================================================
-// 1. HELPER FUNCTIONS (Jantung Koneksi)
-// =================================================================
-
-// Helper: Ambil user dari parameter atau LocalStorage (Jaring Pengaman)
 const getCurrentUser = (explicitUser) => {
   if (explicitUser) return explicitUser;
   
@@ -15,7 +9,6 @@ const getCurrentUser = (explicitUser) => {
   return { nama: "Unknown", zone: "-", plant: "-", line: "2" }; // Default fallback
 };
 
-// Helper: Kirim Request ke Google Apps Script
 const sendRequest = async (payload) => {
   try {
     const response = await fetch(API_BASE_URL, {
@@ -36,9 +29,6 @@ const sendRequest = async (payload) => {
   }
 };
 
-// =================================================================
-// 2. AUTHENTICATION MODULE
-// =================================================================
 
 export const loginUser = async (data) => {
   return await sendRequest({ action: "login", data: data });

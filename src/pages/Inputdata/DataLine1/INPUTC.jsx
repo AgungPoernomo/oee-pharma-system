@@ -332,7 +332,7 @@ export default function InputC() {
       <div className="max-w-full mx-auto">
         
         <div className="mb-4">
-          <h1 className="text-2xl font-black tracking-wider uppercase">OEE - Zone C</h1>
+          <h1 className="text-2xl font-black tracking-wider uppercase">OEE Line 1- Zone C</h1>
         </div>
 
         <div className="overflow-auto border-2 border-black shadow-lg mb-12 custom-scrollbar max-h-[600px] relative">
@@ -484,7 +484,7 @@ export default function InputC() {
         </div>
 
         <div className="mb-4">
-          <h2 className="text-2xl font-black tracking-wider uppercase">Downtime - Zone C</h2>
+          <h2 className="text-2xl font-black tracking-wider uppercase">Downtime Line 1 - Zone C</h2>
         </div>
 
         <div className="overflow-auto border-2 border-black shadow-lg custom-scrollbar max-h-[600px] relative">

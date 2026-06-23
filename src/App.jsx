@@ -1,4 +1,4 @@
-import React, { useState, Suspense, useEffect, useRef } from 'react';
+import React, { useState, Suspense, useEffect, useRef, useMemo } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import { Menu, Loader2 } from 'lucide-react';
@@ -7,21 +7,54 @@ import SidebarForeman from "./components/layout/SidebarForeman";
 import SidebarAdmin from "./components/layout/SidebarAdmin";
 
 const AccessPortal = React.lazy(() => import('./pages/AUTH/AccessPortal'));
-
 const TacticalInputHub = React.lazy(() => import('./pages/foreman/Inputdata/TacticalInputHub'));
 const SmartDowntimeC = React.lazy(() => import('./pages/foreman/Inputdata/SmartDowntimeLoggerC'));
 const SmartDowntimeF = React.lazy(() => import('./pages/foreman/Inputdata/SmartDowntimeLoggerF'));
 const DefectCatcherC = React.lazy(() => import('./pages/foreman/Inputdata/DefectCatcherC'));
 const DefectCatcherF = React.lazy(() => import('./pages/foreman/Inputdata/DefectCatcherF'));
-const DailyOnesheet = React.lazy(() => import('./pages/foreman/DailyOnesheet'));
 const ForemanSettings = React.lazy(() => import('./pages/foreman/ForemanSettings')); 
-
-const InputC = React.lazy(() => import('./pages/foreman/Inputdata/INPUTC'));
-const InputF = React.lazy(() => import('./pages/foreman/Inputdata/INPUTF'));
 
 const AccessControl = React.lazy(() => import('./pages/admin/AccessControl'));
 const NeuralSystemHealth = React.lazy(() => import('./pages/admin/NeuralSystemHealth'));
 const MasterDataEditor = React.lazy(() => import('./pages/admin/MasterData_GeneEditor'));
+
+const getCleanLineNumber = (line) => {
+  const numOnly = String(line || "1").replace(/\D/g, ""); 
+  return numOnly || "1"; 
+};
+
+const DynamicOnesheetRoute = () => {
+  const { user } = useAuth();
+  const lineNum = getCleanLineNumber(user?.line);
+  
+  const Component = useMemo(() => {
+    return React.lazy(() => import(`./pages/DailyOneSheet/OnesheetLine${lineNum}/DailyOnesheet.jsx`));
+  }, [lineNum]);
+
+  return <Suspense fallback={<PageLoader />}><Component /></Suspense>;
+};
+
+const DynamicInputCRoute = () => {
+  const { user } = useAuth();
+  const lineNum = getCleanLineNumber(user?.line);
+  
+  const Component = useMemo(() => {
+    return React.lazy(() => import(`./pages/Inputdata/DataLine${lineNum}/INPUTC.jsx`));
+  }, [lineNum]);
+
+  return <Suspense fallback={<PageLoader />}><Component /></Suspense>;
+};
+
+const DynamicInputFRoute = () => {
+  const { user } = useAuth();
+  const lineNum = getCleanLineNumber(user?.line);
+  
+  const Component = useMemo(() => {
+    return React.lazy(() => import(`./pages/Inputdata/DataLine${lineNum}/INPUTF.jsx`));
+  }, [lineNum]);
+
+  return <Suspense fallback={<PageLoader />}><Component /></Suspense>;
+};
 
 const PageLoader = () => (
   <div className="flex h-screen w-full items-center justify-center bg-[#0B1120]">
@@ -42,11 +75,11 @@ const ForemanLayout = ({ children }) => {
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-xl flex items-center justify-center shadow-md border border-white/10 bg-white overflow-hidden shrink-0">
                 <img src="/logo-perusahaan.png" alt="Logo" className="w-full h-full object-contain p-0.5" />
-                </div>
-                 <div className="flex flex-col">
-                  <span className="font-black text-sm tracking-tight leading-none text-white">OEE PRO</span>
-                  <span className="text-[9px] font-bold text-blue-400 tracking-widest uppercase mt-0.5">Foreman Mode</span>
-               </div>
+              </div>
+              <div className="flex flex-col">
+                <span className="font-black text-sm tracking-tight leading-none text-white">OEE PRO</span>
+                <span className="text-[9px] font-bold text-blue-400 tracking-widest uppercase mt-0.5">Foreman Mode</span>
+              </div>
             </div>
             <button onClick={() => setSidebarOpen(true)} className="p-2.5 text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-700 border border-white/10 rounded-xl transition-all active:scale-95 shadow-md">
                <Menu size={20} />
@@ -143,14 +176,12 @@ const App = () => {
       <SessionGuard /> 
       <Routes>
         
-        {/* PUBLIC ROUTE: Login Page */}
         <Route 
             path="/access-portal" 
             element={!user ? <Suspense fallback={<PageLoader />}><AccessPortal /></Suspense> : <Navigate to={getDefaultRoute()} replace />} 
         />
         <Route path="/login" element={<Navigate to="/access-portal" replace />} />
 
-        {/* PROTECTED ROUTE: FOREMAN */}
         <Route 
           path="/" 
           element={user ? <ForemanLayout><Suspense fallback={<PageLoader />}><Outlet /></Suspense></ForemanLayout> : <Navigate to="/access-portal" replace />}
@@ -161,15 +192,13 @@ const App = () => {
           <Route path="foreman/input/reject/f" element={<DefectCatcherF />} />
           <Route path="foreman/input/downtime/c" element={<SmartDowntimeC />} />
           <Route path="foreman/input/downtime/f" element={<SmartDowntimeF />} />
-          <Route path="foreman/onesheet" element={<DailyOnesheet />} />
           <Route path="foreman/settings" element={<ForemanSettings />} />
 
-          {/* ✨ [NEW] RUTE UNTUK SPREADSHEET ENGINE ✨ */}
-          <Route path="foreman/input-c" element={<InputC />} />
-          <Route path="foreman/input-f" element={<InputF />} />
+          <Route path="foreman/onesheet" element={<DynamicOnesheetRoute />} />
+          <Route path="foreman/input-c" element={<DynamicInputCRoute />} />
+          <Route path="foreman/input-f" element={<DynamicInputFRoute />} />
         </Route>
 
-        {/* PROTECTED ROUTE: ADMIN */}
         <Route 
           path="/admin" 
           element={<RequireAdmin><AdminLayout><Suspense fallback={<PageLoader />}><Outlet /></Suspense></AdminLayout></RequireAdmin>}
@@ -180,7 +209,6 @@ const App = () => {
           <Route path="master-data" element={<MasterDataEditor />} />
         </Route>
 
-        {/* FALLBACK ROUTE: Catch-all */}
         <Route path="*" element={<Navigate to={getDefaultRoute()} replace />} />
         
       </Routes>

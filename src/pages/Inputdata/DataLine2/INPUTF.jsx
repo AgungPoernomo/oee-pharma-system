@@ -318,7 +318,7 @@ export default function InputF() {
       <div className="max-w-full mx-auto">
         
         <div className="mb-4">
-          <h1 className="text-2xl font-black tracking-wider uppercase">OEE - Zone F</h1>
+          <h1 className="text-2xl font-black tracking-wider uppercase">OEE Line 2 - Zone F</h1>
         </div>
 
         <div className="overflow-auto border-2 border-black shadow-lg mb-12 custom-scrollbar max-h-[600px] relative">
@@ -465,7 +465,7 @@ export default function InputF() {
 
 
         <div className="mb-4">
-          <h2 className="text-2xl font-black tracking-wider uppercase">Downtime - Zone F</h2>
+          <h2 className="text-2xl font-black tracking-wider uppercase">Downtime Line 2 - Zone F</h2>
         </div>
 
         <div className="overflow-auto border-2 border-black shadow-lg custom-scrollbar max-h-[600px] relative">

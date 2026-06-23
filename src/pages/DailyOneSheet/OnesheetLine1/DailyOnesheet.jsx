@@ -1,13 +1,10 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { useAuth } from '../../context/AuthContext';
-import { fetchOnesheetData } from '../../services/api';
+import { useAuth } from '../../../context/AuthContext';
+import { fetchOnesheetData } from '../../../services/api';
 import { Calendar, Package, Search, Download, Loader2 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import { toPng } from 'html-to-image';
 
-// ==========================================
-// CONSTANTS & HELPERS
-// ==========================================
 const VOLUMES = ["25 ML", "100 ML", "250 ML", "500 ML", "1000 ML"];
 
 const formatRp = (num) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(num || 0);
@@ -25,9 +22,6 @@ const highlightLabels = [
 ];
 const isHighlightRow = (label) => highlightLabels.includes(label);
 
-// ==========================================
-// CALCULATORS
-// ==========================================
 const calculateZoneMetrics = (volume) => {
   let speed = 11500;
   let teoriBatch = 23076;
@@ -227,6 +221,7 @@ const useZoneFProcessor = (rawReject, rawDowntime, date, volume, headerMetrics) 
     matrix.TOTAL.q_out_counter = totals.out_counter; matrix.TOTAL.q_out_rej = totals.q_rej; matrix.TOTAL.q_out_samp = total_samp_all; matrix.TOTAL.q_good_count_fg = totals.q_good; matrix.TOTAL.qual_pct = totals.out_counter > 0 ? (totals.q_good / totals.out_counter) * 100 : 0;
     dynamicLists.unplanned.forEach(k => matrix.TOTAL[`dt_${k}`] = totals.dt[k]); matrix.TOTAL.dt_tot_min = totals.dt_min; matrix.TOTAL.dt_tot_jam = totals.dt_min / 60; matrix.TOTAL.jd_p = totals.dt_p; matrix.TOTAL.jd_np = totals.dt_np;
     matrix.TOTAL.qc_samp_as = totals.q_samp_as; matrix.TOTAL.qc_samp_ret = totals.q_samp_ret; matrix.TOTAL.qc_tot_dec = total_samp_all; matrix.TOTAL.qc_tot_pct = totals.out_counter > 0 ? ((total_samp_all / totals.out_counter) * 100).toFixed(2) : "0";
+    // 👇 FIX DILAKUKAN DI SINI:
     matrix.TOTAL.rej_partikel = totals.rej_partikel; matrix.TOTAL.rej_kosmetik = totals.rej_kosmetik; matrix.TOTAL.rej_tot_dec = totals.q_rej; matrix.TOTAL.rej_tot_pct = totals.out_counter > 0 ? ((totals.q_rej / totals.out_counter) * 100).toFixed(2) : "0";
 
     const structure = [
@@ -246,8 +241,7 @@ const useZoneFProcessor = (rawReject, rawDowntime, date, volume, headerMetrics) 
 
 const SummaryTable = ({ zoneTitle, structure, matrixData, oee, avail, perf, qual, metrics, dtJam, lossUnit, totalFinLoss }) => {
   return (
-    <div className="border border-black shadow-lg bg-white mb-12 w-full overflow-x-auto">
-      {/* HEADER ZONE */}
+    <div className="border border-black shadow-sm bg-white mb-12 w-full h-full flex flex-col">
       <div className="bg-gray-100 p-4 border-b border-black flex flex-col md:flex-row justify-between items-center gap-4">
         <h2 className="text-xl font-black uppercase tracking-widest text-black">{zoneTitle}</h2>
         <div className="flex gap-4 md:gap-6 text-sm font-bold text-gray-700">
@@ -258,7 +252,6 @@ const SummaryTable = ({ zoneTitle, structure, matrixData, oee, avail, perf, qual
         </div>
       </div>
 
-      {/* QUICK STATS */}
       <div className="grid grid-cols-3 border-b border-black divide-x divide-black bg-gray-50">
         <div className="p-3 text-center">
           <span className="block text-[10px] font-bold text-gray-600 uppercase tracking-widest">Speed</span>
@@ -274,57 +267,57 @@ const SummaryTable = ({ zoneTitle, structure, matrixData, oee, avail, perf, qual
         </div>
       </div>
 
-      {/* MAIN TABLE */}
-      <table className="w-full text-left border-collapse text-xs">
-        <thead className="bg-gray-100 border-b-2 border-black">
-          <tr>
-            <th className="py-2 px-3 border-r border-black font-bold uppercase tracking-wider text-black w-[40%]">Parameter</th>
-            {['A', 'B', 'C', 'D'].map(g => <th key={g} className="py-2 px-2 border-r border-black font-bold text-center text-black w-[10%]">{g}</th>)}
-            <th className="py-2 px-2 border-r border-black font-bold text-center bg-gray-200 text-black w-[10%]">TOTAL</th>
-            <th className="py-2 px-2 font-bold text-center text-black w-[10%]">Satuan</th>
-          </tr>
-        </thead>
-        <tbody className="text-gray-800">
-          {structure.map((section, sIdx) => {
-            const isMergedSection = ["DETAIL DOWNTIME", "JENIS DOWNTIME", "DETAIL QC SAMPLE", "DETAIL REJECT"].includes(section.section);
-            return (
-              <React.Fragment key={`sec-${sIdx}`}>
-                {isMergedSection ? (
-                  <tr className="bg-gray-200 border-y border-black">
-                    <td colSpan={7} className="py-2 px-3 font-bold text-black uppercase tracking-widest">{section.section}</td>
-                  </tr>
-                ) : (
-                  <tr className="bg-gray-100 border-y border-black">
-                    <td className="py-2 px-3 border-r border-black font-bold text-black uppercase tracking-widest">{section.section}</td>
-                    {['A', 'B', 'C', 'D'].map(g => <td key={`main-${g}`} className="py-2 px-2 border-r border-black text-center font-bold text-black">{formatNum(matrixData[g]?.[section.key]) || "-"}</td>)}
-                    <td className="py-2 px-2 border-r border-black text-center font-bold bg-gray-200 text-black">{formatNum(matrixData['TOTAL']?.[section.key]) || "-"}</td>
-                    <td className="py-2 px-2 text-center text-black">{section.unit}</td>
-                  </tr>
-                )}
-                {section.items.map((item, iIdx) => {
-                  if (item.isGroupHeader) return (
-                    <tr key={`hdr-${iIdx}`} className="bg-gray-50 border-b border-gray-300">
-                      <td colSpan={7} className="py-1 px-3 border-r border-black text-[10px] font-bold text-gray-500 italic uppercase pl-6">{item.label}</td>
+      <div className="flex-1 overflow-x-hidden">
+        <table className="w-full text-left border-collapse text-xs">
+          <thead className="bg-gray-100 border-b-2 border-black">
+            <tr>
+              <th className="py-2 px-3 border-r border-black font-bold uppercase tracking-wider text-black w-[40%]">Parameter</th>
+              {['A', 'B', 'C', 'D'].map(g => <th key={g} className="py-2 px-2 border-r border-black font-bold text-center text-black w-[10%]">{g}</th>)}
+              <th className="py-2 px-2 border-r border-black font-bold text-center bg-gray-200 text-black w-[10%]">TOTAL</th>
+              <th className="py-2 px-2 font-bold text-center text-black w-[10%]">Satuan</th>
+            </tr>
+          </thead>
+          <tbody className="text-gray-800">
+            {structure.map((section, sIdx) => {
+              const isMergedSection = ["DETAIL DOWNTIME", "JENIS DOWNTIME", "DETAIL QC SAMPLE", "DETAIL REJECT"].includes(section.section);
+              return (
+                <React.Fragment key={`sec-${sIdx}`}>
+                  {isMergedSection ? (
+                    <tr className="bg-gray-200 border-y border-black">
+                      <td colSpan={7} className="py-2 px-3 font-bold text-black uppercase tracking-widest">{section.section}</td>
                     </tr>
-                  );
-                  const isHl = isHighlightRow(item.label);
-                  return (
-                    <tr key={`item-${iIdx}`} className="border-b border-gray-300 hover:bg-gray-50">
-                      <td className={`py-1.5 px-3 border-r border-black ${isHl ? 'font-bold text-black' : 'text-gray-700'} ${item.isSubItem ? 'pl-8' : 'pl-4'}`}>{item.label}</td>
-                      {['A', 'B', 'C', 'D'].map(g => <td key={`val-${g}`} className="py-1.5 px-2 border-r border-gray-300 text-center text-black">{matrixData[g]?.[item.key] !== undefined && matrixData[g]?.[item.key] !== "-" ? formatNum(matrixData[g][item.key]) : "-"}</td>)}
-                      <td className="py-1.5 px-2 border-r border-black text-center font-bold bg-gray-100 text-black">{matrixData['TOTAL']?.[item.key] !== undefined && matrixData['TOTAL']?.[item.key] !== "-" ? formatNum(matrixData['TOTAL'][item.key]) : "-"}</td>
-                      <td className="py-1.5 px-2 text-center text-gray-500">{item.unit}</td>
+                  ) : (
+                    <tr className="bg-gray-100 border-y border-black">
+                      <td className="py-2 px-3 border-r border-black font-bold text-black uppercase tracking-widest">{section.section}</td>
+                      {['A', 'B', 'C', 'D'].map(g => <td key={`main-${g}`} className="py-2 px-2 border-r border-black text-center font-bold text-black">{formatNum(matrixData[g]?.[section.key]) || "-"}</td>)}
+                      <td className="py-2 px-2 border-r border-black text-center font-bold bg-gray-200 text-black">{formatNum(matrixData['TOTAL']?.[section.key]) || "-"}</td>
+                      <td className="py-2 px-2 text-center text-black">{section.unit}</td>
                     </tr>
-                  );
-                })}
-              </React.Fragment>
-            );
-          })}
-        </tbody>
-      </table>
+                  )}
+                  {section.items.map((item, iIdx) => {
+                    if (item.isGroupHeader) return (
+                      <tr key={`hdr-${iIdx}`} className="bg-gray-50 border-b border-gray-300">
+                        <td colSpan={7} className="py-1 px-3 border-r border-black text-[10px] font-bold text-gray-500 italic uppercase pl-6">{item.label}</td>
+                      </tr>
+                    );
+                    const isHl = isHighlightRow(item.label);
+                    return (
+                      <tr key={`item-${iIdx}`} className="border-b border-gray-300 hover:bg-gray-50">
+                        <td className={`py-1.5 px-3 border-r border-black ${isHl ? 'font-bold text-black' : 'text-gray-700'} ${item.isSubItem ? 'pl-8' : 'pl-4'}`}>{item.label}</td>
+                        {['A', 'B', 'C', 'D'].map(g => <td key={`val-${g}`} className="py-1.5 px-2 border-r border-gray-300 text-center text-black">{matrixData[g]?.[item.key] !== undefined && matrixData[g]?.[item.key] !== "-" ? formatNum(matrixData[g][item.key]) : "-"}</td>)}
+                        <td className="py-1.5 px-2 border-r border-black text-center font-bold bg-gray-100 text-black">{matrixData['TOTAL']?.[item.key] !== undefined && matrixData['TOTAL']?.[item.key] !== "-" ? formatNum(matrixData['TOTAL'][item.key]) : "-"}</td>
+                        <td className="py-1.5 px-2 text-center text-gray-500">{item.unit}</td>
+                      </tr>
+                    );
+                  })}
+                </React.Fragment>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
 
-      {/* POTENTIAL LOSS FOOTER */}
-      <div className="bg-white border-t border-black p-4">
+      <div className="bg-white border-t border-black p-4 mt-auto">
         <div className="flex justify-between items-center mb-3">
           <h3 className="text-sm font-black uppercase tracking-widest text-red-600">Potential Loss</h3>
           <span className="text-xl font-black text-red-600">{formatRp(totalFinLoss)}</span>
@@ -344,9 +337,6 @@ const SummaryTable = ({ zoneTitle, structure, matrixData, oee, avail, perf, qual
   );
 };
 
-// ==========================================
-// MAIN DASHBOARD COMPONENT
-// ==========================================
 const DailyOnesheet = () => {
   const { user } = useAuth();
   const [inputDate, setInputDate] = useState(new Date().toISOString().split('T')[0]); 
@@ -355,6 +345,7 @@ const DailyOnesheet = () => {
   const [activeVolume, setActiveVolume] = useState("500 ML"); 
   
   const [isFetching, setIsFetching] = useState(false); 
+  const [isPrinting, setIsPrinting] = useState(false); // State untuk mengatur ukuran saat cetak
   const printRef = useRef(); 
   
   const [rawRejectC, setRawRejectC] = useState([]);
@@ -405,11 +396,17 @@ const DailyOnesheet = () => {
     const element = printRef.current;
     if (!element) return;
     
+    setIsPrinting(true); 
     const toastId = toast.loading("Mempersiapkan File");
+    
     setTimeout(async () => {
       try {
         toast.loading("Mengunduh File", { id: toastId });
-        const dataUrl = await toPng(element, { quality: 1.0, pixelRatio: 2, backgroundColor: '#ffffff' });
+        const dataUrl = await toPng(element, { 
+          quality: 1.0, 
+          pixelRatio: 2, 
+          backgroundColor: '#ffffff' 
+        });
         const link = document.createElement('a');
         link.download = `ONESHEET_${activeDate}_${activeVolume}.png`;
         link.href = dataUrl;
@@ -419,15 +416,17 @@ const DailyOnesheet = () => {
         toast.success("Berhasil Diunduh", { id: toastId });
       } catch (err) {
         toast.error("Gagal Download.", { id: toastId });
+      } finally {
+        setIsPrinting(false); 
       }
-    }, 1000); 
+    }, 800); 
   };
 
   return (
     <div className="min-h-screen bg-gray-50 text-black font-sans p-4 md:p-8 pb-32">
       <Toaster position="top-center" />
       
-      <div className="max-w-[1800px] mx-auto mb-8 bg-white border border-black shadow-lg p-4 flex flex-wrap justify-between items-center gap-4">
+      <div className="max-w-[1600px] mx-auto mb-8 bg-white border border-black shadow-sm p-4 flex flex-wrap justify-between items-center gap-4 rounded-md">
         <h1 className="text-xl font-black uppercase tracking-widest">Daily Onesheet</h1>
         <div className="flex gap-3 items-center">
           <input type="date" value={inputDate} onChange={(e) => setInputDate(e.target.value)} className="border border-black p-2 text-sm outline-none" />
@@ -443,35 +442,40 @@ const DailyOnesheet = () => {
         </div>
       </div>
 
-      <div ref={printRef} className="w-full max-w-[1800px] mx-auto bg-white p-8 border border-gray-200">
-        
-        <div className="border-b-4 border-black pb-4 mb-8 text-center flex flex-col items-center">
-          <h1 className="text-4xl font-black uppercase tracking-widest mb-4">Laporan Onesheet</h1>
-          <div className="flex gap-12 text-sm font-bold">
-            <div className="flex flex-col"><span className="text-gray-500 uppercase tracking-widest text-[10px]">Line</span><span className="text-xl">{user?.line || 2}</span></div>
-            <div className="flex flex-col"><span className="text-gray-500 uppercase tracking-widest text-[10px]">Tanggal</span><span className="text-xl">{activeDate}</span></div>
-            <div className="flex flex-col"><span className="text-gray-500 uppercase tracking-widest text-[10px]">Volume</span><span className="text-xl">{activeVolume}</span></div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 w-full">
-          <SummaryTable 
-            zoneTitle="OEE Zone C" 
-            structure={zoneCMatrixStructure} 
-            matrixData={mockMatrixDataC} 
-            oee={calculatedOEEC} avail={availC} perf={perfC} qual={qualC} metrics={metrics} 
-            lossUnit={lossUnitDtC} totalFinLoss={totalFinLossC} 
-          />
+      <div className="w-full overflow-x-auto pb-10">
+        <div 
+          ref={printRef} 
+          className={`mx-auto bg-white p-8 border border-gray-200 transition-all ${isPrinting ? 'w-[1800px] min-w-[1800px]' : 'w-full min-w-[1200px] max-w-[1800px]'}`}
+        >
           
-          <SummaryTable 
-            zoneTitle="OEE Zone F" 
-            structure={zoneFMatrixStructure} 
-            matrixData={mockMatrixDataF} 
-            oee={calculatedOEEF} avail={availF} perf={perfF} qual={qualF} metrics={metrics} 
-            lossUnit={lossUnitDtF} totalFinLoss={totalFinLossF} 
-          />
-        </div>
+          <div className="border-b-4 border-black pb-4 mb-8 text-center flex flex-col items-center">
+            <h1 className="text-4xl font-black uppercase tracking-widest mb-4">Laporan Onesheet</h1>
+            <div className="flex gap-12 text-sm font-bold">
+              <div className="flex flex-col"><span className="text-gray-500 uppercase tracking-widest text-[10px]">Line</span><span className="text-xl">{user?.line || 2}</span></div>
+              <div className="flex flex-col"><span className="text-gray-500 uppercase tracking-widest text-[10px]">Tanggal</span><span className="text-xl">{activeDate}</span></div>
+              <div className="flex flex-col"><span className="text-gray-500 uppercase tracking-widest text-[10px]">Volume</span><span className="text-xl">{activeVolume}</span></div>
+            </div>
+          </div>
 
+          <div className={`grid gap-8 w-full ${isPrinting ? 'grid-cols-2' : 'grid-cols-1 lg:grid-cols-2'}`}>
+            <SummaryTable 
+              zoneTitle="OEE Zone C" 
+              structure={zoneCMatrixStructure} 
+              matrixData={mockMatrixDataC} 
+              oee={calculatedOEEC} avail={availC} perf={perfC} qual={qualC} metrics={metrics} 
+              lossUnit={lossUnitDtC} totalFinLoss={totalFinLossC} 
+            />
+            
+            <SummaryTable 
+              zoneTitle="OEE Zone F" 
+              structure={zoneFMatrixStructure} 
+              matrixData={mockMatrixDataF} 
+              oee={calculatedOEEF} avail={availF} perf={perfF} qual={qualF} metrics={metrics} 
+              lossUnit={lossUnitDtF} totalFinLoss={totalFinLossF} 
+            />
+          </div>
+
+        </div>
       </div>
     </div>
   );

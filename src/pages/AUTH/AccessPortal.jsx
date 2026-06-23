@@ -8,7 +8,7 @@ import {
   User, Lock, Briefcase, MapPin, ArrowRight, 
   CheckCircle, Loader2, Hexagon, Eye, EyeOff, Activity, X, 
   Factory, Camera, Crop, ZoomIn, Server, Wifi, ShieldCheck, Clock,
-  Cpu, Github, Code2, Database 
+  Cpu, Github, Code2, Database, Calendar, Package, Search, Download, Loader
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast'; 
 import { motion, AnimatePresence } from 'framer-motion'; 
@@ -18,28 +18,25 @@ const Login = () => {
   const { user, login } = useAuth();
   const navigate = useNavigate();
   
-  const [mode, setMode] = useState('login'); // login | register | waiting | verify
+  const [mode, setMode] = useState('login'); 
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
   
-  // --- STATE CROPPER (DIPERBARUI UNTUK FITUR GESER/PAN) ---
   const [dropdowns, setDropdowns] = useState({ jabatan: [], zone: [], plant: [] });
   const [showCropper, setShowCropper] = useState(false);
   const [tempImg, setTempImg] = useState(null);
   const [zoom, setZoom] = useState(1);
-  const [offset, setOffset] = useState({ x: 0, y: 0 }); // Menyimpan titik kordinat geseran
+  const [offset, setOffset] = useState({ x: 0, y: 0 }); 
   const [isDragging, setIsDragging] = useState(false);
   const dragStart = useRef({ x: 0, y: 0 });
 
   const imgRef = useRef(null);
   const canvasRef = useRef(null);
 
-  // --- STATE BARU UNTUK MAGIC POP-UP ---
   const [receivedCode, setReceivedCode] = useState(null);
   const [showPopup, setShowPopup] = useState(false);
 
-  // --- CONFIG GITHUB & LOGO ---
   const GITHUB_URL = "https://github.com/AgungPoernomo";
   const COMPANY_LOGO_URL = "/logo-perusahaan.png";
 
@@ -49,7 +46,6 @@ const Login = () => {
   };
   const [formData, setFormData] = useState(initialFormState);
 
-  // --- UTILITY: CLOCK ---
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
@@ -62,7 +58,6 @@ const Login = () => {
       return 'Shift 3';
   };
 
-  // --- SECURITY CHECK & LOAD DATA ---
   useEffect(() => {
     if (user) {
       const jabatan = String(user.jabatan || '').toLowerCase();
@@ -102,7 +97,6 @@ const Login = () => {
     loadData();
   }, []);
 
-  // --- ENGINE: RADAR POLLING ---
   useEffect(() => {
     let interval;
     if (mode === 'waiting' && formData.id_karyawan) {
@@ -121,17 +115,14 @@ const Login = () => {
     return () => clearInterval(interval);
   }, [mode, formData.id_karyawan]);
 
-  // --- LOGIKA HIDE/SHOW ZONE (DIUBAH) ---
   const selectedJabatan = formData.jabatan.toLowerCase();
   const isJabatanSelected = formData.jabatan !== "";
   const isManager = selectedJabatan.includes('manager') || selectedJabatan.includes('asisten');
   const isForeman = selectedJabatan.includes('foreman');
   
   const showPlantInput = isJabatanSelected && !isManager; 
-  // Jika dia Foreman, HIDE Zone. Tampilkan hanya jika BUKAN Manager dan BUKAN Foreman (misal: Operator)
   const showZoneInput = isJabatanSelected && !isManager && !isForeman;
 
-  // --- HANDLERS ---
   const handleChange = (e) => {
       const { name, value } = e.target;
       if (name === 'jabatan') {
@@ -149,13 +140,12 @@ const Login = () => {
         setTempImg(reader.result); 
         setShowCropper(true); 
         setZoom(1); 
-        setOffset({ x: 0, y: 0 }); // Reset posisi geser
+        setOffset({ x: 0, y: 0 }); 
       };
       reader.readAsDataURL(file);
     }
   };
 
-  // --- ENGINE CROPPER MOUSE/TOUCH EVENTS ---
   const handleMouseDown = (e) => {
     setIsDragging(true);
     dragStart.current = { x: e.clientX - offset.x, y: e.clientY - offset.y };
@@ -175,18 +165,16 @@ const Login = () => {
     setOffset({ x: e.touches[0].clientX - dragStart.current.x, y: e.touches[0].clientY - dragStart.current.y });
   };
 
-  // --- ENGINE CROP FOTO (MATRIX CALCULATOR) ---
   const handleCrop = () => {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
     const image = imgRef.current;
     
-    const size = 150; // Hasil output tetap 150x150
+    const size = 150; 
     canvas.width = size; canvas.height = size;
     
     ctx.clearRect(0, 0, size, size);
     
-    // Potong kanvas jadi lingkaran
     ctx.beginPath(); 
     ctx.arc(size/2, size/2, size/2, 0, Math.PI * 2, true); 
     ctx.closePath(); 
@@ -195,12 +183,10 @@ const Login = () => {
     const renderedWidth = image.width;
     const renderedHeight = image.height;
 
-    // Duplikat sistem koordinat persis seperti tampilan UI
-    ctx.translate(size / 2, size / 2); // Origin ke tengah
-    ctx.translate(offset.x, offset.y); // Terapkan geseran (pan)
-    ctx.scale(zoom, zoom); // Terapkan Zoom
+    ctx.translate(size / 2, size / 2); 
+    ctx.translate(offset.x, offset.y); 
+    ctx.scale(zoom, zoom); 
 
-    // Gambar gambar persis di tengah titik koordinat
     ctx.drawImage(
       image, 
       -renderedWidth / 2, 
@@ -237,7 +223,6 @@ const Login = () => {
 
   const handleRegister = async (e) => {
     e.preventDefault(); setLoading(true);
-    // Dinamis kirim Plant dan Zone jika disembunyikan
     const dataToSend = { 
       ...formData, 
       plant: showPlantInput ? formData.plant : '-', 
@@ -277,13 +262,11 @@ const Login = () => {
          <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20"></div>
       </div>
 
-      {/* MODAL CROPPER (INSTAGRAM STYLE DRAG & ZOOM) */}
       {showCropper && (
         <div className="fixed inset-0 z-[60] bg-black/95 backdrop-blur-xl flex flex-col items-center justify-center p-4">
            <div className="bg-slate-900 border border-slate-700 rounded-3xl p-6 w-full max-w-sm shadow-2xl relative">
               <h3 className="text-xl font-bold text-white mb-6 text-center flex items-center justify-center gap-2"><Crop size={20}/> Sesuaikan Foto ID</h3>
               
-              {/* Ruang Edit (Canvas) */}
               <div 
                  className="relative w-64 h-64 mx-auto bg-slate-800 rounded-2xl overflow-hidden cursor-move border border-slate-700 touch-none select-none"
                  onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}
@@ -300,7 +283,6 @@ const Login = () => {
                      transition: isDragging ? 'none' : 'transform 0.1s ease-out'
                    }} 
                  />
-                 {/* Vignette Gelap & Bulatan Crop - Trick CSS! */}
                  <div className="absolute inset-0 pointer-events-none shadow-[0_0_0_999px_rgba(0,0,0,0.85)] border-2 border-emerald-500 rounded-full w-[150px] h-[150px] top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2"></div>
               </div>
 
@@ -317,7 +299,6 @@ const Login = () => {
         </div>
       )}
 
-      {/* --- MAGIC POPUP (KODE OTP DARI ADMIN) --- */}
       <AnimatePresence>
         {showPopup && (
           <div className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-md flex flex-col items-center justify-center p-4">
@@ -348,7 +329,6 @@ const Login = () => {
         )}
       </AnimatePresence>
 
-      {/* --- LEFT SIDE: THE SPECTACULAR SHOWCASE --- */}
       <div className="hidden lg:flex w-7/12 relative z-10 flex-col h-full p-12 xl:p-20">
          <div className="flex-none">
             <motion.div initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.2 }} className="flex items-center gap-6 opacity-90 mb-12">
@@ -439,7 +419,6 @@ const Login = () => {
          </div>
       </div>
 
-      {/* RIGHT: THE FORM PORTAL */}
       <div className="w-full lg:w-5/12 bg-white/5 backdrop-blur-3xl border-l border-white/10 relative z-20 flex flex-col justify-center items-center p-6 md:p-12 shadow-2xl">
          
          <div className="lg:hidden mb-8 text-center opacity-80">
@@ -452,7 +431,6 @@ const Login = () => {
 
          <div className="w-full max-w-md">
             <AnimatePresence mode="wait">
-               {/* LOGIN MODE */}
                {mode === 'login' && (
                   <motion.div key="login" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.3 }}>
                      <div className="mb-10">

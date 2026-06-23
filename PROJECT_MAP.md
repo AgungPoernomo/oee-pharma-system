@@ -1,13 +1,12 @@
-# Struktur Project: OEE-SYSTEM-PRODUCTION
+# Struktur Project: OEE-PHARMA-SYSTEM
 
 ```text
-OEE-SYSTEM-PRODUCTION/
+OEE-PHARMA-SYSTEM/
 ├── public
 │   ├── factory-bg.jpg
 │   ├── logo-perusahaan.png
 │   └── vite.svg
 ├── src // Folder utama source code aplikasi
-│   ├── assets // Aset statis seperti gambar, ikon, dan font
 │   ├── components
 │   │   └── layout
 │   │       ├── SidebarAdmin.jsx
@@ -22,16 +21,41 @@ OEE-SYSTEM-PRODUCTION/
 │   │   │   ├── MasterData_GeneEditor.jsx
 │   │   │   └── NeuralSystemHealth.jsx
 │   │   ├── AUTH
+│   │   │   ├── Access.jsx
 │   │   │   └── AccessPortal.jsx
-│   │   └── foreman
-│   │       ├── Inputdata
-│   │       │   ├── DefectCatcherC.jsx
-│   │       │   ├── DefectCatcherF.jsx
-│   │       │   ├── SmartDowntimeLoggerC.jsx
-│   │       │   ├── SmartDowntimeLoggerF.jsx
-│   │       │   └── TacticalInputHub.jsx
-│   │       ├── DailyOnesheet.jsx
-│   │       └── ForemanSettings.jsx
+│   │   ├── DailyOneSheet
+│   │   │   ├── OnesheetLine1
+│   │   │   │   └── DailyOnesheet.jsx
+│   │   │   ├── OnesheetLine2
+│   │   │   │   └── DailyOnesheet.jsx
+│   │   │   ├── OnesheetLine3
+│   │   │   │   └── DailyOnesheet.jsx
+│   │   │   └── OnesheetLine4
+│   │   │       └── DailyOnesheet.jsx
+│   │   ├── foreman
+│   │   │   ├── Inputdata
+│   │   │   │   ├── DefectCatcherC.jsx
+│   │   │   │   ├── DefectCatcherF.jsx
+│   │   │   │   ├── INPUTC.jsx
+│   │   │   │   ├── INPUTF.jsx
+│   │   │   │   ├── SmartDowntimeLoggerC.jsx
+│   │   │   │   ├── SmartDowntimeLoggerF.jsx
+│   │   │   │   └── TacticalInputHub.jsx
+│   │   │   ├── DailyOnesheet.jsx
+│   │   │   └── ForemanSettings.jsx
+│   │   └── Inputdata
+│   │       ├── DataLine1
+│   │       │   ├── INPUTC.jsx
+│   │       │   └── INPUTF.jsx
+│   │       ├── DataLine2
+│   │       │   ├── INPUTC.jsx
+│   │       │   └── INPUTF.jsx
+│   │       ├── DataLine3
+│   │       │   ├── INPUTC.jsx
+│   │       │   └── INPUTF.jsx
+│   │       └── DataLine4
+│   │           ├── INPUTC.jsx
+│   │           └── INPUTF.jsx
 │   ├── services
 │   │   └── api.js
 │   ├── App.jsx
@@ -56,4 +80,4 @@ OEE-SYSTEM-PRODUCTION/
 
 ```
 
-*Terakhir diperbarui pada: 16/6/2026, 13.48.30 WIB*
+*Terakhir diperbarui pada: 23/6/2026, 08.39.00 WIB*
