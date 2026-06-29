@@ -13,7 +13,6 @@ const sendRequest = async (payload) => {
   try {
     const response = await fetch(API_BASE_URL, {
       method: "POST",
-      // --- ANTI CORS PREFLIGHT ---
       headers: { "Content-Type": "text/plain;charset=utf-8" },
       body: JSON.stringify(payload),
     });

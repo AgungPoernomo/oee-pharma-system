@@ -448,12 +448,12 @@ const DailyOnesheet = () => {
           className={`mx-auto bg-white p-8 border border-gray-200 transition-all ${isPrinting ? 'w-[1800px] min-w-[1800px]' : 'w-full min-w-[1200px] max-w-[1800px]'}`}
         >
           
-          <div className="border-b-4 border-black pb-4 mb-8 text-center flex flex-col items-center">
+          <div className="border-b-4 bg-green-200 border-black pb-4 mb-8 text-center flex flex-col items-center">
             <h1 className="text-4xl font-black uppercase tracking-widest mb-4">Laporan Onesheet</h1>
             <div className="flex gap-12 text-sm font-bold">
-              <div className="flex flex-col"><span className="text-gray-500 uppercase tracking-widest text-[10px]">Line</span><span className="text-xl">{user?.line || 2}</span></div>
-              <div className="flex flex-col"><span className="text-gray-500 uppercase tracking-widest text-[10px]">Tanggal</span><span className="text-xl">{activeDate}</span></div>
-              <div className="flex flex-col"><span className="text-gray-500 uppercase tracking-widest text-[10px]">Volume</span><span className="text-xl">{activeVolume}</span></div>
+              <div className="flex flex-col"><span className="text-black-500 uppercase tracking-widest text-[10px]">Line</span><span className="text-xl">{user?.line || 2}</span></div>
+              <div className="flex flex-col"><span className="text-black-500 uppercase tracking-widest text-[10px]">Tanggal</span><span className="text-xl">{activeDate}</span></div>
+              <div className="flex flex-col"><span className="text-black-500 uppercase tracking-widest text-[10px]">Volume</span><span className="text-xl">{activeVolume}</span></div>
             </div>
           </div>
 

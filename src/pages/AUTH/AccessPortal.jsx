@@ -255,7 +255,6 @@ const Login = () => {
     <div className="min-h-screen w-full bg-[#0f172a] text-slate-200 font-sans overflow-hidden flex relative selection:bg-blue-500 selection:text-white">
       <Toaster position="top-center" toastOptions={{ style: { background: '#1e293b', color: '#fff', border: '1px solid #334155' } }} />
       
-      {/* BACKGROUND ELEMENTS */}
       <div className="absolute inset-0 z-0 pointer-events-none">
          <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-blue-600/10 rounded-full blur-[120px] animate-pulse"></div>
          <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-purple-600/10 rounded-full blur-[120px] animate-pulse delay-1000"></div>
@@ -496,7 +495,6 @@ const Login = () => {
                            {dropdowns.jabatan.map((j, i) => <option key={i} value={j} className="text-black">{j}</option>)}
                         </select>
                         
-                        {/* INPUT LOGIC FOREMAN / OPERATOR / ADMIN */}
                         {showPlantInput && (
                            <div className="grid grid-cols-2 gap-3">
                               <select name="plant" value={formData.plant} onChange={handleChange} className={`bg-slate-900/50 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-blue-500 ${!showZoneInput ? 'col-span-2' : ''}`} required>
@@ -522,7 +520,6 @@ const Login = () => {
                   </motion.div>
                )}
 
-               {/* WAITING MODE (RADAR SCANNING) */}
                {mode === 'waiting' && (
                   <motion.div key="waiting" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} className="text-center flex flex-col items-center justify-center py-8">
                      <div className="relative w-40 h-40 mx-auto mb-10 flex items-center justify-center">
@@ -544,7 +541,6 @@ const Login = () => {
                   </motion.div>
                )}
 
-               {/* VERIFY MODE */}
                {mode === 'verify' && (
                   <motion.div key="verify" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} className="text-center">
                      <div className="w-20 h-20 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto mb-6 border-2 border-emerald-500/50 animate-pulse"><Lock size={32} className="text-emerald-400"/></div>
