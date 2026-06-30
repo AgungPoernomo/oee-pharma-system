@@ -177,11 +177,6 @@ export default function InputC() {
         setV(C.SUB_SAMPLES, v(C.IPC) + v(C.OTHERS_S));
       }
 
-      // ── Kalkulasi utama Hasil Baik ────────────────────────────────
-      // Transfer to ST = sub - fill - samples
-      // TOTAL KESELURUHAN = sub (counter keseluruhan)
-      // Yield % = trf / sub * 100
-      // Input Before Steril = trf - reject blow (FIX: dikurangi reject blow)
       if (
         col === C.CNT_SUB   || col === C.CNT_END   || col === C.CNT_START ||
         col === C.SUB_FILL  || col === C.SUB_SAMPLES ||

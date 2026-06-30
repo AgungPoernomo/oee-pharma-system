@@ -603,7 +603,7 @@ export default function InputC() {
 
         <div className="mb-4">
           <h1 className="text-2xl font-black tracking-wider uppercase text-emerald-800">
-            OEE Line 4 — Zone C
+            OEE Line 1 — Zone C
           </h1>
         </div>
         <div className="bg-white border-2 border-slate-300 shadow-xl mb-12 rounded overflow-hidden p-1">
@@ -612,7 +612,7 @@ export default function InputC() {
 
         <div className="mb-4">
           <h2 className="text-2xl font-black tracking-wider uppercase text-indigo-800">
-            Downtime Line 4 — Zone C
+            Downtime Line 1 — Zone C
           </h2>
         </div>
         <div className="bg-white border-2 border-slate-300 shadow-xl rounded overflow-hidden p-1 mb-10">
