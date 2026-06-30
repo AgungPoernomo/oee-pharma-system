@@ -1,5 +1,4 @@
 import db from './db.js';
-import axios from 'axios';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ message: 'Method Not Allowed' });
@@ -10,31 +9,24 @@ export default async function handler(req, res) {
   const lineNum = rawLine.match(/\d+/) ? rawLine.match(/\d+/)[0] : "4";
 
   try {
-    let insertId = data.original_id; 
+    let insertId = data?.original_id; 
 
     if (action === 'submit_reject_c' || action === 'update_reject_c' || action === 'submit_downtime_c' || action === 'update_downtime_c') {
       
-      let tableName = '';
-      if (action.includes('reject')) {
-        tableName = `oee_line${lineNum}_zonec`;
-      } else {
-        tableName = `downtime_line${lineNum}_zonec`;
-      }
+      let tableName = action.includes('reject') ? `oee_line${lineNum}_zonec` : `downtime_line${lineNum}_zonec`;
 
       const dbPayload = { ...data };
       delete dbPayload.original_id;
       delete dbPayload.is_closing;
 
-      // ============================================================
-      // PEMBERSIH DATA AUTOMATIS (Mencegah SQL Strict Mode Error)
-      // ============================================================
+      // Sanitasi Teks Kosong ke NULL
       Object.keys(dbPayload).forEach(key => {
         if (dbPayload[key] === '' || dbPayload[key] === undefined || dbPayload[key] === null) {
-          dbPayload[key] = null; // Ubah "" menjadi NULL agar diterima oleh INT/DECIMAL/DATE
+          dbPayload[key] = null; 
         }
       });
 
-      // Jangan eksekusi jika tidak ada data substansial yang diisi
+      // Abaikan jika data utama kosong (mencegah baris kosong masuk ke database)
       if (!dbPayload.no_batch && !dbPayload.tanggal && !dbPayload.shift) {
         return res.status(200).json({ status: 'ignored', message: 'Row is empty' });
       }
@@ -47,12 +39,15 @@ export default async function handler(req, res) {
       }
     } 
 
+    // Backup ke Google App Script menggunakan Native Fetch (Tanpa Axios)
     const backupData = { ...data, original_id: insertId };
-    axios.post(process.env.GAS_URL, {
-      action: action,
-      data: backupData,
-      user: user
-    }).catch(err => console.error(`[Backup GAS Gagal]`, err.message));
+    if (process.env.GAS_URL) {
+      fetch(process.env.GAS_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: action, data: backupData, user: user })
+      }).catch(err => console.error(`[Backup GAS Gagal]`, err.message));
+    }
 
     return res.status(200).json({ status: 'success', original_id: insertId });
   } catch (error) {
