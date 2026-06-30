@@ -275,8 +275,7 @@ export default function InputC() {
     }
   }, []);
 
-  // ── Load data dari server ───────────────────
-// ── Load data dari server (TiDB) ───────────────────
+// ── Load data dari server ───────────────────
   const loadDataServer = useCallback(async () => {
     if (!user) return;
     try {
@@ -286,34 +285,33 @@ export default function InputC() {
       ]);
 
       let mappedOEE = [];
-      let mappedOEEIds = []; // Simpan ID
-      if (resOEE.status === 'success' && Array.isArray(resOEE.data)) {
-        // Data dari TiDB sudah urut DESC, kita tidak perlu .reverse() lagi
-        mappedOEE = resOEE.data.map((row) => {
-          mappedOEEIds.push(row.id); // Simpan Primary Key ID TiDB
+      let mappedOEEIds = []; 
+      if (resOEE?.status === 'success' && Array.isArray(resOEE.data)) {
+        mappedOEE = [...resOEE.data].reverse().map((row) => {
+          mappedOEEIds.push(row.id); // Simpan ID TiDB
           return [
-            row.no_batch || '', parseToYMD(row.tanggal), row.shift || '', row.group || '', row.reject_botol || '', row.reject_preform || '',
-            row.reject_blow || '', row.volume_botol || '', row.cnt_start || '', row.cnt_end || '', row.cnt_sub || '', row.utuh || 'Y',
-            row.jml_batch || '', row.total_cnt_shift || '', row.r_washing || '', row.r_vk || '', row.r_vl || '', row.r_nocap || '',
-            row.r_sealnok || '', row.r_others || '', row.r_sub || '', row.s_ipc || '', row.s_others || '', row.s_sub || '',
-            row.trf_st || '', row.total_good_shift || '', row.yield_batch || '', row.avg_yield_shift || '', row.pre_in || '', row.pre_bocor || '',
-            row.pre_nocap || '', row.pre_vol || '', row.pre_thermo || '', row.pre_lain || '', row.pre_rej_total || '', row.pre_out || '',
-            row.av_sh || '', row.av_sm || '', row.av_eh || '', row.av_em || '', row.av_sub || '', row.total_avail_shift || '',
-            row.run_sh || '', row.run_sm || '', row.run_eh || '', row.run_em || '', row.run_sub || '', row.lc_sh || '',
-            row.lc_sm || '', row.lc_eh || '', row.lc_em || '', row.lc_sub || '', row.jeda_batch || '', row.jeda_shift || '', row.total_prep_clear || ''
+            row.no_batch ?? '', parseToYMD(row.tanggal), row.shift ?? '', row.group ?? '', row.reject_botol ?? '', row.reject_preform ?? '',
+            row.reject_blow ?? '', row.volume_botol ?? '', row.cnt_start ?? '', row.cnt_end ?? '', row.cnt_sub ?? '', row.utuh ?? 'Y',
+            row.jml_batch ?? '', row.total_cnt_shift ?? '', row.r_washing ?? '', row.r_vk ?? '', row.r_vl ?? '', row.r_nocap ?? '',
+            row.r_sealnok ?? '', row.r_others ?? '', row.r_sub ?? '', row.s_ipc ?? '', row.s_others ?? '', row.s_sub ?? '',
+            row.trf_st ?? '', row.total_good_shift ?? '', row.yield_batch ?? '', row.avg_yield_shift ?? '', row.pre_in ?? '', row.pre_bocor ?? '',
+            row.pre_nocap ?? '', row.pre_vol ?? '', row.pre_thermo ?? '', row.pre_lain ?? '', row.pre_rej_total ?? '', row.pre_out ?? '',
+            row.av_sh ?? '', row.av_sm ?? '', row.av_eh ?? '', row.av_em ?? '', row.av_sub ?? '', row.total_avail_shift ?? '',
+            row.run_sh ?? '', row.run_sm ?? '', row.run_eh ?? '', row.run_em ?? '', row.run_sub ?? '', row.lc_sh ?? '',
+            row.lc_sm ?? '', row.lc_eh ?? '', row.lc_em ?? '', row.lc_sub ?? '', row.jeda_batch ?? '', row.jeda_shift ?? '', row.total_prep_clear ?? ''
           ]; 
         });
       }
 
       let mappedDT = [];
       let mappedDTIds = [];
-      if (resDT.status === 'success' && Array.isArray(resDT.data)) {
-        mappedDT = resDT.data.map((row) => {
-          mappedDTIds.push(row.id); // Simpan Primary Key ID TiDB
+      if (resDT?.status === 'success' && Array.isArray(resDT.data)) {
+        mappedDT = [...resDT.data].reverse().map((row) => {
+          mappedDTIds.push(row.id); // Simpan ID TiDB
           return [
-            parseToYMD(row.tanggal), row.shift || '', row.group || '', row.no_batch || '', row.start_h || '', row.start_m || '',
-            row.end_h || '', row.end_m || '', row.duration || '', row.plan_unplan || 'Unplanned', row.root_cause || '', row.proses || '',
-            row.unit || '', row.kasus || ''
+            parseToYMD(row.tanggal), row.shift ?? '', row.group ?? '', row.no_batch ?? '', row.start_h ?? '', row.start_m ?? '',
+            row.end_h ?? '', row.end_m ?? '', row.duration ?? '', row.plan_unplan ?? 'Unplanned', row.root_cause ?? '', row.proses ?? '',
+            row.unit ?? '', row.kasus ?? ''
           ];
         });
       }
@@ -322,9 +320,9 @@ export default function InputC() {
       const finalOEE = [...mappedOEE, ...Array.from({ length: EMPTY_ROWS }, getEmptyOEE)];
       const finalDT  = [...mappedDT,  ...Array.from({ length: EMPTY_ROWS }, getEmptyDT)];
 
-      // Simpan referensi array ID agar Autosave bisa melakukan UPDATE (bukan insert ganda)
-      oeeIds.current = [...mappedOEEIds, ...Array(EMPTY_ROWS).fill(null)];
-      dtIds.current = [...mappedDTIds, ...Array(EMPTY_ROWS).fill(null)];
+      // Pastikan variabel referensi ini ada
+      if (oeeIds && oeeIds.current) oeeIds.current = [...mappedOEEIds, ...Array(EMPTY_ROWS).fill(null)];
+      if (dtIds && dtIds.current) dtIds.current = [...mappedDTIds, ...Array(EMPTY_ROWS).fill(null)];
 
       if (oeeGrid.current?.[0]) oeeGrid.current[0].setData(finalOEE);
       if (dtGrid.current?.[0]) dtGrid.current[0].setData(finalDT);
@@ -333,7 +331,7 @@ export default function InputC() {
       console.error('[InputC] loadDataServer error:', error);
     }
   }, [user]);
-  
+
   const UNIT_MAP_C = {
   'Blowing': ['Conveyor Preform Hijau', 'Hopper Preform', 'Conveyor Hopper Putih', 'Preform Feeding Chute', 'Rotary Preform', 'Minion', 'Supply Hanger', 'Heater Lamp', 'Heating Tube', 'Vertical Punch', 'Servo 1', 'Midstation', 'Servo 2', 'Servo 3', 'Servo 4', 'Neckseal', 'Stretch Servo', 'Bottom Mold', 'Pin Bottom', 'Body Mould - Utara', 'Body Mould - Selatan', 'Molding', 'Overturn', 'Transfer Blow-Fill', 'Supply Chiller', 'Compresor - Highpress (Oilfree)', 'Compresor - Lowpress (Oilless)', 'RH TMS', 'Suhu TMS', 'Supply Preform', 'Trial', 'Blowing-Others', 'Changeover'],
   'Filling': ['Laserjet', 'Gripper Washing', 'PLC', 'Ionizer', 'Carousel 1', 'Carousel 2', 'Carousel 3', 'Buffer Tank', 'Filling', 'Carousel 4', 'Carousel 5', 'Carousel 6', 'Cap Feeding Chute', 'Sealing', 'Heater', 'Cooling Heater Sealing', 'Wheelcap Ganjil', 'Wheelcap Genap', 'Conveyor Filling', 'Tandonan', 'Gear', 'Compresor-Oilfree', 'Compresor-Oilless', 'Trial', 'CIP/SIP', 'Filling-Others', 'Supply Listrik', 'Line Clearance', 'Break'],
