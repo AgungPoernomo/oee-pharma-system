@@ -221,7 +221,6 @@ const useZoneFProcessor = (rawReject, rawDowntime, date, volume, headerMetrics) 
     matrix.TOTAL.q_out_counter = totals.out_counter; matrix.TOTAL.q_out_rej = totals.q_rej; matrix.TOTAL.q_out_samp = total_samp_all; matrix.TOTAL.q_good_count_fg = totals.q_good; matrix.TOTAL.qual_pct = totals.out_counter > 0 ? (totals.q_good / totals.out_counter) * 100 : 0;
     dynamicLists.unplanned.forEach(k => matrix.TOTAL[`dt_${k}`] = totals.dt[k]); matrix.TOTAL.dt_tot_min = totals.dt_min; matrix.TOTAL.dt_tot_jam = totals.dt_min / 60; matrix.TOTAL.jd_p = totals.dt_p; matrix.TOTAL.jd_np = totals.dt_np;
     matrix.TOTAL.qc_samp_as = totals.q_samp_as; matrix.TOTAL.qc_samp_ret = totals.q_samp_ret; matrix.TOTAL.qc_tot_dec = total_samp_all; matrix.TOTAL.qc_tot_pct = totals.out_counter > 0 ? ((total_samp_all / totals.out_counter) * 100).toFixed(2) : "0";
-    // 👇 FIX DILAKUKAN DI SINI:
     matrix.TOTAL.rej_partikel = totals.rej_partikel; matrix.TOTAL.rej_kosmetik = totals.rej_kosmetik; matrix.TOTAL.rej_tot_dec = totals.q_rej; matrix.TOTAL.rej_tot_pct = totals.out_counter > 0 ? ((totals.q_rej / totals.out_counter) * 100).toFixed(2) : "0";
 
     const structure = [
@@ -345,7 +344,7 @@ const DailyOnesheet = () => {
   const [activeVolume, setActiveVolume] = useState("500 ML"); 
   
   const [isFetching, setIsFetching] = useState(false); 
-  const [isPrinting, setIsPrinting] = useState(false); // State untuk mengatur ukuran saat cetak
+  const [isPrinting, setIsPrinting] = useState(false); 
   const printRef = useRef(); 
   
   const [rawRejectC, setRawRejectC] = useState([]);
@@ -419,7 +418,7 @@ const DailyOnesheet = () => {
       } finally {
         setIsPrinting(false); 
       }
-    }, 800); 
+    }, 10000);
   };
 
   return (
@@ -448,12 +447,12 @@ const DailyOnesheet = () => {
           className={`mx-auto bg-white p-8 border border-gray-200 transition-all ${isPrinting ? 'w-[1800px] min-w-[1800px]' : 'w-full min-w-[1200px] max-w-[1800px]'}`}
         >
           
-          <div className="border-b-4 bg-orange-300 border-black pb-4 mb-8 text-center flex flex-col items-center">
-            <h1 className="text-4xl font-black uppercase tracking-widest mb-4">Laporan Onesheet</h1>
-            <div className="flex gap-12 text-sm font-bold">
-              <div className="flex flex-col"><span className="text-black-500 uppercase tracking-widest text-[10px]">Line</span><span className="text-xl">{user?.line || 2}</span></div>
-              <div className="flex flex-col"><span className="text-black-500 uppercase tracking-widest text-[10px]">Tanggal</span><span className="text-xl">{activeDate}</span></div>
-              <div className="flex flex-col"><span className="text-black-500 uppercase tracking-widest text-[10px]">Volume</span><span className="text-xl">{activeVolume}</span></div>
+          <div className="border-4 bg-orange-300 border-black pb-4 mb-8 text-center flex flex-col items-center">
+            <h1 className="text-5xl font-black uppercase tracking-widest mb-4">Laporan Onesheet</h1>
+            <div className="flex gap-10 text-sm font-bold">
+              <div className="flex flex-col"><span className="text-black-500 uppercase tracking-widest text-[16px]">Line :</span><span className="text-xl">{user?.line || 2}</span></div>
+              <div className="flex flex-col"><span className="text-black-500 uppercase tracking-widest text-[16px]">Tanggal :</span><span className="text-xl">{activeDate}</span></div>
+              <div className="flex flex-col"><span className="text-black-500 uppercase tracking-widest text-[16px]">Volume :</span><span className="text-xl">{activeVolume}</span></div>
             </div>
           </div>
 

@@ -93,22 +93,15 @@ const parseToYMD = (val) => {
   return '';
 };
 
-/**
- * Buat row kosong untuk OEE grid (55 kolom).
- * Kolom dropdown diberi default valid agar validator tidak komplain.
- */
 const getEmptyOEE = () => {
   const arr = Array(55).fill('');
-  arr[C.UTUH] = '';          // FIX: default 'Y' bukan ' '
+  arr[C.UTUH] = '';         
   return arr;
 };
 
-/**
- * Buat row kosong untuk DT grid (14 kolom).
- */
 const getEmptyDT = () => {
   const arr = Array(14).fill('');
-  arr[DC.TYPE] = '';  // FIX: default valid bukan ' '
+  arr[DC.TYPE] = '';  
   return arr;
 };
 
@@ -403,7 +396,14 @@ export default function InputC() {
     }
   }, [user]);
 
-  // ── Init jspreadsheet ───────────────────────
+  const UNIT_MAP_C = {
+  'Blowing': ['Conveyor Preform Hijau', 'Hopper Preform', 'Conveyor Hopper Putih', 'Preform Feeding Chute', 'Rotary Preform', 'Minion', 'Supply Hanger', 'Heater Lamp', 'Heating Tube', 'Vertical Punch', 'Servo 1', 'Midstation', 'Servo 2', 'Servo 3', 'Servo 4', 'Neckseal', 'Stretch Servo', 'Bottom Mold', 'Pin Bottom', 'Body Mould - Utara', 'Body Mould - Selatan', 'Molding', 'Overturn', 'Transfer Blow-Fill', 'Supply Chiller', 'Compresor - Highpress (Oilfree)', 'Compresor - Lowpress (Oilless)', 'RH TMS', 'Suhu TMS', 'Supply Preform', 'Trial', 'Blowing-Others', 'Changeover'],
+  'Filling': ['Laserjet', 'Gripper Washing', 'PLC', 'Ionizer', 'Carousel 1', 'Carousel 2', 'Carousel 3', 'Buffer Tank', 'Filling', 'Carousel 4', 'Carousel 5', 'Carousel 6', 'Cap Feeding Chute', 'Sealing', 'Heater', 'Cooling Heater Sealing', 'Wheelcap Ganjil', 'Wheelcap Genap', 'Conveyor Filling', 'Tandonan', 'Gear', 'Compresor-Oilfree', 'Compresor-Oilless', 'Trial', 'CIP/SIP', 'Filling-Others', 'Supply Listrik', 'Line Clearance', 'Break'],
+  'Mixing': ['Supply WFI', 'Tanki D1', 'Tanki D2', 'Filter Produk', 'Mixing Produk', 'CIP/SIP', 'Integrity', 'PLC', 'Trial'],
+  'Autoclave': ['Conveyor', 'Meja A', 'Meja B', 'Lifter A', 'Lifter B', 'Tray kereta', 'Turn table', 'Kereta Anjlok', 'Kereta Habis', 'Jalur penuh', 'Chamber A', 'Chamber B', 'Doorseal', 'Autoclave-Other', 'Pick and Place']
+  };
+  const ALL_UNITS_C = [...new Set(Object.values(UNIT_MAP_C).flat())];
+
   useEffect(() => {
     const initialOEE = Array.from({ length: 20 }, getEmptyOEE);
     const initialDT  = Array.from({ length: 20 }, getEmptyDT);
@@ -546,7 +546,17 @@ export default function InputC() {
             { type: 'dropdown', title: 'Planned / Unplanned', width: 150, source: ['Planned', 'Unplanned'] },
             { type: 'dropdown', title: 'Root Cause', width: 150, source: ['Production', 'Mechanical', 'Electrical', 'Utility', 'QA', 'QC', 'Warehouse', 'PPIC', 'R&D'] },
             { type: 'dropdown', title: 'Proses', width: 120, source: ['Blowing', 'Filling', 'Mixing', 'Autoclave'] },
-            { type: 'text',     title: 'Unit', width: 120 },
+            { 
+              type: 'dropdown', 
+              title: 'Unit',
+              width: 120,
+              source: ALL_UNITS_C,
+              filter: function(instance, cell, c, r, source) {
+                let sheet = dtGrid.current[0];
+                let prosesValue = sheet.getValueFromCoords(11, r);
+                return UNIT_MAP_C[prosesValue] || [];
+              }
+            },
             { type: 'text',     title: 'Kasus', width: 800 },
           ],
           freezeColumns: 1,
@@ -554,7 +564,19 @@ export default function InputC() {
           tableWidth: '100%',
           tableHeight: '700px',
         }],
-        onchange: handleDTChange,
+        onchange: function(worksheet, cell, cStr, rStr, value) {
+          let c = parseInt(cStr);
+          let r = parseInt(rStr);
+          let sheet = worksheet;
+          
+          if (c === 11) {
+            sheet.setValueFromCoords(12, r, '', true);
+          }
+          
+          if (typeof handleDTChange === 'function') {
+            handleDTChange(worksheet, cell, cStr, rStr, value);
+          }
+        }
       });
     }
 
@@ -579,7 +601,6 @@ export default function InputC() {
       <Toaster position="bottom-right" />
       <div className="max-w-full mx-auto">
 
-        {/* OEE Table */}
         <div className="mb-4">
           <h1 className="text-2xl font-black tracking-wider uppercase text-emerald-800">
             OEE Line 4 — Zone C
@@ -589,7 +610,6 @@ export default function InputC() {
           <div ref={oeeTableRef} />
         </div>
 
-        {/* Downtime Table */}
         <div className="mb-4">
           <h2 className="text-2xl font-black tracking-wider uppercase text-indigo-800">
             Downtime Line 4 — Zone C

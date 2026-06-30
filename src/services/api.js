@@ -6,7 +6,7 @@ const getCurrentUser = (explicitUser) => {
   if (stored) {
     try { return JSON.parse(stored); } catch (e) { return null; }
   }
-  return { nama: "Unknown", zone: "-", plant: "-", line: "2" }; // Default fallback
+  return { nama: "Unknown", zone: "-", plant: "-", line: "2" }; 
 };
 
 const sendRequest = async (payload) => {
@@ -28,7 +28,6 @@ const sendRequest = async (payload) => {
   }
 };
 
-
 export const loginUser = async (data) => {
   return await sendRequest({ action: "login", data: data });
 };
@@ -45,35 +44,22 @@ export const updatePassword = async (id, oldPassword, newPassword) => {
   return await sendRequest({ action: "update_password", data: { id, oldPassword, newPassword } });
 };
 
-// =================================================================
-// 3. MASTER DATA MODULE
-// =================================================================
-
 export const fetchValidationData = async () => {
   return await sendRequest({ action: "get_validation_data" });
 };
 
-// =================================================================
-// 4. SUBMIT DATA MODULE (TRANSACTIONAL & EDIT)
-// =================================================================
-
 export const submitOEEData = async (payload, explicitUser = null) => {
   const userData = getCurrentUser(explicitUser);
 
-  // Payload action dinamis (bisa submit_baru atau update_data)
   const realAction = payload.action || "submit_oee";
   const realData = payload.data ? payload.data : payload;
 
   return await sendRequest({
     action: realAction,
     data: realData,
-    user: userData // PENTING: Backend butuh ini untuk Routing Line 1-4
+    user: userData 
   });
 };
-
-// =================================================================
-// 5. MONITORING MODULE (TABEL HARIAN)
-// =================================================================
 
 export const fetchTodayRejectC = async (user = null) => {
   return await sendRequest({ 
@@ -121,15 +107,12 @@ export const checkApprovalStatus = async (id_karyawan) => {
   });
 };
 
-// =================================================================
-// 7. ONESHEET DASHBOARD MODULE
-// =================================================================
 
 export const fetchOnesheetData = async (tanggal, explicitUser = null) => {
   const userData = getCurrentUser(explicitUser);
   return await sendRequest({ 
     action: "get_onesheet_data", 
     data: { tanggal: tanggal },
-    user: userData // Penting agar Apps Script tahu harus buka Database Line 1,2,3 atau 4
+    user: userData 
   });
 };

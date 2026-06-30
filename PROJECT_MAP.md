@@ -2,6 +2,10 @@
 
 ```text
 OEE-PHARMA-SYSTEM/
+├── api
+│   ├── autosave-c.js
+│   ├── autosave-f.js
+│   └── db.js
 ├── public
 │   ├── factory-bg.jpg
 │   ├── logo-perusahaan.png
@@ -51,8 +55,6 @@ OEE-PHARMA-SYSTEM/
 │   │       │   ├── INPUTC.jsx
 │   │       │   └── INPUTF.jsx
 │   │       ├── DataLine3
-│   │       │   ├── INPUTC.jsx
-│   │       │   └── INPUTF.jsx
 │   │       └── DataLine4
 │   │           ├── INPUTC.jsx
 │   │           └── INPUTF.jsx
@@ -80,4 +82,4 @@ OEE-PHARMA-SYSTEM/
 
 ```
 
-*Terakhir diperbarui pada: 23/6/2026, 08.39.00 WIB*
+*Terakhir diperbarui pada: 30/6/2026, 14.04.15 WIB*

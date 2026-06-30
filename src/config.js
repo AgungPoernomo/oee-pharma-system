@@ -1,2 +1,1 @@
-// Ganti tulisan didalam kutip dengan URL Web App Apps Script Baru Anda
 export const API_BASE_URL = "https://script.google.com/macros/s/AKfycbyO_Rh0wzfpLPO83RuPh-mSHfeCmHMbfW1WkazHKbGmUT1RobjNTUTwrmsEhxv5lhit/exec";

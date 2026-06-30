@@ -27,15 +27,13 @@ const parseToYMD = (val) => {
   return '';
 };
 
-// 55 Kolom OEE murni untuk Zone F (Tanpa tombol AKSI)
 const getEmptyOEE_F = () => {
   const arr = Array(55).fill('');
-  arr[5] = ''; // Default volume botol
-  arr[30] = '';     // Default Utuh (pack_utuh)
+  arr[5] = ''; 
+  arr[30] = '';     
   return arr;
 };
 
-// 14 Kolom DT murni (Tanpa tombol AKSI)
 const getEmptyDT = () => {
   const arr = Array(14).fill('');
   arr[9] = ''; // Default
@@ -50,12 +48,8 @@ export default function InputF() {
   const oeeGrid = useRef(null);
   const dtGrid = useRef(null);
   
-  // Pencegah infinite loop pada rumus
   const isCalculating = useRef(false);
 
-  // ===============================================
-  // FUNGSI PENARIKAN 100% DATA DARI SPREADSHEET/SERVER
-  // ===============================================
   const loadDataServer = async () => {
     if (!user) return;
     try {
@@ -97,11 +91,9 @@ export default function InputF() {
         });
       }
 
-      // Tambahkan baris kosong sebagai ruang input baru di bawah data existing
       const finalOEEData = [...mappedOEE, ...Array.from({ length: 50 }, () => getEmptyOEE_F())];
       const finalDTData = [...mappedDT, ...Array.from({ length: 50 }, () => getEmptyDT())];
 
-      // Suntikkan data ke instance JSpreadsheet
       if (oeeGrid.current && oeeGrid.current[0]) {
         oeeGrid.current[0].setData(finalOEEData);
       }
@@ -116,9 +108,6 @@ export default function InputF() {
     }
   };
 
-  // ===============================================
-  // INISIALISASI JSPREADSHEET 
-  // ===============================================
   useEffect(() => {
     const initialEmptyOEE = Array.from({ length: 20 }, () => getEmptyOEE_F());
     const initialEmptyDT = Array.from({ length: 20 }, () => getEmptyDT());
@@ -336,6 +325,16 @@ export default function InputF() {
 
     if (dtTableRef.current) {
       dtTableRef.current.innerHTML = ''; 
+      const UNIT_MAP = {
+        'All Team Packaging': ['Conveyor Inspeksi', 'IDDLE', 'Others', 'Robotic', 'Wait Produk', 'Line Clearance', 'Break'],
+        'Cartoning': ['Carton sealer', 'Carton Unpacker', 'Case Packer - Others', 'Collecting Conveyor', 'Conveyor', 'Floating conveyor', 'Ganti Label', 'IDDLE', 'Inkjet Printer', 'Labelling', 'Labelling - Others', 'Robot', 'Vacuum Case Packer', 'Weigher', 'Weighing Checker'],
+        'Conveyor': ['Carton sealer', 'Conveyor', 'Conveyor Hitam', 'Conveyor Inspek', 'Others'],
+        'Visual Inspeksi': ['Conveyor Inspeksi', 'Mesin Visual Inspeksi', 'Others'],
+        'Labelling': ['Carton sealer', 'Conveyor', 'Floating Conveyor', 'Ganti Label', 'Inkjet Printer', 'Labelling', 'Sensor Inkjet', 'Sensor label', 'Wait Produk'],
+        'Robot': ['Collecting conveyor', 'Conveyor', 'Floating conveyor', 'Meja Collecting', 'Others', 'Robot'],
+        'Unpacker': ['Carton Unpacker']
+      };
+      const ALL_UNITS = [...new Set(Object.values(UNIT_MAP).flat())];
       dtGrid.current = jspreadsheet(dtTableRef.current, {
         worksheets: [{
           data: initialEmptyDT,
@@ -352,7 +351,17 @@ export default function InputF() {
             { type: 'dropdown', title: 'Planned / Unplanned', source: ['Planned', 'Unplanned'], width: 150 },
             { type: 'dropdown', title: 'Root Cause', source: ['Production', 'Mechanical', 'Electrical', 'Utility', 'QA', 'QC', 'Warehouse', 'PPIC', 'R&D'], width: 150 },
             { type: 'dropdown', title: 'Proses', source: ['All Team Packaging', 'Cartoning', 'Conveyor', 'Visual Inspeksi', 'Labelling', 'Robot', 'Unpacker'], width: 120 },
-            { type: 'text', title: 'Unit', width: 120 },
+            { 
+              type: 'dropdown', 
+              title: 'Unit', 
+              width: 120,
+              source: ALL_UNITS, 
+              filter: function(instance, cell, c, r, source) {
+                let sheet = dtGrid.current[0];
+                let prosesValue = sheet.getValueFromCoords(11, r);
+                return UNIT_MAP[prosesValue] || [];
+              }
+            },
             { type: 'text', title: 'Kasus', width: 500 }
           ],
           freezeColumns: 1,
@@ -373,11 +382,13 @@ export default function InputF() {
                   sheet.setValueFromCoords(8, r, diff < 0 ? diff + (24*60) : diff, true);
               }
           }
+          if (c === 11) {
+              sheet.setValueFromCoords(12, r, '', true);
+          }
         }
       });
     }
 
-    // Panggil data setelah grid berhasil di-render
     loadDataServer();
 
     return () => {
