@@ -61,32 +61,38 @@ export const submitOEEData = async (payload, explicitUser = null) => {
   });
 };
 
-export const fetchTodayRejectC = async (user = null) => {
-  return await sendRequest({ 
-    action: "get_today_reject_c", 
-    user: getCurrentUser(user) 
-  });
-};
+// Buka src/services/api.js, ganti bagian ini saja:
 
-export const fetchTodayRejectF = async (user = null) => {
-  return await sendRequest({ 
-    action: "get_today_reject_f",
-    user: getCurrentUser(user) 
+export const fetchTodayRejectC = async (user = null) => {
+  const response = await fetch('/api/fetch-data', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: "get_today_reject_c", user: getCurrentUser(user) })
   });
+  return await response.json();
 };
 
 export const fetchTodayDowntimeC = async (user = null) => {
-  return await sendRequest({ 
-    action: "get_today_downtime_c",
-    user: getCurrentUser(user) 
+  const response = await fetch('/api/fetch-data', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: "get_today_downtime_c", user: getCurrentUser(user) })
   });
+  return await response.json();
+};
+
+export const fetchTodayRejectF = async (user = null) => {
+  const response = await fetch('/api/fetch-data', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: "get_today_reject_f", user: getCurrentUser(user) })
+  });
+  return await response.json();
 };
 
 export const fetchTodayDowntimeF = async (user = null) => {
-  return await sendRequest({ 
-    action: "get_today_downtime_f",
-    user: getCurrentUser(user) 
+  const response = await fetch('/api/fetch-data', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: "get_today_downtime_f", user: getCurrentUser(user) })
   });
+  return await response.json();
 };
 
 export const getPendingApprovals = async () => {
