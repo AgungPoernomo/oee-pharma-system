@@ -11,6 +11,7 @@
     "update-map": "node generate-map.js"
   },
   "dependencies": {
+
     "@handsontable/react": "^16.2.0",
     "@jspreadsheet-ce/react": "^5.0.2",
     "@vercel/analytics": "^1.6.1",
