@@ -60,7 +60,6 @@ const getEmptyDT = () => {
   return arr;
 };
 
-// ── FUNGSI API PENGIRIMAN BACKGROUND ──
 const sendAutoSave = async (payload) => {
   try {
     const response = await fetch('/api/autosave-c', {
@@ -84,7 +83,6 @@ export default function InputC() {
   const dtGrid      = useRef(null);
   const isCalculating = useRef(false);
 
-  // ── DEKLARASI VARIABEL YANG HILANG ──
   const oeeIds = useRef([]); 
   const dtIds = useRef([]);  
   const oeeTimers = useRef({});
@@ -98,6 +96,7 @@ export default function InputC() {
       const rowData = sheet.getRowData(rIdx);
       if (!rowData[C.NO_BATCH] && !rowData[C.TANGGAL] && !rowData[C.SHIFT]) return;
 
+      // PAYLOAD INI SUDAH DISESUAIKAN PERSIS 100% DENGAN KOLOM TIDB
       const payloadData = {
         original_id: oeeIds.current[rIdx] || null,
         no_batch: rowData[C.NO_BATCH],
@@ -113,7 +112,6 @@ export default function InputC() {
         cnt_sub: rowData[C.CNT_SUB],
         utuh: rowData[C.UTUH],
         jml_batch: rowData[C.JML_BATCH],
-        total_cnt_shift: rowData[C.TOTAL_CNT],
         r_washing: rowData[C.WASH],
         r_vk: rowData[C.VK],
         r_vl: rowData[C.VL],
@@ -125,9 +123,6 @@ export default function InputC() {
         s_others: rowData[C.OTHERS_S],
         s_sub: rowData[C.SUB_SAMPLES],
         trf_st: rowData[C.TRF_TO_ST],
-        total_good_shift: rowData[C.TOTAL_KESEL],
-        yield_batch: rowData[C.YIELD_BATCH],
-        avg_yield_shift: rowData[C.AVG_SHIFT],
         pre_in: rowData[C.INPUT_STERIL],
         pre_bocor: rowData[C.REJ_BOCOR],
         pre_nocap: rowData[C.REJ_TANPA_CAP],
@@ -136,12 +131,23 @@ export default function InputC() {
         pre_lain: rowData[C.REJ_LAINLAIN],
         pre_rej_total: rowData[C.TOTAL_REJ_BS],
         pre_out: rowData[C.OUTPUT_CHAMBER],
-        av_sh: rowData[C.AT_SH], av_sm: rowData[C.AT_SM], av_eh: rowData[C.AT_EH], av_em: rowData[C.AT_EM], av_sub: rowData[C.AT_SUB], total_avail_shift: rowData[C.AT_TOTAL],
-        run_sh: rowData[C.RT_SH], run_sm: rowData[C.RT_SM], run_eh: rowData[C.RT_EH], run_em: rowData[C.RT_EM], run_sub: rowData[C.RT_SUB],
-        lc_sh: rowData[C.LC_SH], lc_sm: rowData[C.LC_SM], lc_eh: rowData[C.LC_EH], lc_em: rowData[C.LC_EM], lc_sub: rowData[C.LC_SUB],
-        total_prep_clear: rowData[C.TOTAL_PREP],
-        jeda_batch: rowData[C.LC_PER_BATCH],
-        jeda_shift: rowData[C.LC_PER_SHIFT],
+        av_sh: rowData[C.AT_SH],
+        av_sm: rowData[C.AT_SM],
+        av_eh: rowData[C.AT_EH],
+        av_em: rowData[C.AT_EM],
+        av_sub: rowData[C.AT_SUB],
+        total_avail_shift: rowData[C.AT_TOTAL],
+        run_sh: rowData[C.RT_SH],
+        run_sm: rowData[C.RT_SM],
+        run_eh: rowData[C.RT_EH],
+        run_em: rowData[C.RT_EM],
+        run_sub: rowData[C.RT_SUB],
+        lc_sh: rowData[C.LC_SH],
+        lc_sm: rowData[C.LC_SM],
+        lc_eh: rowData[C.LC_EH],
+        lc_em: rowData[C.LC_EM],
+        lc_sub: rowData[C.LC_SUB]
+        // TOTAL KESELURUHAN, YIELD BATCH, DSB SUDAH DIHAPUS KARENA TIDAK ADA DI DB
       };
 
       const actionType = payloadData.original_id ? 'update_reject_c' : 'submit_reject_c';
@@ -284,16 +290,17 @@ export default function InputC() {
       if (resOEE?.status === 'success' && Array.isArray(resOEE.data)) {
         mappedOEE = [...resOEE.data].reverse().map((row) => {
           mappedOEEIds.push(row.id);
+          // Menyesuaikan array 55 kolom dengan yang ada di DB. Kolom yg terhapus di DB diisi string kosong ('')
           return [
             row.no_batch ?? '', parseToYMD(row.tanggal), row.shift ?? '', row.group ?? '', row.reject_botol ?? '', row.reject_preform ?? '',
             row.reject_blow ?? '', row.volume_botol ?? '', row.cnt_start ?? '', row.cnt_end ?? '', row.cnt_sub ?? '', row.utuh ?? 'Y',
-            row.jml_batch ?? '', row.total_cnt_shift ?? '', row.r_washing ?? '', row.r_vk ?? '', row.r_vl ?? '', row.r_nocap ?? '',
+            row.jml_batch ?? '', '', row.r_washing ?? '', row.r_vk ?? '', row.r_vl ?? '', row.r_nocap ?? '',
             row.r_sealnok ?? '', row.r_others ?? '', row.r_sub ?? '', row.s_ipc ?? '', row.s_others ?? '', row.s_sub ?? '',
-            row.trf_st ?? '', row.total_good_shift ?? '', row.yield_batch ?? '', row.avg_yield_shift ?? '', row.pre_in ?? '', row.pre_bocor ?? '',
+            row.trf_st ?? '', '', '', '', row.pre_in ?? '', row.pre_bocor ?? '',
             row.pre_nocap ?? '', row.pre_vol ?? '', row.pre_thermo ?? '', row.pre_lain ?? '', row.pre_rej_total ?? '', row.pre_out ?? '',
             row.av_sh ?? '', row.av_sm ?? '', row.av_eh ?? '', row.av_em ?? '', row.av_sub ?? '', row.total_avail_shift ?? '',
             row.run_sh ?? '', row.run_sm ?? '', row.run_eh ?? '', row.run_em ?? '', row.run_sub ?? '', row.lc_sh ?? '',
-            row.lc_sm ?? '', row.lc_eh ?? '', row.lc_em ?? '', row.lc_sub ?? '', row.jeda_batch ?? '', row.jeda_shift ?? '', row.total_prep_clear ?? ''
+            row.lc_sm ?? '', row.lc_eh ?? '', row.lc_em ?? '', row.lc_sub ?? '', '', '', ''
           ]; 
         });
       }
