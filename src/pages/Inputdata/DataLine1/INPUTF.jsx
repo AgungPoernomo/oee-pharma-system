@@ -412,7 +412,7 @@ export default function InputF() {
         
         <div className="mb-4">
           <h1 className="text-2xl font-black tracking-wider uppercase text-emerald-800">
-            OEE Line 4 - Zone F
+            OEE Line 1 - Zone F
           </h1>
         </div>
         
@@ -422,7 +422,7 @@ export default function InputF() {
 
         <div className="mb-4">
           <h2 className="text-2xl font-black tracking-wider uppercase text-indigo-800">
-            Downtime Line 4 - Zone F
+            Downtime Line 1 - Zone F
           </h2>
         </div>
 
