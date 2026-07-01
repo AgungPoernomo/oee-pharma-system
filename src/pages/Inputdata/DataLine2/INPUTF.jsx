@@ -1,6 +1,6 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../../../context/AuthContext';
-import { fetchTodayRejectF, fetchTodayDowntimeF, fetchValidationData } from '../../../services/api';
+import { fetchTodayRejectF, fetchTodayDowntimeF } from '../../../services/api';
 import toast, { Toaster } from 'react-hot-toast';
 
 import jspreadsheet from 'jspreadsheet-ce';
@@ -30,14 +30,45 @@ const parseToYMD = (val) => {
 const getEmptyOEE_F = () => {
   const arr = Array(55).fill('');
   arr[5] = ''; 
-  arr[30] = '';     
+  arr[30] = 'Y';     
   return arr;
 };
 
 const getEmptyDT = () => {
   const arr = Array(14).fill('');
-  arr[9] = ''; // Default
+  arr[9] = 'Unplanned'; 
   return arr;
+};
+
+// ── FUNGSI SISTEM INGATAN (CACHE) ──
+const getCachedData = (key, emptyGenerator, count = 100) => {
+  try {
+    const cached = localStorage.getItem(key);
+    if (cached) return JSON.parse(cached);
+  } catch (e) { console.error('Cache read error', e); }
+  return Array.from({ length: count }, emptyGenerator);
+};
+
+const getCachedIds = (key, count = 100) => {
+  try {
+    const cached = localStorage.getItem(key);
+    if (cached) return JSON.parse(cached);
+  } catch (e) { console.error('Cache ID read error', e); }
+  return Array(count).fill(null);
+};
+
+const sendAutoSave = async (payload) => {
+  try {
+    const response = await fetch('/api/autosave-f', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    return await response.json();
+  } catch (error) {
+    console.error('Autosave Error:', error);
+    return { status: 'error' };
+  }
 };
 
 export default function InputF() {
@@ -50,67 +81,311 @@ export default function InputF() {
   
   const isCalculating = useRef(false);
 
-  const loadDataServer = async () => {
+  // Load ID dari Cache
+  const oeeIds = useRef(getCachedIds('F_IDS_OEE')); 
+  const dtIds = useRef(getCachedIds('F_IDS_DT'));  
+  const oeeTimers = useRef({});
+  const dtTimers = useRef({});
+
+  const triggerAutosaveOEE = (rIdx, sheet) => {
+    if (oeeTimers.current[rIdx]) clearTimeout(oeeTimers.current[rIdx]);
+
+    oeeTimers.current[rIdx] = setTimeout(async () => {
+      const rowData = sheet.getRowData(rIdx);
+      if (!rowData[0] && !rowData[2] && !rowData[3]) return;
+
+      const payloadData = {
+        original_id: oeeIds.current[rIdx] || null,
+        no_batch: rowData[0],
+        lot_no: rowData[1],
+        tanggal: rowData[2],
+        shift: rowData[3],
+        group: rowData[4],
+        volume_botol: rowData[5],
+        steril_in: rowData[6],
+        steril_bocor: rowData[7],
+        steril_h_patah_ring: rowData[8],
+        steril_h_patah_lidah: rowData[9],
+        steril_h_patah_leleh: rowData[10],
+        steril_no_hanger: rowData[11],
+        steril_rej_total: rowData[12],
+        steril_sample: rowData[13],
+        steril_out: rowData[14],
+        vi_start: rowData[15],
+        vi_end: rowData[16],
+        vi_sub: rowData[17],
+        vi_partikel: rowData[19],
+        vi_kotik: rowData[20],
+        vi_rej_total: rowData[21],
+        vi_hasil_baik: rowData[22],
+        vi_tf_packing: rowData[24],
+        pack_reject: rowData[25],
+        pack_hasil_baik: rowData[26],
+        pack_s_qc: rowData[27],
+        pack_s_others: rowData[28],
+        pack_fg: rowData[29],
+        pack_utuh: rowData[30],
+        pack_jml_batch: rowData[31],
+        av_sh: rowData[35],
+        av_sm: rowData[36],
+        av_eh: rowData[37],
+        av_em: rowData[38],
+        av_sub: rowData[39],
+        total_avail_shift: rowData[40],
+        run_sh: rowData[41],
+        run_sm: rowData[42],
+        run_eh: rowData[43],
+        run_em: rowData[44],
+        run_sub: rowData[45],
+        clear_sh: rowData[46],
+        clear_sm: rowData[47],
+        clear_eh: rowData[48],
+        clear_em: rowData[49],
+        clear_sub: rowData[50],
+        process_total: rowData[51]
+      };
+
+      const actionType = payloadData.original_id ? 'update_reject_f' : 'submit_reject_f';
+      const res = await sendAutoSave({ action: actionType, data: payloadData, user });
+      
+      if (res.status === 'success' && res.original_id) {
+        oeeIds.current[rIdx] = res.original_id;
+        localStorage.setItem('F_IDS_OEE', JSON.stringify(oeeIds.current));
+      }
+    }, 1000);
+  };
+
+  const triggerAutosaveDT = (rIdx, sheet) => {
+    if (dtTimers.current[rIdx]) clearTimeout(dtTimers.current[rIdx]);
+
+    dtTimers.current[rIdx] = setTimeout(async () => {
+      const rowData = sheet.getRowData(rIdx);
+      if (!rowData[0] && !rowData[3]) return;
+
+      const payloadData = {
+        original_id: dtIds.current[rIdx] || null,
+        tanggal: rowData[0],
+        shift: rowData[1],
+        group: rowData[2],
+        no_batch: rowData[3],
+        start_h: rowData[4], start_m: rowData[5],
+        end_h: rowData[6], end_m: rowData[7],
+        duration: rowData[8],
+        plan_unplan: rowData[9],
+        root_cause: rowData[10],
+        proses: rowData[11],
+        unit: rowData[12],
+        kasus: rowData[13],
+      };
+
+      const actionType = payloadData.original_id ? 'update_downtime_f' : 'submit_downtime_f';
+      const res = await sendAutoSave({ action: actionType, data: payloadData, user });
+      
+      if (res.status === 'success' && res.original_id) {
+        dtIds.current[rIdx] = res.original_id;
+        localStorage.setItem('F_IDS_DT', JSON.stringify(dtIds.current));
+      }
+    }, 1000);
+  };
+
+  const handleOEEChange = useCallback((worksheet, _cell, cStr, rStr, _value) => {
+    if (isCalculating.current) return;
+    let c = parseInt(cStr); let r = parseInt(rStr);
+    let sheet = worksheet;
+
+    const v = (col) => {
+        let val = sheet.getValueFromCoords(col, r);
+        return (val === "" || val === null || isNaN(val)) ? 0 : parseFloat(val);
+    };
+    const setV = (col, val) => sheet.setValueFromCoords(col, r, val, true); 
+
+    isCalculating.current = true;
+    try {
+      if (c >= 7 && c <= 11) setV(12, v(7)+v(8)+v(9)+v(10)+v(11));
+      
+      if (c === 6 || (c >= 7 && c <= 11) || c === 13) {
+        let sIn = v(6);
+        if (sIn > 0) setV(14, sIn - v(12) - v(13));
+        else setV(14, '');
+      }
+
+      if (c === 15 || c === 16) {
+        let sub = v(16) - v(15); setV(17, sub > 0 ? sub : '');
+      }
+
+      if (c === 19 || c === 20) setV(21, v(19)+v(20));
+
+      if (c === 15 || c === 16 || c === 19 || c === 20 || c === 23) {
+        let vSub = v(17);
+        if (vSub > 0) {
+          let vBaik = vSub - v(21);
+          setV(22, vBaik);
+          setV(24, vBaik - v(23));
+        } else { setV(22, ''); setV(24, ''); }
+      }
+
+      if (c === 15 || c === 16 || c === 19 || c === 20 || c === 23 || c === 25 || c === 27 || c === 28) {
+        let pTrf = v(24);
+        if (pTrf > 0) {
+          let pHasil = pTrf - v(25);
+          setV(26, pHasil);
+          setV(29, pHasil - v(27) - v(28));
+        } else { setV(26, ''); setV(29, ''); }
+      }
+
+      if (c === 5 || (c >= 15 && c <= 28)) {
+        let volKey = sheet.getValueFromCoords(5, r) || "500 ML";
+        let pFg = v(29);
+        if (pFg > 0) {
+          setV(31, (pFg / (TEORI_BATCH[volKey] || 23076)).toFixed(2));
+          setV(33, ((pFg / TEORI_YIELD) * 100).toFixed(2));
+        } else { setV(31, ''); setV(33, ''); }
+      }
+
+      const timeDiff = (sh, sm, eh, em) => {
+          if (v(sh)===0 && v(sm)===0 && v(eh)===0 && v(em)===0 && sheet.getValueFromCoords(sh, r)==="") return '';
+          let diff = (v(eh)*60 + v(em)) - (v(sh)*60 + v(sm));
+          return diff < 0 ? diff + (24*60) : diff;
+      };
+
+      if (c >= 35 && c <= 38) setV(39, timeDiff(35, 36, 37, 38));
+      if (c >= 41 && c <= 44) setV(45, timeDiff(41, 42, 43, 44));
+      if (c >= 46 && c <= 49) {
+          let lc = timeDiff(46, 47, 48, 49);
+          setV(50, lc); setV(52, lc); setV(53, lc);
+      }
+      if ((c >= 41 && c <= 44) || (c >= 46 && c <= 49)) {
+        let rSub = v(45); let lSub = v(50);
+        if (rSub > 0 || lSub > 0) setV(51, rSub + lSub);
+        else setV(51, '');
+      }
+    } finally {
+      isCalculating.current = false;
+      triggerAutosaveOEE(r, sheet);
+    }
+  }, []);
+
+  const handleDTChange = useCallback((worksheet, _cell, cStr, rStr, _value) => {
+    let c = parseInt(cStr); let r = parseInt(rStr); let sheet = worksheet; 
+    if(c >= 4 && c <= 7) {
+        let sh = parseFloat(sheet.getValueFromCoords(4, r)) || 0;
+        let sm = parseFloat(sheet.getValueFromCoords(5, r)) || 0;
+        let eh = parseFloat(sheet.getValueFromCoords(6, r)) || 0;
+        let em = parseFloat(sheet.getValueFromCoords(7, r)) || 0;
+        if(sheet.getValueFromCoords(4, r) !== "" && sheet.getValueFromCoords(6, r) !== "") {
+            let diff = (eh*60 + em) - (sh*60 + sm);
+            sheet.setValueFromCoords(8, r, diff < 0 ? diff + (24*60) : diff, true);
+        }
+    }
+    if (c === 11) {
+        sheet.setValueFromCoords(12, r, '', true);
+    }
+    triggerAutosaveDT(r, sheet);
+  }, []);
+
+  const loadDataServer = useCallback(async () => {
     if (!user) return;
     try {
-      const toastId = toast.loading("Menarik data Zone F dari server...");
       const [resOEE, resDT] = await Promise.all([
         fetchTodayRejectF(user),
         fetchTodayDowntimeF(user)
       ]);
 
       let mappedOEE = [];
-      if (resOEE.status === 'success' && resOEE.data) {
-        const reversedOEE = [...resOEE.data].reverse(); // Data terbaru di atas
-        mappedOEE = reversedOEE.map((row) => {
-          let yieldBatch = row[35] ? (parseFloat(row[35]) * 100).toFixed(2) : '';
-          return [
-            row[2] || '', row[3] || '', parseToYMD(row[4]), row[5] || '', row[6] || '', row[7] || '', 
-            row[8] || '', row[9] || '', row[10] || '', row[11] || '', row[12] || '', row[13] || '', row[14] || '', row[15] || '', row[16] || '',
-            row[17] || '', row[18] || '', row[19] || '', row[20] || '',
-            row[21] || '', row[22] || '', row[23] || '', row[24] || '', row[25] || '', row[26] || '',
-            row[27] || '', row[28] || '', row[29] || '', row[30] || '', row[31] || '', row[32] || 'Y', row[33] || '', row[34] || '',
-            yieldBatch, row[36] || '',
-            row[37] || '', row[38] || '', row[39] || '', row[40] || '', row[41] || '', row[42] || '',
-            row[48] || '', row[49] || '', row[50] || '', row[51] || '', row[52] || '',
-            row[58] || '', row[59] || '', row[60] || '', row[61] || '', row[62] || '', 
-            row[63] || '', row[64] || '', row[65] || '', row[66] || ''
-          ];
+      let mappedOEEIds = [];
+      if (resOEE?.status === 'success' && Array.isArray(resOEE.data)) {
+        mappedOEE = [...resOEE.data].reverse().map((row) => {
+          mappedOEEIds.push(row.id);
+          
+          const arr = Array(55).fill('');
+          arr[0] = row.no_batch ?? '';
+          arr[1] = row.lot_no ?? '';
+          arr[2] = parseToYMD(row.tanggal);
+          arr[3] = row.shift ?? '';
+          arr[4] = row.group ?? '';
+          arr[5] = row.volume_botol ?? '';
+          arr[6] = row.steril_in ?? '';
+          arr[7] = row.steril_bocor ?? '';
+          arr[8] = row.steril_h_patah_ring ?? '';
+          arr[9] = row.steril_h_patah_lidah ?? '';
+          arr[10] = row.steril_h_patah_leleh ?? '';
+          arr[11] = row.steril_no_hanger ?? '';
+          arr[12] = row.steril_rej_total ?? '';
+          arr[13] = row.steril_sample ?? '';
+          arr[14] = row.steril_out ?? '';
+          arr[15] = row.vi_start ?? '';
+          arr[16] = row.vi_end ?? '';
+          arr[17] = row.vi_sub ?? '';
+          arr[19] = row.vi_partikel ?? '';
+          arr[20] = row.vi_kotik ?? '';
+          arr[21] = row.vi_rej_total ?? '';
+          arr[22] = row.vi_hasil_baik ?? '';
+          arr[24] = row.vi_tf_packing ?? '';
+          arr[25] = row.pack_reject ?? '';
+          arr[26] = row.pack_hasil_baik ?? '';
+          arr[27] = row.pack_s_qc ?? '';
+          arr[28] = row.pack_s_others ?? '';
+          arr[29] = row.pack_fg ?? '';
+          arr[30] = row.pack_utuh ?? 'Y';
+          arr[31] = row.pack_jml_batch ?? '';
+          arr[35] = row.av_sh ?? '';
+          arr[36] = row.av_sm ?? '';
+          arr[37] = row.av_eh ?? '';
+          arr[38] = row.av_em ?? '';
+          arr[39] = row.av_sub ?? '';
+          arr[40] = row.total_avail_shift ?? '';
+          arr[41] = row.run_sh ?? '';
+          arr[42] = row.run_sm ?? '';
+          arr[43] = row.run_eh ?? '';
+          arr[44] = row.run_em ?? '';
+          arr[45] = row.run_sub ?? '';
+          arr[46] = row.clear_sh ?? '';
+          arr[47] = row.clear_sm ?? '';
+          arr[48] = row.clear_eh ?? '';
+          arr[49] = row.clear_em ?? '';
+          arr[50] = row.clear_sub ?? '';
+          arr[51] = row.process_total ?? '';
+          return arr;
         });
       }
 
       let mappedDT = [];
-      if (resDT.status === 'success' && resDT.data) {
-        const reversedDT = [...resDT.data].reverse();
-        mappedDT = reversedDT.map((row) => {
+      let mappedDTIds = [];
+      if (resDT?.status === 'success' && Array.isArray(resDT.data)) {
+        mappedDT = [...resDT.data].reverse().map((row) => {
+          mappedDTIds.push(row.id);
           return [
-            parseToYMD(row[2]), row[3] || '', row[4] || '', row[5] || '',
-            row[7] || '', row[8] || '', row[9] || '', row[10] || '', row[11] || '',
-            row[12] || 'Unplanned', row[13] || '', row[14] || '', row[15] || '', row[16] || ''
+            parseToYMD(row.tanggal), row.shift ?? '', row.group ?? '', row.no_batch ?? '', row.start_h ?? '', row.start_m ?? '',
+            row.end_h ?? '', row.end_m ?? '', row.duration ?? '', row.plan_unplan ?? 'Unplanned', row.root_cause ?? '', row.proses ?? '',
+            row.unit ?? '', row.kasus ?? ''
           ];
         });
       }
 
-      const finalOEEData = [...mappedOEE, ...Array.from({ length: 50 }, () => getEmptyOEE_F())];
-      const finalDTData = [...mappedDT, ...Array.from({ length: 50 }, () => getEmptyDT())];
+      const finalOEEData = [...mappedOEE, ...Array.from({ length: 100 }, () => getEmptyOEE_F())];
+      const finalDTData = [...mappedDT, ...Array.from({ length: 100 }, () => getEmptyDT())];
 
-      if (oeeGrid.current && oeeGrid.current[0]) {
-        oeeGrid.current[0].setData(finalOEEData);
-      }
-      if (dtGrid.current && dtGrid.current[0]) {
-        dtGrid.current[0].setData(finalDTData);
-      }
+      if (oeeIds && oeeIds.current) oeeIds.current = [...mappedOEEIds, ...Array(100).fill(null)];
+      if (dtIds && dtIds.current) dtIds.current = [...mappedDTIds, ...Array(100).fill(null)];
 
-      toast.success("100% Data Zone F ditarik!", { id: toastId });
+      if (oeeGrid.current && oeeGrid.current[0]) oeeGrid.current[0].setData(finalOEEData);
+      if (dtGrid.current && dtGrid.current[0]) dtGrid.current[0].setData(finalDTData);
+
+      // SIMPAN KE INGATAN LOKAL (CACHE)
+      localStorage.setItem('F_DATA_OEE', JSON.stringify(finalOEEData));
+      localStorage.setItem('F_DATA_DT', JSON.stringify(finalDTData));
+      localStorage.setItem('F_IDS_OEE', JSON.stringify(oeeIds.current));
+      localStorage.setItem('F_IDS_DT', JSON.stringify(dtIds.current));
+
     } catch (error) { 
-      toast.error("Gagal menarik data.");
       console.error(error); 
     }
-  };
+  }, [user]);
 
   useEffect(() => {
-    const initialEmptyOEE = Array.from({ length: 20 }, () => getEmptyOEE_F());
-    const initialEmptyDT = Array.from({ length: 20 }, () => getEmptyDT());
+    // Tarik data langsung dari memori saat halaman dimuat (Instant Load)
+    const initialEmptyOEE = getCachedData('F_DATA_OEE', getEmptyOEE_F, 100);
+    const initialEmptyDT = getCachedData('F_DATA_DT', getEmptyDT, 100);
 
     if (oeeTableRef.current) {
       oeeTableRef.current.innerHTML = ''; 
@@ -118,7 +393,6 @@ export default function InputF() {
         worksheets: [{
           data: initialEmptyOEE,
           columns: [
-            // 0 - 5: Identitas Dasar
             { type: 'text', title: 'No. Batch', width: 90 },
             { type: 'text', title: 'Lot No', width: 90 },
             { type: 'calendar', title: 'Tanggal', width: 100, options: { format: 'YYYY-MM-DD' } },
@@ -126,7 +400,6 @@ export default function InputF() {
             { type: 'dropdown', title: 'Grup', source: GROUPS, width: 60 },
             { type: 'dropdown', title: 'Volume', source: VOLUMES, width: 90 },
             
-            // 6 - 14: Output After Steril
             { type: 'numeric', title: 'Input (Botol chamber)', width: 100 },
             { type: 'numeric', title: 'Reject Bocor', width: 90 },
             { type: 'numeric', title: 'Reject Patah ring', width: 90 },
@@ -137,7 +410,6 @@ export default function InputF() {
             { type: 'numeric', title: 'Sampel QC', width: 80 },
             { type: 'numeric', title: 'Output (TF to VI)', width: 120, readOnly: true },
             
-            // 15 - 24: Output Visual Inspeksi
             { type: 'numeric', title: 'Start', width: 80, readOnly: true },
             { type: 'numeric', title: 'End', width: 80 },
             { type: 'numeric', title: 'Sub total', width: 90, readOnly: true },
@@ -149,7 +421,6 @@ export default function InputF() {
             { type: 'numeric', title: 'QC', width: 80 },
             { type: 'numeric', title: 'Transfer ke Packing', width: 130, readOnly: true },
             
-            // 25 - 32: Output Packaging
             { type: 'numeric', title: 'Reject', width: 80 },
             { type: 'numeric', title: 'Hasil Baik', width: 90, readOnly: true },
             { type: 'numeric', title: 'QC', width: 70 },
@@ -159,11 +430,9 @@ export default function InputF() {
             { type: 'numeric', title: 'Jumlah Batch', width: 100, readOnly: true },
             { type: 'numeric', title: 'Total per shift', width: 110, readOnly: true },
             
-            // 33 - 34: Yield
             { type: 'percent', title: 'per Batch', width: 90, readOnly: true },
             { type: 'percent', title: 'AVERAGE per shift', width: 120, readOnly: true },
             
-            // 35 - 40: Available Time
             { type: 'numeric', title: 'Start (Jam)', width: 80 },
             { type: 'numeric', title: 'Start (Menit)', width: 90 },
             { type: 'numeric', title: 'End (Jam)', width: 80 },
@@ -171,7 +440,6 @@ export default function InputF() {
             { type: 'numeric', title: 'Sub Total', width: 90, readOnly: true },
             { type: 'numeric', title: 'TOTAL', width: 80, readOnly: true },
             
-            // 41 - 51: Process Details (Run & Clearance)
             { type: 'numeric', title: 'Start (Jam)', width: 80 },
             { type: 'numeric', title: 'Start (Menit)', width: 90 },
             { type: 'numeric', title: 'End (Jam)', width: 80 },
@@ -184,7 +452,6 @@ export default function InputF() {
             { type: 'numeric', title: 'Sub Total', width: 90, readOnly: true },
             { type: 'numeric', title: 'TOTAL', width: 80, readOnly: true },
             
-            // 52 - 54: Prep & Jeda
             { type: 'numeric', title: 'Total Preparation + Clearance Time', width: 180, readOnly: true },
             { type: 'numeric', title: 'per batch', width: 80, readOnly: true },
             { type: 'numeric', title: 'per shift', width: 80, readOnly: true }
@@ -236,90 +503,7 @@ export default function InputF() {
           tableHeight: "700px",
           minDimensions: [55, 20]
         }],
-        onchange: function(worksheet, cell, cStr, rStr, value) {
-          if (isCalculating.current) return;
-          let c = parseInt(cStr); let r = parseInt(rStr);
-          let sheet = worksheet;
-
-          const v = (col) => {
-              let val = sheet.getValueFromCoords(col, r);
-              return (val === "" || val === null || isNaN(val)) ? 0 : parseFloat(val);
-          };
-          const setV = (col, val) => sheet.setValueFromCoords(col, r, val, true); 
-
-          isCalculating.current = true;
-
-          // 1. Steril Reject Total (Col 12) = Col 7 to 11
-          if (c >= 7 && c <= 11) setV(12, v(7)+v(8)+v(9)+v(10)+v(11));
-          
-          // 2. Steril Out (Col 14) = Col 6 - Col 12 - Col 13
-          if (c === 6 || (c >= 7 && c <= 11) || c === 13) {
-            let sIn = v(6);
-            if (sIn > 0) setV(14, sIn - v(12) - v(13));
-            else setV(14, '');
-          }
-
-          // 3. VI Sub (Col 17) = Col 16 - Col 15
-          if (c === 15 || c === 16) {
-            let sub = v(16) - v(15); setV(17, sub > 0 ? sub : '');
-          }
-
-          // 4. VI Reject Total (Col 21) = Col 19 + Col 20
-          if (c === 19 || c === 20) setV(21, v(19)+v(20));
-
-          // 5. VI Hasil Baik (Col 22) = Col 17 - Col 21
-          // 6. VI Transfer Packing (Col 24) = Col 22 - Col 23
-          if (c === 15 || c === 16 || c === 19 || c === 20 || c === 23) {
-            let vSub = v(17);
-            if (vSub > 0) {
-              let vBaik = vSub - v(21);
-              setV(22, vBaik);
-              setV(24, vBaik - v(23));
-            } else { setV(22, ''); setV(24, ''); }
-          }
-
-          // 7. Pack Hasil Baik (Col 26) = Col 24 - Col 25
-          // 8. Pack FG (Col 29) = Col 26 - Col 27 - Col 28
-          if (c === 15 || c === 16 || c === 19 || c === 20 || c === 23 || c === 25 || c === 27 || c === 28) {
-            let pTrf = v(24);
-            if (pTrf > 0) {
-              let pHasil = pTrf - v(25);
-              setV(26, pHasil);
-              setV(29, pHasil - v(27) - v(28));
-            } else { setV(26, ''); setV(29, ''); }
-          }
-
-          // 9. Kalkulasi Jumlah Batch (Col 31) & Yield (Col 33)
-          if (c === 5 || (c >= 15 && c <= 28)) { // Jika volume atau nilai FG berubah
-            let volKey = sheet.getValueFromCoords(5, r) || "500 ML";
-            let pFg = v(29);
-            if (pFg > 0) {
-              setV(31, (pFg / (TEORI_BATCH[volKey] || 23076)).toFixed(2));
-              setV(33, ((pFg / TEORI_YIELD) * 100).toFixed(2));
-            } else { setV(31, ''); setV(33, ''); }
-          }
-
-          // 10. Kalkulasi Waktu (Durasi Menit)
-          const timeDiff = (sh, sm, eh, em) => {
-              if (v(sh)===0 && v(sm)===0 && v(eh)===0 && v(em)===0 && sheet.getValueFromCoords(sh, r)==="") return '';
-              let diff = (v(eh)*60 + v(em)) - (v(sh)*60 + v(sm));
-              return diff < 0 ? diff + (24*60) : diff;
-          };
-
-          if (c >= 35 && c <= 38) setV(39, timeDiff(35, 36, 37, 38));
-          if (c >= 41 && c <= 44) setV(45, timeDiff(41, 42, 43, 44));
-          if (c >= 46 && c <= 49) {
-              let lc = timeDiff(46, 47, 48, 49);
-              setV(50, lc); setV(52, lc); setV(53, lc);
-          }
-          if ((c >= 41 && c <= 44) || (c >= 46 && c <= 49)) {
-            let rSub = v(45); let lSub = v(50);
-            if (rSub > 0 || lSub > 0) setV(51, rSub + lSub);
-            else setV(51, '');
-          }
-
-          isCalculating.current = false;
-        }
+        onchange: handleOEEChange,
       });
     }
 
@@ -370,25 +554,11 @@ export default function InputF() {
           tableHeight: "700px",
           minDimensions: [14, 20]
         }],
-        onchange: function(worksheet, cell, cStr, rStr, value) {
-          let c = parseInt(cStr); let r = parseInt(rStr); let sheet = worksheet; 
-          if(c >= 4 && c <= 7) {
-              let sh = parseFloat(sheet.getValueFromCoords(4, r)) || 0;
-              let sm = parseFloat(sheet.getValueFromCoords(5, r)) || 0;
-              let eh = parseFloat(sheet.getValueFromCoords(6, r)) || 0;
-              let em = parseFloat(sheet.getValueFromCoords(7, r)) || 0;
-              if(sheet.getValueFromCoords(4, r) !== "" && sheet.getValueFromCoords(6, r) !== "") {
-                  let diff = (eh*60 + em) - (sh*60 + sm);
-                  sheet.setValueFromCoords(8, r, diff < 0 ? diff + (24*60) : diff, true);
-              }
-          }
-          if (c === 11) {
-              sheet.setValueFromCoords(12, r, '', true);
-          }
-        }
+        onchange: handleDTChange,
       });
     }
 
+    // Eksekusi penarikan data untuk Revalidasi di belakang layar
     loadDataServer();
 
     return () => {
@@ -403,7 +573,7 @@ export default function InputF() {
       
       oeeGrid.current = null; dtGrid.current = null;
     };
-  }, [user]);
+  }, [user, handleOEEChange, handleDTChange, loadDataServer]);
 
   return (
     <div className="min-h-screen bg-slate-50 p-8 text-slate-800 font-sans">
@@ -412,7 +582,7 @@ export default function InputF() {
         
         <div className="mb-4">
           <h1 className="text-2xl font-black tracking-wider uppercase text-emerald-800">
-            OEE Line 2 - Zone F
+            OEE Line 2 - Zone F <span className="text-sm font-normal normal-case text-gray-500 ml-2">(Auto-Saving & Cached)</span>
           </h1>
         </div>
         
