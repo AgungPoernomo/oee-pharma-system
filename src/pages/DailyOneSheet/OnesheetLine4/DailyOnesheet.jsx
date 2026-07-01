@@ -37,39 +37,58 @@ const calculateZoneMetrics = (volume) => {
   return { speed, teoriBatch, targetRuntimeHours, targetRuntimeMins };
 };
 
+// ── FUNGSI ADAPTOR PINTAR (Bisa baca TiDB Object maupun Spreadsheet Array) ──
+const getVal = (row, objKey, arrIdx) => {
+  if (!row) return undefined;
+  if (typeof row === 'object' && !Array.isArray(row)) return row[objKey];
+  return row[arrIdx];
+};
+
 const useZoneCProcessor = (rawReject, rawDowntime, date, volume, headerMetrics) => {
   return useMemo(() => {
     const groups = ['A', 'B', 'C', 'D'];
     const data = {};
-    groups.forEach(g => data[g] = { pot: 0, ps: {}, dt: {}, out_counter: 0, out_reject_blow: 0, q_wash: 0, q_vk: 0, q_vl: 0, q_nocap: 0, q_seal: 0, q_bocor: 0, q_samp: 0, dt_p: 0, dt_np: 0 });
+    groups.forEach(g => data[g] = { 
+      pot: 0, ps: {}, dt: {}, out_counter: 0, out_reject_blow: 0, q_wash: 0, q_vk: 0, q_vl: 0, q_nocap: 0, q_seal: 0, q_bocor: 0, q_samp: 0, dt_p: 0, dt_np: 0 });
 
     const plannedSet = new Set();
     const unplannedSet = new Set();
 
-    const filteredReject = rawReject.filter(r => String(r[7]).trim().toUpperCase() === String(volume).trim().toUpperCase());
+    const filteredReject = rawReject.filter(r => String(getVal(r, 'volume_botol', 7) || '').trim().toUpperCase() === String(volume).trim().toUpperCase());
     const filteredDowntime = rawDowntime;
 
     filteredReject.forEach(r => {
-      const g = String(r[5]).trim().toUpperCase();
+      const g = String(getVal(r, 'group', 5) || '').trim().toUpperCase();
       if (!groups.includes(g)) return;
-      data[g].pot += (parseFloat(r[41]) || 0) / 60; 
-      data[g].out_counter += parseFloat(r[10]) || 0; 
-      data[g].out_reject_blow += parseFloat(r[6]) || 0; 
-      data[g].q_wash += parseFloat(r[14]) || 0; data[g].q_vk += parseFloat(r[15]) || 0; data[g].q_vl += parseFloat(r[16]) || 0;
-      data[g].q_nocap += parseFloat(r[17]) || 0; data[g].q_seal += parseFloat(r[18]) || 0; data[g].q_bocor += parseFloat(r[19]) || 0;
-      data[g].q_samp += parseFloat(r[23]) || 0;
+      
+      const potMin = parseFloat(getVal(r, 'av_sub', 41) || getVal(r, 'total_avail_shift', 41)) || 0;
+      data[g].pot += potMin / 60;
+      data[g].out_counter += parseFloat(getVal(r, 'cnt_sub', 10)) || 0; 
+      data[g].out_reject_blow += parseFloat(getVal(r, 'reject_blow', 6)) || 0; 
+      data[g].q_wash += parseFloat(getVal(r, 'r_washing', 14)) || 0; 
+      data[g].q_vk += parseFloat(getVal(r, 'r_vk', 15)) || 0; 
+      data[g].q_vl += parseFloat(getVal(r, 'r_vl', 16)) || 0;
+      data[g].q_nocap += parseFloat(getVal(r, 'r_nocap', 17)) || 0; 
+      data[g].q_seal += parseFloat(getVal(r, 'r_sealnok', 18)) || 0; 
+      data[g].q_bocor += parseFloat(getVal(r, 'r_others', 19)) || 0;
+      
+      const s_ipc = parseFloat(getVal(r, 's_ipc', 21)) || 0;
+      const s_others = parseFloat(getVal(r, 's_others', 22)) || 0;
+      data[g].q_samp += parseFloat(getVal(r, 's_sub', 23)) || (s_ipc + s_others);
     });
 
     filteredDowntime.forEach(r => {
-      const g = String(r[4]).trim().toUpperCase();
+      const g = String(getVal(r, 'group', 4) || '').trim().toUpperCase();
       if (!groups.includes(g)) return;
-      const durasi = parseFloat(r[10]) || 0;
-      const type = String(r[11]).trim().toUpperCase();
-      const category = String(r[12]).trim().toUpperCase();
-      const kasus = String(r[15]).trim().toUpperCase();
+      
+      const durasi = parseFloat(getVal(r, 'duration', 10)) || 0;
+      const type = String(getVal(r, 'plan_unplan', 11) || '').trim().toUpperCase();
+      const category = String(getVal(r, 'root_cause', 12) || '').trim().toUpperCase();
+      const kasus = String(getVal(r, 'kasus', 15) || '').trim().toUpperCase();
 
       if (type === 'PLANNED') { plannedSet.add(kasus); data[g].ps[kasus] = (data[g].ps[kasus] || 0) + (durasi / 60); } 
       else if (type === 'UNPLANNED') { unplannedSet.add(kasus); data[g].dt[kasus] = (data[g].dt[kasus] || 0) + durasi; }
+      
       if (category === 'PRODUCTION') data[g].dt_p += durasi; else data[g].dt_np += durasi;
     });
 
@@ -136,29 +155,30 @@ const useZoneFProcessor = (rawReject, rawDowntime, date, volume, headerMetrics) 
     const plannedSet = new Set();
     const unplannedSet = new Set();
     
-    const filteredReject = rawReject.filter(r => String(r[7]).trim().toUpperCase() === String(volume).trim().toUpperCase()); 
+    const filteredReject = rawReject.filter(r => String(getVal(r, 'volume_botol', 7) || '').trim().toUpperCase() === String(volume).trim().toUpperCase()); 
     const filteredDowntime = rawDowntime;
 
     filteredReject.forEach(r => {
-      const g = String(r[6]).trim().toUpperCase();
+      const g = String(getVal(r, 'group', 6) || '').trim().toUpperCase();
       if (!groups.includes(g)) return;
       
-      data[g].pot += (parseFloat(r[41]) || 0) / 60; 
-      data[g].out_counter += parseFloat(r[19]) || 0; 
-      data[g].q_samp_as += parseFloat(r[25]) || 0;  
-      data[g].q_samp_ret += parseFloat(r[29]) || 0; 
-      data[g].rej_partikel += (parseFloat(r[21]) || 0); 
-      data[g].rej_kosmetik += (parseFloat(r[22]) || 0); 
+      const potMin = parseFloat(getVal(r, 'av_sub', 41) || getVal(r, 'total_avail_shift', 41)) || 0; 
+      data[g].pot += potMin / 60; 
+      data[g].out_counter += parseFloat(getVal(r, 'vi_sub', 19)) || 0; 
+      data[g].q_samp_as += parseFloat(getVal(r, 'pack_s_qc', 25)) || 0;  
+      data[g].q_samp_ret += parseFloat(getVal(r, 'pack_s_others', 29)) || 0; 
+      data[g].rej_partikel += parseFloat(getVal(r, 'vi_partikel', 21)) || 0; 
+      data[g].rej_kosmetik += parseFloat(getVal(r, 'vi_kotik', 22)) || 0; 
     });
 
     filteredDowntime.forEach(r => {
-      const g = String(r[4]).trim().toUpperCase();
+      const g = String(getVal(r, 'group', 4) || '').trim().toUpperCase();
       if (!groups.includes(g)) return;
       
-      const durasi = parseFloat(r[11]) || 0; 
-      const type = String(r[12]).trim().toUpperCase(); 
-      const category = String(r[13]).trim().toUpperCase(); 
-      const kasus = String(r[16]).trim().toUpperCase(); 
+      const durasi = parseFloat(getVal(r, 'duration', 11)) || 0; 
+      const type = String(getVal(r, 'plan_unplan', 12) || '').trim().toUpperCase(); 
+      const category = String(getVal(r, 'root_cause', 13) || '').trim().toUpperCase(); 
+      const kasus = String(getVal(r, 'kasus', 16) || '').trim().toUpperCase(); 
 
       if (type === 'PLANNED') { 
         plannedSet.add(kasus); 
@@ -244,10 +264,10 @@ const SummaryTable = ({ zoneTitle, structure, matrixData, oee, avail, perf, qual
       <div className="bg-gray-100 p-4 border-b border-black flex flex-col md:flex-row justify-between items-center gap-4">
         <h2 className="text-xl font-black uppercase tracking-widest text-black">{zoneTitle}</h2>
         <div className="flex gap-4 md:gap-6 text-sm font-bold text-gray-700">
-          <div className="flex flex-col"><span className="text-[10px] text-gray-500 uppercase tracking-wider">OEE Score</span><span className="text-xl text-black">{oee.toFixed(1)}%</span></div>
-          <div className="flex flex-col"><span className="text-[10px] text-gray-500 uppercase tracking-wider">Avail</span><span className="text-xl text-yellow-600">{avail.toFixed(1)}%</span></div>
-          <div className="flex flex-col"><span className="text-[10px] text-gray-500 uppercase tracking-wider">Perf</span><span className="text-xl text-blue-600">{perf.toFixed(1)}%</span></div>
-          <div className="flex flex-col"><span className="text-[10px] text-gray-500 uppercase tracking-wider">Qual</span><span className="text-xl text-emerald-600">{qual.toFixed(1)}%</span></div>
+          <div className="flex flex-col"><span className="text-[10px] text-gray-500 uppercase tracking-wider">OEE Score</span><span className="text-xl text-black">{isNaN(oee) ? "0.0" : oee.toFixed(1)}%</span></div>
+          <div className="flex flex-col"><span className="text-[10px] text-gray-500 uppercase tracking-wider">Avail</span><span className="text-xl text-yellow-600">{isNaN(avail) ? "0.0" : avail.toFixed(1)}%</span></div>
+          <div className="flex flex-col"><span className="text-[10px] text-gray-500 uppercase tracking-wider">Perf</span><span className="text-xl text-blue-600">{isNaN(perf) ? "0.0" : perf.toFixed(1)}%</span></div>
+          <div className="flex flex-col"><span className="text-[10px] text-gray-500 uppercase tracking-wider">Qual</span><span className="text-xl text-emerald-600">{isNaN(qual) ? "0.0" : qual.toFixed(1)}%</span></div>
         </div>
       </div>
 
@@ -303,8 +323,8 @@ const SummaryTable = ({ zoneTitle, structure, matrixData, oee, avail, perf, qual
                     return (
                       <tr key={`item-${iIdx}`} className="border-b border-gray-300 hover:bg-gray-50">
                         <td className={`py-1.5 px-3 border-r border-black ${isHl ? 'font-bold text-black' : 'text-gray-700'} ${item.isSubItem ? 'pl-8' : 'pl-4'}`}>{item.label}</td>
-                        {['A', 'B', 'C', 'D'].map(g => <td key={`val-${g}`} className="py-1.5 px-2 border-r border-gray-300 text-center text-black">{matrixData[g]?.[item.key] !== undefined && matrixData[g]?.[item.key] !== "-" ? formatNum(matrixData[g][item.key]) : "-"}</td>)}
-                        <td className="py-1.5 px-2 border-r border-black text-center font-bold bg-gray-100 text-black">{matrixData['TOTAL']?.[item.key] !== undefined && matrixData['TOTAL']?.[item.key] !== "-" ? formatNum(matrixData['TOTAL'][item.key]) : "-"}</td>
+                        {['A', 'B', 'C', 'D'].map(g => <td key={`val-${g}`} className="py-1.5 px-2 border-r border-gray-300 text-center text-black">{matrixData[g]?.[item.key] !== undefined && !isNaN(matrixData[g]?.[item.key]) ? formatNum(matrixData[g][item.key]) : "-"}</td>)}
+                        <td className="py-1.5 px-2 border-r border-black text-center font-bold bg-gray-100 text-black">{matrixData['TOTAL']?.[item.key] !== undefined && !isNaN(matrixData['TOTAL']?.[item.key]) ? formatNum(matrixData['TOTAL'][item.key]) : "-"}</td>
                         <td className="py-1.5 px-2 text-center text-gray-500">{item.unit}</td>
                       </tr>
                     );
@@ -450,7 +470,7 @@ const DailyOnesheet = () => {
           <div className="border-4 bg-orange-300 border-black pb-4 mb-8 text-center flex flex-col items-center">
             <h1 className="text-5xl font-black uppercase tracking-widest mb-4">Laporan Onesheet</h1>
             <div className="flex gap-10 text-sm font-bold">
-              <div className="flex flex-col"><span className="text-black-500 uppercase tracking-widest text-[16px]">Line :</span><span className="text-xl">{user?.line || 2}</span></div>
+              <div className="flex flex-col"><span className="text-black-500 uppercase tracking-widest text-[16px]">Line :</span><span className="text-xl">{user?.line || 4}</span></div>
               <div className="flex flex-col"><span className="text-black-500 uppercase tracking-widest text-[16px]">Tanggal :</span><span className="text-xl">{activeDate}</span></div>
               <div className="flex flex-col"><span className="text-black-500 uppercase tracking-widest text-[16px]">Volume :</span><span className="text-xl">{activeVolume}</span></div>
             </div>
