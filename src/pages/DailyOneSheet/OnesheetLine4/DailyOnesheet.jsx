@@ -37,11 +37,10 @@ const calculateZoneMetrics = (volume) => {
   return { speed, teoriBatch, targetRuntimeHours, targetRuntimeMins };
 };
 
-// ── FUNGSI MULTI-LOCATOR AMAN (Mencegah Mismatch antara TiDB Object & Spreadsheet Array) ──
+// ── FUNGSI MULTI-LOCATOR AMAN ──
 const getVal = (row, objKeys, arrIndices) => {
   if (!row) return undefined;
   
-  // Jika data berupa Object (Format Baru TiDB)
   if (typeof row === 'object' && !Array.isArray(row)) {
     for (let key of objKeys) {
       if (row[key] !== undefined && row[key] !== null) return row[key];
@@ -49,7 +48,6 @@ const getVal = (row, objKeys, arrIndices) => {
     return undefined;
   }
   
-  // Jika data berupa Array (Format Lama Spreadsheet / Fallback)
   for (let idx of arrIndices) {
     if (row[idx] !== undefined && row[idx] !== null && row[idx] !== '') return row[idx];
   }
@@ -73,7 +71,6 @@ const useZoneCProcessor = (rawReject, rawDowntime, date, volume, headerMetrics) 
       const g = String(getVal(r, ['group'], [3, 5]) || '').trim().toUpperCase();
       if (!groups.includes(g)) return;
       
-      // Mengambil data durasi Available Time secara berlapis (av_sub, total_avail_shift, indeks 40, atau indeks 41)
       const potMin = parseFloat(getVal(r, ['av_sub', 'total_avail_shift'], [40, 41])) || 0;
       data[g].pot += potMin / 60;
       
@@ -164,30 +161,30 @@ const useZoneFProcessor = (rawReject, rawDowntime, date, volume, headerMetrics) 
     const plannedSet = new Set();
     const unplannedSet = new Set();
     
-    const filteredReject = rawReject.filter(r => String(getVal(r, 'volume_botol', 7) || '').trim().toUpperCase() === String(volume).trim().toUpperCase()); 
+    const filteredReject = rawReject.filter(r => String(getVal(r, ['volume_botol'], [7, 9]) || '').trim().toUpperCase() === String(volume).trim().toUpperCase()); 
     const filteredDowntime = rawDowntime;
 
     filteredReject.forEach(r => {
-      const g = String(getVal(r, 'group', 6) || '').trim().toUpperCase();
+      const g = String(getVal(r, ['group'], [6, 4]) || '').trim().toUpperCase();
       if (!groups.includes(g)) return;
       
-      const potMin = parseFloat(getVal(r, 'av_sub', 39) || getVal(r, 'total_avail_shift', 40)) || 0; 
+      const potMin = parseFloat(getVal(r, ['av_sub', 'total_avail_shift'], [39, 40])) || 0; 
       data[g].pot += potMin / 60; 
-      data[g].out_counter += parseFloat(getVal(r, 'vi_sub', 17)) || 0; 
-      data[g].q_samp_as += parseFloat(getVal(r, 'pack_s_qc', 27)) || 0;  
-      data[g].q_samp_ret += parseFloat(getVal(r, 'pack_s_others', 28)) || 0; 
-      data[g].rej_partikel += parseFloat(getVal(r, 'vi_partikel', 19)) || 0; 
-      data[g].rej_kosmetik += parseFloat(getVal(r, 'vi_kotik', 20)) || 0; 
+      data[g].out_counter += parseFloat(getVal(r, ['vi_sub'], [17, 19])) || 0; 
+      data[g].q_samp_as += parseFloat(getVal(r, ['pack_s_qc'], [27, 25])) || 0;  
+      data[g].q_samp_ret += parseFloat(getVal(r, ['pack_s_others'], [28, 29])) || 0; 
+      data[g].rej_partikel += parseFloat(getVal(r, ['vi_partikel'], [19, 21])) || 0; 
+      data[g].rej_kosmetik += parseFloat(getVal(r, ['vi_kotik'], [20, 22])) || 0; 
     });
 
     filteredDowntime.forEach(r => {
-      const g = String(getVal(r, 'group', 4) || '').trim().toUpperCase();
+      const g = String(getVal(r, ['group'], [4, 2]) || '').trim().toUpperCase();
       if (!groups.includes(g)) return;
       
-      const durasi = parseFloat(getVal(r, 'duration', 8)) || 0; 
-      const type = String(getVal(r, 'plan_unplan', 9) || '').trim().toUpperCase(); 
-      const category = String(getVal(r, 'root_cause', 10) || '').trim().toUpperCase(); 
-      const kasus = String(getVal(r, 'kasus', 13) || '').trim().toUpperCase(); 
+      const durasi = parseFloat(getVal(r, ['duration'], [8, 11])) || 0; 
+      const type = String(getVal(r, ['plan_unplan'], [9, 12]) || '').trim().toUpperCase(); 
+      const category = String(getVal(r, ['root_cause'], [10, 13]) || '').trim().toUpperCase(); 
+      const kasus = String(getVal(r, ['kasus'], [13, 16]) || '').trim().toUpperCase(); 
 
       if (type === 'PLANNED') { 
         plannedSet.add(kasus); 
@@ -416,7 +413,7 @@ const DailyOnesheet = () => {
   const lossUnitDtC = metrics.speed * dtJamC;
   const totalFinLossC = (lossUnitDtC * 6500) + ((parseFloat(mockMatrixDataC['TOTAL']?.['rej_tot_dec']) || 0) * 6500);
 
-  const dtJamF = parseFloat(mockMatrixF['TOTAL']?.['dt_tot_jam']) || 0;
+  const dtJamF = parseFloat(mockMatrixDataF['TOTAL']?.['dt_tot_jam']) || 0;
   const lossUnitDtF = metrics.speed * dtJamF;
   const totalFinLossF = (lossUnitDtF * 6500) + ((parseFloat(mockMatrixDataF['TOTAL']?.['rej_tot_dec']) || 0) * 6500);
 
