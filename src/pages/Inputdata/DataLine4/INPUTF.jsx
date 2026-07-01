@@ -40,7 +40,23 @@ const getEmptyDT = () => {
   return arr;
 };
 
-// ── FUNGSI API PENGIRIMAN BACKGROUND ──
+// ── FUNGSI SISTEM INGATAN (CACHE) ──
+const getCachedData = (key, emptyGenerator, count = 100) => {
+  try {
+    const cached = localStorage.getItem(key);
+    if (cached) return JSON.parse(cached);
+  } catch (e) { console.error('Cache read error', e); }
+  return Array.from({ length: count }, emptyGenerator);
+};
+
+const getCachedIds = (key, count = 100) => {
+  try {
+    const cached = localStorage.getItem(key);
+    if (cached) return JSON.parse(cached);
+  } catch (e) { console.error('Cache ID read error', e); }
+  return Array(count).fill(null);
+};
+
 const sendAutoSave = async (payload) => {
   try {
     const response = await fetch('/api/autosave-f', {
@@ -65,20 +81,19 @@ export default function InputF() {
   
   const isCalculating = useRef(false);
 
-  const oeeIds = useRef([]); 
-  const dtIds = useRef([]);  
+  // Load ID dari Cache
+  const oeeIds = useRef(getCachedIds('F_IDS_OEE')); 
+  const dtIds = useRef(getCachedIds('F_IDS_DT'));  
   const oeeTimers = useRef({});
   const dtTimers = useRef({});
 
-  // ── AUTOSAVE OEE LOGIC ──
   const triggerAutosaveOEE = (rIdx, sheet) => {
     if (oeeTimers.current[rIdx]) clearTimeout(oeeTimers.current[rIdx]);
 
     oeeTimers.current[rIdx] = setTimeout(async () => {
       const rowData = sheet.getRowData(rIdx);
-      if (!rowData[0] && !rowData[2] && !rowData[3]) return; // Lewati jika kosong (No Batch, Tanggal, Shift)
+      if (!rowData[0] && !rowData[2] && !rowData[3]) return;
 
-      // PAYLOAD INI DISESUAIKAN PERSIS 100% DENGAN KOLOM TIDB ZONE F
       const payloadData = {
         original_id: oeeIds.current[rIdx] || null,
         no_batch: rowData[0],
@@ -103,7 +118,7 @@ export default function InputF() {
         vi_kotik: rowData[20],
         vi_rej_total: rowData[21],
         vi_hasil_baik: rowData[22],
-        vi_tf_packing: rowData[24], // 23 adalah Sample QC VI, tidak ada di DB
+        vi_tf_packing: rowData[24],
         pack_reject: rowData[25],
         pack_hasil_baik: rowData[26],
         pack_s_qc: rowData[27],
@@ -135,17 +150,17 @@ export default function InputF() {
       
       if (res.status === 'success' && res.original_id) {
         oeeIds.current[rIdx] = res.original_id;
+        localStorage.setItem('F_IDS_OEE', JSON.stringify(oeeIds.current));
       }
     }, 1000);
   };
 
-  // ── AUTOSAVE DT LOGIC ──
   const triggerAutosaveDT = (rIdx, sheet) => {
     if (dtTimers.current[rIdx]) clearTimeout(dtTimers.current[rIdx]);
 
     dtTimers.current[rIdx] = setTimeout(async () => {
       const rowData = sheet.getRowData(rIdx);
-      if (!rowData[0] && !rowData[3]) return; // Tanggal & No Batch
+      if (!rowData[0] && !rowData[3]) return;
 
       const payloadData = {
         original_id: dtIds.current[rIdx] || null,
@@ -168,6 +183,7 @@ export default function InputF() {
       
       if (res.status === 'success' && res.original_id) {
         dtIds.current[rIdx] = res.original_id;
+        localStorage.setItem('F_IDS_DT', JSON.stringify(dtIds.current));
       }
     }, 1000);
   };
@@ -185,26 +201,20 @@ export default function InputF() {
 
     isCalculating.current = true;
     try {
-      // 1. Steril Reject Total (Col 12) = Col 7 to 11
       if (c >= 7 && c <= 11) setV(12, v(7)+v(8)+v(9)+v(10)+v(11));
       
-      // 2. Steril Out (Col 14) = Col 6 - Col 12 - Col 13
       if (c === 6 || (c >= 7 && c <= 11) || c === 13) {
         let sIn = v(6);
         if (sIn > 0) setV(14, sIn - v(12) - v(13));
         else setV(14, '');
       }
 
-      // 3. VI Sub (Col 17) = Col 16 - Col 15
       if (c === 15 || c === 16) {
         let sub = v(16) - v(15); setV(17, sub > 0 ? sub : '');
       }
 
-      // 4. VI Reject Total (Col 21) = Col 19 + Col 20
       if (c === 19 || c === 20) setV(21, v(19)+v(20));
 
-      // 5. VI Hasil Baik (Col 22) = Col 17 - Col 21
-      // 6. VI Transfer Packing (Col 24) = Col 22 - Col 23
       if (c === 15 || c === 16 || c === 19 || c === 20 || c === 23) {
         let vSub = v(17);
         if (vSub > 0) {
@@ -214,8 +224,6 @@ export default function InputF() {
         } else { setV(22, ''); setV(24, ''); }
       }
 
-      // 7. Pack Hasil Baik (Col 26) = Col 24 - Col 25
-      // 8. Pack FG (Col 29) = Col 26 - Col 27 - Col 28
       if (c === 15 || c === 16 || c === 19 || c === 20 || c === 23 || c === 25 || c === 27 || c === 28) {
         let pTrf = v(24);
         if (pTrf > 0) {
@@ -225,7 +233,6 @@ export default function InputF() {
         } else { setV(26, ''); setV(29, ''); }
       }
 
-      // 9. Kalkulasi Jumlah Batch (Col 31) & Yield (Col 33)
       if (c === 5 || (c >= 15 && c <= 28)) {
         let volKey = sheet.getValueFromCoords(5, r) || "500 ML";
         let pFg = v(29);
@@ -235,7 +242,6 @@ export default function InputF() {
         } else { setV(31, ''); setV(33, ''); }
       }
 
-      // 10. Kalkulasi Waktu (Durasi Menit)
       const timeDiff = (sh, sm, eh, em) => {
           if (v(sh)===0 && v(sm)===0 && v(eh)===0 && v(em)===0 && sheet.getValueFromCoords(sh, r)==="") return '';
           let diff = (v(eh)*60 + v(em)) - (v(sh)*60 + v(sm));
@@ -280,7 +286,6 @@ export default function InputF() {
   const loadDataServer = useCallback(async () => {
     if (!user) return;
     try {
-      const toastId = toast.loading("Menarik data Zone F dari server...");
       const [resOEE, resDT] = await Promise.all([
         fetchTodayRejectF(user),
         fetchTodayDowntimeF(user)
@@ -292,7 +297,6 @@ export default function InputF() {
         mappedOEE = [...resOEE.data].reverse().map((row) => {
           mappedOEEIds.push(row.id);
           
-          // Pemetaan Array Spesifik agar menempati index Jspreadsheet yang sesuai
           const arr = Array(55).fill('');
           arr[0] = row.no_batch ?? '';
           arr[1] = row.lot_no ?? '';
@@ -367,16 +371,21 @@ export default function InputF() {
       if (oeeGrid.current && oeeGrid.current[0]) oeeGrid.current[0].setData(finalOEEData);
       if (dtGrid.current && dtGrid.current[0]) dtGrid.current[0].setData(finalDTData);
 
-      toast.success("100% Data Zone F ditarik!", { id: toastId });
+      // SIMPAN KE INGATAN LOKAL (CACHE)
+      localStorage.setItem('F_DATA_OEE', JSON.stringify(finalOEEData));
+      localStorage.setItem('F_DATA_DT', JSON.stringify(finalDTData));
+      localStorage.setItem('F_IDS_OEE', JSON.stringify(oeeIds.current));
+      localStorage.setItem('F_IDS_DT', JSON.stringify(dtIds.current));
+
     } catch (error) { 
-      toast.error("Gagal menarik data.");
       console.error(error); 
     }
   }, [user]);
 
   useEffect(() => {
-    const initialEmptyOEE = Array.from({ length: 20 }, () => getEmptyOEE_F());
-    const initialEmptyDT = Array.from({ length: 20 }, () => getEmptyDT());
+    // Tarik data langsung dari memori saat halaman dimuat (Instant Load)
+    const initialEmptyOEE = getCachedData('F_DATA_OEE', getEmptyOEE_F, 100);
+    const initialEmptyDT = getCachedData('F_DATA_DT', getEmptyDT, 100);
 
     if (oeeTableRef.current) {
       oeeTableRef.current.innerHTML = ''; 
@@ -549,6 +558,7 @@ export default function InputF() {
       });
     }
 
+    // Eksekusi penarikan data untuk Revalidasi di belakang layar
     loadDataServer();
 
     return () => {
@@ -572,7 +582,7 @@ export default function InputF() {
         
         <div className="mb-4">
           <h1 className="text-2xl font-black tracking-wider uppercase text-emerald-800">
-            OEE Line 4 - Zone F <span className="text-sm font-normal normal-case text-gray-500 ml-2">(Auto-Saving Enabled)</span>
+            OEE Line 4 - Zone F <span className="text-sm font-normal normal-case text-gray-500 ml-2">(Auto-Saving & Cached)</span>
           </h1>
         </div>
         

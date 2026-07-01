@@ -60,6 +60,23 @@ const getEmptyDT = () => {
   return arr;
 };
 
+// ── FUNGSI SISTEM INGATAN (CACHE) ──
+const getCachedData = (key, emptyGenerator, count = 100) => {
+  try {
+    const cached = localStorage.getItem(key);
+    if (cached) return JSON.parse(cached);
+  } catch (e) { console.error('Cache read error', e); }
+  return Array.from({ length: count }, emptyGenerator);
+};
+
+const getCachedIds = (key, count = 100) => {
+  try {
+    const cached = localStorage.getItem(key);
+    if (cached) return JSON.parse(cached);
+  } catch (e) { console.error('Cache ID read error', e); }
+  return Array(count).fill(null);
+};
+
 const sendAutoSave = async (payload) => {
   try {
     const response = await fetch('/api/autosave-c', {
@@ -83,12 +100,12 @@ export default function InputC() {
   const dtGrid      = useRef(null);
   const isCalculating = useRef(false);
 
-  const oeeIds = useRef([]); 
-  const dtIds = useRef([]);  
+  // Load ID dari Cache
+  const oeeIds = useRef(getCachedIds('C_IDS_OEE')); 
+  const dtIds = useRef(getCachedIds('C_IDS_DT'));  
   const oeeTimers = useRef({});
   const dtTimers = useRef({});
 
-  // ── AUTOSAVE OEE LOGIC ──
   const triggerAutosaveOEE = (rIdx, sheet) => {
     if (oeeTimers.current[rIdx]) clearTimeout(oeeTimers.current[rIdx]);
 
@@ -96,7 +113,6 @@ export default function InputC() {
       const rowData = sheet.getRowData(rIdx);
       if (!rowData[C.NO_BATCH] && !rowData[C.TANGGAL] && !rowData[C.SHIFT]) return;
 
-      // PAYLOAD INI SUDAH DISESUAIKAN PERSIS 100% DENGAN KOLOM TIDB
       const payloadData = {
         original_id: oeeIds.current[rIdx] || null,
         no_batch: rowData[C.NO_BATCH],
@@ -147,7 +163,6 @@ export default function InputC() {
         lc_eh: rowData[C.LC_EH],
         lc_em: rowData[C.LC_EM],
         lc_sub: rowData[C.LC_SUB]
-        // TOTAL KESELURUHAN, YIELD BATCH, DSB SUDAH DIHAPUS KARENA TIDAK ADA DI DB
       };
 
       const actionType = payloadData.original_id ? 'update_reject_c' : 'submit_reject_c';
@@ -155,11 +170,12 @@ export default function InputC() {
       
       if (res.status === 'success' && res.original_id) {
         oeeIds.current[rIdx] = res.original_id;
+        // Simpan pembaruan ID ke memori lokal
+        localStorage.setItem('C_IDS_OEE', JSON.stringify(oeeIds.current));
       }
     }, 1000);
   };
 
-  // ── AUTOSAVE DT LOGIC ──
   const triggerAutosaveDT = (rIdx, sheet) => {
     if (dtTimers.current[rIdx]) clearTimeout(dtTimers.current[rIdx]);
 
@@ -188,6 +204,7 @@ export default function InputC() {
       
       if (res.status === 'success' && res.original_id) {
         dtIds.current[rIdx] = res.original_id;
+        localStorage.setItem('C_IDS_DT', JSON.stringify(dtIds.current));
       }
     }, 1000);
   };
@@ -276,7 +293,6 @@ export default function InputC() {
     triggerAutosaveDT(row, sheet);
   }, []);
 
-  // ── LOAD DATA DARI SERVER TIDB ──
   const loadDataServer = useCallback(async () => {
     if (!user) return;
     try {
@@ -290,7 +306,6 @@ export default function InputC() {
       if (resOEE?.status === 'success' && Array.isArray(resOEE.data)) {
         mappedOEE = [...resOEE.data].reverse().map((row) => {
           mappedOEEIds.push(row.id);
-          // Menyesuaikan array 55 kolom dengan yang ada di DB. Kolom yg terhapus di DB diisi string kosong ('')
           return [
             row.no_batch ?? '', parseToYMD(row.tanggal), row.shift ?? '', row.group ?? '', row.reject_botol ?? '', row.reject_preform ?? '',
             row.reject_blow ?? '', row.volume_botol ?? '', row.cnt_start ?? '', row.cnt_end ?? '', row.cnt_sub ?? '', row.utuh ?? 'Y',
@@ -322,11 +337,19 @@ export default function InputC() {
       const finalOEE = [...mappedOEE, ...Array.from({ length: EMPTY_ROWS }, getEmptyOEE)];
       const finalDT  = [...mappedDT,  ...Array.from({ length: EMPTY_ROWS }, getEmptyDT)];
 
+      // Simpan referensi ID terbaru
       if (oeeIds && oeeIds.current) oeeIds.current = [...mappedOEEIds, ...Array(EMPTY_ROWS).fill(null)];
       if (dtIds && dtIds.current) dtIds.current = [...mappedDTIds, ...Array(EMPTY_ROWS).fill(null)];
 
+      // Terapkan data ke grid
       if (oeeGrid.current?.[0]) oeeGrid.current[0].setData(finalOEE);
       if (dtGrid.current?.[0]) dtGrid.current[0].setData(finalDT);
+
+      // SIMPAN KE INGATAN LOKAL (CACHE)
+      localStorage.setItem('C_DATA_OEE', JSON.stringify(finalOEE));
+      localStorage.setItem('C_DATA_DT', JSON.stringify(finalDT));
+      localStorage.setItem('C_IDS_OEE', JSON.stringify(oeeIds.current));
+      localStorage.setItem('C_IDS_DT', JSON.stringify(dtIds.current));
 
     } catch (error) {
       console.error('[InputC] loadDataServer error:', error);
@@ -342,8 +365,9 @@ export default function InputC() {
   const ALL_UNITS_C = [...new Set(Object.values(UNIT_MAP_C).flat())];
 
   useEffect(() => {
-    const initialOEE = Array.from({ length: 20 }, getEmptyOEE);
-    const initialDT  = Array.from({ length: 20 }, getEmptyDT);
+    // Tarik data langsung dari memori saat halaman dimuat (Instant Load)
+    const initialOEE = getCachedData('C_DATA_OEE', getEmptyOEE, 100);
+    const initialDT  = getCachedData('C_DATA_DT', getEmptyDT, 100);
 
     if (oeeTableRef.current) {
       oeeTableRef.current.innerHTML = '';
@@ -493,6 +517,7 @@ export default function InputC() {
       });
     }
 
+    // Eksekusi penarikan data untuk Revalidasi di belakang layar
     loadDataServer();
 
     return () => {
@@ -512,7 +537,7 @@ export default function InputC() {
 
         <div className="mb-4">
           <h1 className="text-2xl font-black tracking-wider uppercase text-emerald-800">
-            OEE Line 4 — Zone C <span className="text-sm font-normal normal-case text-gray-500 ml-2">(Auto-Saving Enabled)</span>
+            OEE Line 4 — Zone C <span className="text-sm font-normal normal-case text-gray-500 ml-2">(Auto-Saving & Cached)</span>
           </h1>
         </div>
         <div className="bg-white border-2 border-slate-300 shadow-xl mb-12 rounded overflow-hidden p-1">
