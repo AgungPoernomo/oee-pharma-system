@@ -54,7 +54,7 @@ const useZoneCProcessor = (rawReject, rawDowntime, date, volume, headerMetrics) 
       const g = String(r[5]).trim().toUpperCase();
       if (!groups.includes(g)) return;
       data[g].pot += (parseFloat(r[40]) || 0) / 60;
-      data[g].out_counter += parseFloat(r[10]) || 0; 
+      data[g].out_counter += parseFloat(r[10]) || 0;
       data[g].out_reject_blow += parseFloat(r[6]) || 0; 
       data[g].q_wash += parseFloat(r[14]) || 0; data[g].q_vk += parseFloat(r[15]) || 0; data[g].q_vl += parseFloat(r[16]) || 0;
       data[g].q_nocap += parseFloat(r[17]) || 0; data[g].q_seal += parseFloat(r[18]) || 0; data[g].q_bocor += parseFloat(r[19]) || 0;
