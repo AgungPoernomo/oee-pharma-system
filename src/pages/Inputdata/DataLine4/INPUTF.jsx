@@ -28,7 +28,7 @@ const parseToYMD = (val) => {
 };
 
 const getEmptyOEE_F = () => {
-  const arr = Array(55).fill('');
+  const arr = Array(52).fill('');
   arr[5] = ''; 
   arr[30] = 'Y';     
   return arr;
@@ -396,10 +396,9 @@ export default function InputF() {
             { type: 'text', title: 'No. Batch', width: 90 },
             { type: 'text', title: 'Lot No', width: 90 },
             { type: 'calendar', title: 'Tanggal', width: 100, options: { format: 'YYYY-MM-DD' } },
-            { type: 'dropdown', title: 'Shift', source: SHIFTS, width: 60 },
-            { type: 'dropdown', title: 'Grup', source: GROUPS, width: 60 },
-            { type: 'dropdown', title: 'Volume', source: VOLUMES, width: 90 },
-            
+            { type: 'numeric', title: 'Shift', width: 60 },
+            { type: 'text', title: 'Grup', width: 60 },
+            { type: 'text', title: 'Volume', width: 90 },
             { type: 'numeric', title: 'Input (Botol chamber)', width: 100 },
             { type: 'numeric', title: 'Reject Bocor', width: 90 },
             { type: 'numeric', title: 'Reject Patah ring', width: 90 },
@@ -409,7 +408,6 @@ export default function InputF() {
             { type: 'numeric', title: 'TOTAL', width: 80, readOnly: true },
             { type: 'numeric', title: 'Sampel QC', width: 80 },
             { type: 'numeric', title: 'Output (TF to VI)', width: 120, readOnly: true },
-            
             { type: 'numeric', title: 'Start', width: 80, readOnly: true },
             { type: 'numeric', title: 'End', width: 80 },
             { type: 'numeric', title: 'Sub total', width: 90, readOnly: true },
@@ -426,7 +424,7 @@ export default function InputF() {
             { type: 'numeric', title: 'QC', width: 70 },
             { type: 'numeric', title: 'Others', width: 70 },
             { type: 'numeric', title: 'Finished Goods', width: 110, readOnly: true },
-            { type: 'dropdown', title: 'Utuh ?', source: ['Y', 'N'], width: 70 },
+            { type: 'text', title: 'Utuh ?', width: 70 },
             { type: 'numeric', title: 'Jumlah Batch', width: 100, readOnly: true },
             { type: 'numeric', title: 'Total per shift', width: 110, readOnly: true },
             
@@ -451,10 +449,6 @@ export default function InputF() {
             { type: 'numeric', title: 'End (Menit)', width: 90 },
             { type: 'numeric', title: 'Sub Total', width: 90, readOnly: true },
             { type: 'numeric', title: 'TOTAL', width: 80, readOnly: true },
-            
-            { type: 'numeric', title: 'Total Preparation + Clearance Time', width: 180, readOnly: true },
-            { type: 'numeric', title: 'per batch', width: 80, readOnly: true },
-            { type: 'numeric', title: 'per shift', width: 80, readOnly: true }
           ],
           nestedHeaders: [
             [
@@ -466,8 +460,6 @@ export default function InputF() {
               { title: 'Available Time', colspan: 5 },
               { title: 'TOTAL per Shift', colspan: 1 },
               { title: 'Process Details', colspan: 11 },
-              { title: 'Total Preparation + Clearance Time', colspan: 1 },
-              { title: 'jeda antar batch', colspan: 2 }
             ],
             [
               { title: '', colspan: 6 },
@@ -497,11 +489,11 @@ export default function InputF() {
               { title: '', colspan: 2 }
             ]
           ],
-          freezeColumns: 3,
+          freezeColumns: 5,
           tableOverflow: true,
           tableWidth: "100%",
           tableHeight: "700px",
-          minDimensions: [55, 20]
+          minDimensions: [52, 20]
         }],
         onchange: handleOEEChange,
       });
@@ -546,7 +538,7 @@ export default function InputF() {
                 return UNIT_MAP[prosesValue] || [];
               }
             },
-            { type: 'text', title: 'Kasus', width: 500 }
+            { type: 'text', title: 'Kasus', align: 'left', width: 700 }
           ],
           freezeColumns: 1,
           tableOverflow: true,

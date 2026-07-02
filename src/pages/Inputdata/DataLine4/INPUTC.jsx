@@ -23,8 +23,7 @@ const C = {
   REJ_BOCOR: 29, REJ_TANPA_CAP: 30, REJ_VOL: 31, REJ_THERMO: 32, REJ_LAINLAIN: 33,
   TOTAL_REJ_BS: 34, OUTPUT_CHAMBER: 35, AT_SH: 36, AT_SM: 37, AT_EH: 38, AT_EM: 39,
   AT_SUB: 40, AT_TOTAL: 41, RT_SH: 42, RT_SM: 43, RT_EH: 44, RT_EM: 45, RT_SUB: 46,
-  LC_SH: 47, LC_SM: 48, LC_EH: 49, LC_EM: 50, LC_SUB: 51, LC_PER_BATCH: 52,
-  LC_PER_SHIFT: 53, TOTAL_PREP: 54,
+  LC_SH: 47, LC_SM: 48, LC_EH: 49, LC_EM: 50, LC_SUB: 51,
 };
 
 const DC = {
@@ -49,7 +48,7 @@ const parseToYMD = (val) => {
 };
 
 const getEmptyOEE = () => {
-  const arr = Array(55).fill('');
+  const arr = Array(52).fill('');
   arr[C.UTUH] = '';         
   return arr;
 };
@@ -60,7 +59,6 @@ const getEmptyDT = () => {
   return arr;
 };
 
-// ── FUNGSI SISTEM INGATAN (CACHE) ──
 const getCachedData = (key, emptyGenerator, count = 100) => {
   try {
     const cached = localStorage.getItem(key);
@@ -98,9 +96,7 @@ export default function InputC() {
   const dtTableRef  = useRef(null);
   const oeeGrid     = useRef(null);
   const dtGrid      = useRef(null);
-  const isCalculating = useRef(false);
 
-  // Load ID dari Cache
   const oeeIds = useRef(getCachedIds('C_IDS_OEE')); 
   const dtIds = useRef(getCachedIds('C_IDS_DT'));  
   const oeeTimers = useRef({});
@@ -170,7 +166,6 @@ export default function InputC() {
       
       if (res.status === 'success' && res.original_id) {
         oeeIds.current[rIdx] = res.original_id;
-        // Simpan pembaruan ID ke memori lokal
         localStorage.setItem('C_IDS_OEE', JSON.stringify(oeeIds.current));
       }
     }, 1000);
@@ -210,7 +205,6 @@ export default function InputC() {
   };
 
   const handleOEEChange = useCallback((worksheet, _cell, cStr, rStr, _value) => {
-    if (isCalculating.current) return;
     const col = parseInt(cStr); const row = parseInt(rStr); const sheet = worksheet;
 
     const v = (c) => {
@@ -225,7 +219,6 @@ export default function InputC() {
       return diff < 0 ? diff + 24 * 60 : diff;
     };
 
-    isCalculating.current = true;
     try {
       if (col === C.REJ_BOTOL || col === C.REJ_PREFORM) {
         setV(C.REJ_BLOW, raw(C.REJ_BOTOL) !== '' || raw(C.REJ_PREFORM) !== '' ? v(C.REJ_BOTOL) + v(C.REJ_PREFORM) : '');
@@ -273,7 +266,6 @@ export default function InputC() {
         setV(C.LC_PER_SHIFT, lc);
       }
     } finally {
-      isCalculating.current = false;
       triggerAutosaveOEE(row, sheet);
     }
   }, []);
@@ -337,15 +329,12 @@ export default function InputC() {
       const finalOEE = [...mappedOEE, ...Array.from({ length: EMPTY_ROWS }, getEmptyOEE)];
       const finalDT  = [...mappedDT,  ...Array.from({ length: EMPTY_ROWS }, getEmptyDT)];
 
-      // Simpan referensi ID terbaru
       if (oeeIds && oeeIds.current) oeeIds.current = [...mappedOEEIds, ...Array(EMPTY_ROWS).fill(null)];
       if (dtIds && dtIds.current) dtIds.current = [...mappedDTIds, ...Array(EMPTY_ROWS).fill(null)];
 
-      // Terapkan data ke grid
       if (oeeGrid.current?.[0]) oeeGrid.current[0].setData(finalOEE);
       if (dtGrid.current?.[0]) dtGrid.current[0].setData(finalDT);
 
-      // SIMPAN KE INGATAN LOKAL (CACHE)
       localStorage.setItem('C_DATA_OEE', JSON.stringify(finalOEE));
       localStorage.setItem('C_DATA_DT', JSON.stringify(finalDT));
       localStorage.setItem('C_IDS_OEE', JSON.stringify(oeeIds.current));
@@ -356,6 +345,32 @@ export default function InputC() {
     }
   }, [user]);
 
+  useEffect(() => {
+    const handleShortcuts = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        toast.success("Sistem Otomatis: Data aman tersimpan di TiDB Cloud!", { id: 'sc-save' });
+        loadDataServer();
+      }
+      if (e.ctrlKey && e.altKey && e.key.toLowerCase() === 'c') {
+        e.preventDefault();
+        if (oeeTableRef.current) {
+          oeeTableRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          toast("Fokus ke Tabel OEE Zone C", { icon: '📊', id: 'sc-nav' });
+        }
+      }
+      if (e.ctrlKey && e.altKey && e.key.toLowerCase() === 'd') {
+        e.preventDefault();
+        if (dtTableRef.current) {
+          dtTableRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          toast("Fokus ke Tabel Downtime Zone C", { icon: '⏱️', id: 'sc-nav' });
+        }
+      }
+    };
+    window.addEventListener('keydown', handleShortcuts);
+    return () => window.removeEventListener('keydown', handleShortcuts);
+  }, [loadDataServer]);
+
   const UNIT_MAP_C = {
     'Blowing': ['Conveyor Preform Hijau', 'Hopper Preform', 'Conveyor Hopper Putih', 'Preform Feeding Chute', 'Rotary Preform', 'Minion', 'Supply Hanger', 'Heater Lamp', 'Heating Tube', 'Vertical Punch', 'Servo 1', 'Midstation', 'Servo 2', 'Servo 3', 'Servo 4', 'Neckseal', 'Stretch Servo', 'Bottom Mold', 'Pin Bottom', 'Body Mould - Utara', 'Body Mould - Selatan', 'Molding', 'Overturn', 'Transfer Blow-Fill', 'Supply Chiller', 'Compresor - Highpress (Oilfree)', 'Compresor - Lowpress (Oilless)', 'RH TMS', 'Suhu TMS', 'Supply Preform', 'Trial', 'Blowing-Others', 'Changeover'],
     'Filling': ['Laserjet', 'Gripper Washing', 'PLC', 'Ionizer', 'Carousel 1', 'Carousel 2', 'Carousel 3', 'Buffer Tank', 'Filling', 'Carousel 4', 'Carousel 5', 'Carousel 6', 'Cap Feeding Chute', 'Sealing', 'Heater', 'Cooling Heater Sealing', 'Wheelcap Ganjil', 'Wheelcap Genap', 'Conveyor Filling', 'Tandonan', 'Gear', 'Compresor-Oilfree', 'Compresor-Oilless', 'Trial', 'CIP/SIP', 'Filling-Others', 'Supply Listrik', 'Line Clearance', 'Break'],
@@ -365,7 +380,6 @@ export default function InputC() {
   const ALL_UNITS_C = [...new Set(Object.values(UNIT_MAP_C).flat())];
 
   useEffect(() => {
-    // Tarik data langsung dari memori saat halaman dimuat (Instant Load)
     const initialOEE = getCachedData('C_DATA_OEE', getEmptyOEE, 100);
     const initialDT  = getCachedData('C_DATA_DT', getEmptyDT, 100);
 
@@ -375,15 +389,15 @@ export default function InputC() {
         worksheets: [{
           data: initialOEE,
           columns: [
-            { type: 'text',     title: 'No Batch',          width: 100 },
+            { type: 'text',     title: 'No Batch ',           width: 100 },
             { type: 'calendar', title: 'Tanggal',            width: 110, options: { format: 'YYYY-MM-DD' } },
-            { type: 'dropdown', title: 'Shift',              width: 60,  source: SHIFTS },
-            { type: 'dropdown', title: 'Group',              width: 60,  source: GROUPS },
+            { type: 'numeric', title: 'Shift',               width: 60,  },
+            { type: 'text', title: 'Group',                  width: 60, },
             { type: 'numeric',  title: 'Reject Botol',       width: 95  },
             { type: 'numeric',  title: 'Reject Preform',     width: 105 },
             { type: 'numeric',  title: 'Reject Blow',        width: 90,  readOnly: true },
             { type: 'dropdown', title: 'Volume Botol',       width: 100, source: VOLUMES },
-            { type: 'numeric',  title: 'Start',              width: 80,  readOnly: true },
+            { type: 'numeric',  title: 'Start',              width: 80, },
             { type: 'numeric',  title: 'End',                width: 80  },
             { type: 'numeric',  title: 'Sub Total',          width: 85,  readOnly: true },
             { type: 'dropdown', title: 'Utuh?',              width: 60,  source: ['Y', 'N'] },
@@ -427,9 +441,6 @@ export default function InputC() {
             { type: 'numeric',  title: 'End (Jam)',          width: 80  },
             { type: 'numeric',  title: 'End (Menit)',        width: 90  },
             { type: 'numeric',  title: 'Sub Total',          width: 80,  readOnly: true },
-            { type: 'numeric',  title: 'Total Prep+Clear',   width: 130, readOnly: true },
-            { type: 'numeric',  title: 'Per Batch',          width: 80,  readOnly: true },
-            { type: 'numeric',  title: 'Per Shift',          width: 80,  readOnly: true },
           ],
           nestedHeaders: [
             [
@@ -468,7 +479,8 @@ export default function InputC() {
               { title: '',               colspan: 2 },
             ],
           ],
-          freezeColumns: 2,
+          freezeColumns: 4,
+          freezeRows: 4,
           tableOverflow: true,
           tableWidth: '100%',
           tableHeight: '700px',
@@ -506,7 +518,7 @@ export default function InputC() {
                 return UNIT_MAP_C[prosesValue] || [];
               }
             },
-            { type: 'text',     title: 'Kasus', width: 800 },
+            { type: 'text', title: 'Kasus', width: 800, align: 'left' },
           ],
           freezeColumns: 1,
           tableOverflow: true,
@@ -517,7 +529,6 @@ export default function InputC() {
       });
     }
 
-    // Eksekusi penarikan data untuk Revalidasi di belakang layar
     loadDataServer();
 
     return () => {
@@ -533,8 +544,14 @@ export default function InputC() {
   return (
     <div className="min-h-screen bg-slate-50 p-8 text-slate-800 font-sans">
       <Toaster position="bottom-right" />
-      <div className="max-w-full mx-auto">
+      
+      <style>{`
+        .jexcel > thead > tr:nth-child(1) > td { position: sticky; top: 0 !important; z-index: 10; }
+        .jexcel > thead > tr:nth-child(2) > td { position: sticky; top: 28px !important; z-index: 10; }
+        .jexcel > thead > tr:nth-child(3) > td { position: sticky; top: 56px !important; z-index: 10; }
+      `}</style>
 
+      <div className="max-w-full mx-auto">
         <div className="mb-4">
           <h1 className="text-2xl font-black tracking-wider uppercase text-emerald-800">
             OEE Line 4 — Zone C <span className="text-sm font-normal normal-case text-gray-500 ml-2">(Auto-Saving & Cached)</span>

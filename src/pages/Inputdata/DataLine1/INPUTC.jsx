@@ -60,7 +60,6 @@ const getEmptyDT = () => {
   return arr;
 };
 
-// ── FUNGSI SISTEM INGATAN (CACHE) ──
 const getCachedData = (key, emptyGenerator, count = 100) => {
   try {
     const cached = localStorage.getItem(key);
@@ -100,7 +99,6 @@ export default function InputC() {
   const dtGrid      = useRef(null);
   const isCalculating = useRef(false);
 
-  // Load ID dari Cache
   const oeeIds = useRef(getCachedIds('C_IDS_OEE')); 
   const dtIds = useRef(getCachedIds('C_IDS_DT'));  
   const oeeTimers = useRef({});
@@ -170,7 +168,6 @@ export default function InputC() {
       
       if (res.status === 'success' && res.original_id) {
         oeeIds.current[rIdx] = res.original_id;
-        // Simpan pembaruan ID ke memori lokal
         localStorage.setItem('C_IDS_OEE', JSON.stringify(oeeIds.current));
       }
     }, 1000);
@@ -375,7 +372,7 @@ export default function InputC() {
         worksheets: [{
           data: initialOEE,
           columns: [
-            { type: 'text',     title: 'No Batch',          width: 100 },
+            { type: 'text',     title: 'No Batch',           width: 100 },
             { type: 'calendar', title: 'Tanggal',            width: 110, options: { format: 'YYYY-MM-DD' } },
             { type: 'dropdown', title: 'Shift',              width: 60,  source: SHIFTS },
             { type: 'dropdown', title: 'Group',              width: 60,  source: GROUPS },
@@ -383,7 +380,7 @@ export default function InputC() {
             { type: 'numeric',  title: 'Reject Preform',     width: 105 },
             { type: 'numeric',  title: 'Reject Blow',        width: 90,  readOnly: true },
             { type: 'dropdown', title: 'Volume Botol',       width: 100, source: VOLUMES },
-            { type: 'numeric',  title: 'Start',              width: 80,  readOnly: true },
+            { type: 'numeric',  title: 'Start',              width: 80, },
             { type: 'numeric',  title: 'End',                width: 80  },
             { type: 'numeric',  title: 'Sub Total',          width: 85,  readOnly: true },
             { type: 'dropdown', title: 'Utuh?',              width: 60,  source: ['Y', 'N'] },
@@ -468,12 +465,23 @@ export default function InputC() {
               { title: '',               colspan: 2 },
             ],
           ],
-          freezeColumns: 2,
+          freezeColumns: 4,
+          cellAlignment: 'left',
           tableOverflow: true,
           tableWidth: '100%',
           tableHeight: '700px',
         }],
-        onchange: handleOEEChange,
+        onafterchanges: (worksheet, records) => {
+            // hitung ulang HANYA baris-baris unik yang terdampak, sekali per baris
+          const rows = [...new Set(records.map(r => r.row))];
+          isCalculating.current = true;
+          try {
+            rows.forEach(row => recalcRow(worksheet, row)); // pindahkan isi if/else dari handleOEEChange ke sini, jalan per-row bukan per-col
+          } finally {
+            isCalculating.current = false;
+          }
+          rows.forEach(row => triggerAutosaveOEE(row, worksheet));
+        },
       });
     }
 
@@ -506,7 +514,7 @@ export default function InputC() {
                 return UNIT_MAP_C[prosesValue] || [];
               }
             },
-            { type: 'text',     title: 'Kasus', width: 800 },
+            { type: 'text', title: 'Kasus', align: 'left', width: 800,},
           ],
           freezeColumns: 1,
           tableOverflow: true,
@@ -517,7 +525,6 @@ export default function InputC() {
       });
     }
 
-    // Eksekusi penarikan data untuk Revalidasi di belakang layar
     loadDataServer();
 
     return () => {

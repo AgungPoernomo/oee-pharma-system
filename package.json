@@ -11,9 +11,19 @@
     "update-map": "node generate-map.js"
   },
   "dependencies": {
-
+    "@fortune-sheet/react": "^1.0.4",
     "@handsontable/react": "^16.2.0",
     "@jspreadsheet-ce/react": "^5.0.2",
+    "@univerjs/core": "^0.25.1",
+    "@univerjs/design": "^0.25.1",
+    "@univerjs/docs": "^0.25.1",
+    "@univerjs/docs-ui": "^0.25.1",
+    "@univerjs/engine-render": "^0.25.1",
+    "@univerjs/preset-sheets-core": "^0.25.1",
+    "@univerjs/presets": "^0.25.1",
+    "@univerjs/sheets": "^0.25.1",
+    "@univerjs/sheets-ui": "^0.25.1",
+    "@univerjs/ui": "^0.25.1",
     "@vercel/analytics": "^1.6.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

@@ -497,7 +497,7 @@ export default function InputF() {
               { title: '', colspan: 2 }
             ]
           ],
-          freezeColumns: 3,
+          freezeColumns: 5,
           tableOverflow: true,
           tableWidth: "100%",
           tableHeight: "700px",
@@ -546,7 +546,7 @@ export default function InputF() {
                 return UNIT_MAP[prosesValue] || [];
               }
             },
-            { type: 'text', title: 'Kasus', width: 500 }
+            { type: 'text', title: 'Kasus', align: 'left', width: 700 }
           ],
           freezeColumns: 1,
           tableOverflow: true,
@@ -558,7 +558,6 @@ export default function InputF() {
       });
     }
 
-    // Eksekusi penarikan data untuk Revalidasi di belakang layar
     loadDataServer();
 
     return () => {

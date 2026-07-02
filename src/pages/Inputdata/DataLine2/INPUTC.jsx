@@ -23,8 +23,7 @@ const C = {
   REJ_BOCOR: 29, REJ_TANPA_CAP: 30, REJ_VOL: 31, REJ_THERMO: 32, REJ_LAINLAIN: 33,
   TOTAL_REJ_BS: 34, OUTPUT_CHAMBER: 35, AT_SH: 36, AT_SM: 37, AT_EH: 38, AT_EM: 39,
   AT_SUB: 40, AT_TOTAL: 41, RT_SH: 42, RT_SM: 43, RT_EH: 44, RT_EM: 45, RT_SUB: 46,
-  LC_SH: 47, LC_SM: 48, LC_EH: 49, LC_EM: 50, LC_SUB: 51, LC_PER_BATCH: 52,
-  LC_PER_SHIFT: 53, TOTAL_PREP: 54,
+  LC_SH: 47, LC_SM: 48, LC_EH: 49, LC_EM: 50, LC_SUB: 51,
 };
 
 const DC = {
@@ -49,7 +48,7 @@ const parseToYMD = (val) => {
 };
 
 const getEmptyOEE = () => {
-  const arr = Array(55).fill('');
+  const arr = Array(52).fill('');
   arr[C.UTUH] = '';         
   return arr;
 };
@@ -427,9 +426,6 @@ export default function InputC() {
             { type: 'numeric',  title: 'End (Jam)',          width: 80  },
             { type: 'numeric',  title: 'End (Menit)',        width: 90  },
             { type: 'numeric',  title: 'Sub Total',          width: 80,  readOnly: true },
-            { type: 'numeric',  title: 'Total Prep+Clear',   width: 130, readOnly: true },
-            { type: 'numeric',  title: 'Per Batch',          width: 80,  readOnly: true },
-            { type: 'numeric',  title: 'Per Shift',          width: 80,  readOnly: true },
           ],
           nestedHeaders: [
             [
@@ -444,7 +440,6 @@ export default function InputC() {
               { title: 'Run Time',           colspan: 5  },
               { title: 'Line Clearance',     colspan: 5  },
               { title: '',                   colspan: 1  },
-              { title: 'Jeda Antar Batch',   colspan: 2  },
             ],
             [
               { title: '',               colspan: 8 },
@@ -468,7 +463,7 @@ export default function InputC() {
               { title: '',               colspan: 2 },
             ],
           ],
-          freezeColumns: 2,
+          freezeColumns: 4,
           tableOverflow: true,
           tableWidth: '100%',
           tableHeight: '700px',
@@ -506,7 +501,7 @@ export default function InputC() {
                 return UNIT_MAP_C[prosesValue] || [];
               }
             },
-            { type: 'text',     title: 'Kasus', width: 800 },
+            { type: 'text',  title: 'Kasus', align: 'left', width: 800 },
           ],
           freezeColumns: 1,
           tableOverflow: true,

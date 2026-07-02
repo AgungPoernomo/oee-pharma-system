@@ -283,6 +283,33 @@ export default function InputC() {
     } catch (error) { console.error('[InputC] loadDataServer error:', error); }
   }, [user]);
 
+  // ── LOGIK SHORTCUT KEYBOARD SISTEM ──
+  useEffect(() => {
+    const handleShortcuts = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        toast.success("Sistem Otomatis: Data aman tersimpan di TiDB Cloud!", { id: 'sc-save' });
+        loadDataServer();
+      }
+      if (e.ctrlKey && e.altKey && e.key.toLowerCase() === 'c') {
+        e.preventDefault();
+        if (oeeTableRef.current) {
+          oeeTableRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          toast("Fokus ke Tabel OEE Zone C", { icon: '📊', id: 'sc-nav' });
+        }
+      }
+      if (e.ctrlKey && e.altKey && e.key.toLowerCase() === 'd') {
+        e.preventDefault();
+        if (dtTableRef.current) {
+          dtTableRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          toast("Fokus ke Tabel Downtime Zone C", { icon: '⏱️', id: 'sc-nav' });
+        }
+      }
+    };
+    window.addEventListener('keydown', handleShortcuts);
+    return () => window.removeEventListener('keydown', handleShortcuts);
+  }, [loadDataServer]);
+
   const UNIT_MAP_C = {
     'Blowing': ['Conveyor Preform Hijau', 'Hopper Preform', 'Conveyor Hopper Putih', 'Preform Feeding Chute', 'Rotary Preform', 'Minion', 'Supply Hanger', 'Heater Lamp', 'Heating Tube', 'Vertical Punch', 'Servo 1', 'Midstation', 'Servo 2', 'Servo 3', 'Servo 4', 'Neckseal', 'Stretch Servo', 'Bottom Mold', 'Pin Bottom', 'Body Mould - Utara', 'Body Mould - Selatan', 'Molding', 'Overturn', 'Transfer Blow-Fill', 'Supply Chiller', 'Compresor - Highpress (Oilfree)', 'Compresor - Lowpress (Oilless)', 'RH TMS', 'Suhu TMS', 'Supply Preform', 'Trial', 'Blowing-Others', 'Changeover'],
     'Filling': ['Laserjet', 'Gripper Washing', 'PLC', 'Ionizer', 'Carousel 1', 'Carousel 2', 'Carousel 3', 'Buffer Tank', 'Filling', 'Carousel 4', 'Carousel 5', 'Carousel 6', 'Cap Feeding Chute', 'Sealing', 'Heater', 'Cooling Heater Sealing', 'Wheelcap Ganjil', 'Wheelcap Genap', 'Conveyor Filling', 'Tandonan', 'Gear', 'Compresor-Oilfree', 'Compresor-Oilless', 'Trial', 'CIP/SIP', 'Filling-Others', 'Supply Listrik', 'Line Clearance', 'Break'],

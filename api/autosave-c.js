@@ -19,14 +19,12 @@ export default async function handler(req, res) {
       delete dbPayload.original_id;
       delete dbPayload.is_closing;
 
-      // Sanitasi Teks Kosong ke NULL
       Object.keys(dbPayload).forEach(key => {
         if (dbPayload[key] === '' || dbPayload[key] === undefined || dbPayload[key] === null) {
           dbPayload[key] = null; 
         }
       });
 
-      // Abaikan jika data utama kosong (mencegah baris kosong masuk ke database)
       if (!dbPayload.no_batch && !dbPayload.tanggal && !dbPayload.shift) {
         return res.status(200).json({ status: 'ignored', message: 'Row is empty' });
       }
@@ -39,7 +37,6 @@ export default async function handler(req, res) {
       }
     } 
 
-    // Backup ke Google App Script menggunakan Native Fetch (Tanpa Axios)
     const backupData = { ...data, original_id: insertId };
     if (process.env.GAS_URL) {
       fetch(process.env.GAS_URL, {

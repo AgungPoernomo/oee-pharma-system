@@ -5,7 +5,8 @@ OEE-PHARMA-SYSTEM/
 ├── api
 │   ├── autosave-c.js
 │   ├── autosave-f.js
-│   └── db.js
+│   ├── db.js
+│   └── fetch-data.js
 ├── public
 │   ├── factory-bg.jpg
 │   ├── logo-perusahaan.png
@@ -55,6 +56,8 @@ OEE-PHARMA-SYSTEM/
 │   │       │   ├── INPUTC.jsx
 │   │       │   └── INPUTF.jsx
 │   │       ├── DataLine3
+│   │       │   ├── INPUTC.jsx
+│   │       │   └── INPUTF.jsx
 │   │       └── DataLine4
 │   │           ├── INPUTC.jsx
 │   │           └── INPUTF.jsx
@@ -65,6 +68,7 @@ OEE-PHARMA-SYSTEM/
 │   ├── index.css
 │   └── main.jsx
 ├── .dockerignore
+├── .env
 ├── .gitattributes
 ├── .gitignore
 ├── components.json
@@ -82,5 +86,4 @@ OEE-PHARMA-SYSTEM/
 
 ```
 
-*Terakhir diperbarui pada: 28/6/2026, 13.38.16 WIB*
-*Terakhir diperbarui pada: 30/6/2026, 14.04.15 WIB*
+*Terakhir diperbarui pada: 2/7/2026, 16.08.03 WIB*
