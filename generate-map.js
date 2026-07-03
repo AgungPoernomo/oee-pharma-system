@@ -8,7 +8,7 @@ const IGNORE_LIST = [
     '.vscode', 
     'dist', 
     'package-lock.json',
-    'generate-map.js' // Abaikan script ini sendiri
+    'generate-map.js' 
 ];
 
 // 2. KAMUS DESKRIPSI (Tambahkan atau ubah sesuai kebutuhan project Anda)

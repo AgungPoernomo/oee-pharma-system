@@ -464,8 +464,10 @@ export default function InputC() {
     loadDataServer();
 
     return () => {
-      if (typeof oeeGrid.current?.[0]?.destroy === 'function') oeeGrid.current[0].destroy();
-      if (typeof dtGrid.current?.[0]?.destroy === 'function') dtGrid.current[0].destroy();
+      try {
+        if (oeeTableRef.current) jspreadsheet.destroy(oeeTableRef.current, true);
+        if (dtTableRef.current) jspreadsheet.destroy(dtTableRef.current, true);
+      } catch (e) { console.error('Destroy error', e); }
       if (oeeTableRef.current) oeeTableRef.current.innerHTML = '';
       if (dtTableRef.current)  dtTableRef.current.innerHTML  = '';
       oeeGrid.current = null; dtGrid.current  = null;
