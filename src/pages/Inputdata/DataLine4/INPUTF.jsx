@@ -8,25 +8,6 @@ const TEORI_BATCH = { "25 ML": 29412, "100 ML": 56880, "250 ML": 21509, "500 ML"
 const TEORI_YIELD = 21923;
 const VOLUMES = ["25 ML", "100 ML", "250 ML", "500 ML", "1000 ML"];
 
-const C = {
-  NO_BATCH: 0, LOT_NO: 1, TANGGAL: 2, SHIFT: 3, GROUP: 4, VOLUME_BOTOL: 5,
-  STERIL_IN: 6, STERIL_BOCOR: 7, STERIL_H_PATAH_RING: 8, STERIL_H_PATAH_LIDAH: 9, STERIL_H_PATAH_LELEH: 10,
-  STERIL_NO_HANGER: 11, STERIL_REJ_TOTAL: 12, STERIL_SAMPLE: 13, STERIL_OUT: 14,
-  VI_START: 15, VI_END: 16, VI_SUB: 17, TOTAL_SHIFT_1: 18,
-  VI_PARTIKEL: 19, VI_KOTIK: 20, VI_REJ_TOTAL: 21, VI_HASIL_BAIK: 22,
-  QC_1: 23, VI_TF_PACKING: 24, PACK_REJECT: 25, PACK_HASIL_BAIK: 26,
-  PACK_S_QC: 27, PACK_S_OTHERS: 28, PACK_FG: 29, PACK_UTUH: 30,
-  PACK_JML_BATCH: 31, TOTAL_SHIFT_2: 32, PER_BATCH: 33, AVG_SHIFT: 34,
-  AV_SH: 35, AV_SM: 36, AV_EH: 37, AV_EM: 38, AV_SUB: 39, TOTAL_AVAIL_SHIFT: 40,
-  RUN_SH: 41, RUN_SM: 42, RUN_EH: 43, RUN_EM: 44, RUN_SUB: 45,
-  CLEAR_SH: 46, CLEAR_SM: 47, CLEAR_EH: 48, CLEAR_EM: 49, CLEAR_SUB: 50, PROCESS_TOTAL: 51
-};
-
-const DC = {
-  TANGGAL: 0, SHIFT: 1, GRUP: 2, NO_BATCH: 3, SH: 4, SM: 5, EH: 6, EM: 7,
-  DURASI: 8, TYPE: 9, ROOT: 10, PROSES: 11, UNIT: 12, KASUS: 13,
-};
-
 const parseToYMD = (val) => {
   if (!val) return '';
   const str = String(val).replace(/'/g, '').trim();
@@ -58,13 +39,14 @@ const incrementBatchNumber = (str, step) => {
 
 const getEmptyOEE = () => {
   const arr = Array(52).fill('');
-  arr[C.UTUH] = 'Y';
+  arr[5] = '';
+  arr[30] = 'Y';
   return arr;
 };
 
 const getEmptyDT = () => {
   const arr = Array(14).fill('');
-  arr[DC.TYPE] = 'Unplanned';
+  arr[9] = 'Unplanned';
   return arr;
 };
 
@@ -99,74 +81,69 @@ const sendAutoSave = async (payload) => {
 };
 
 const UNIT_MAP_F = {
-  'Blowing': ['Conveyor Preform Hijau', 'Hopper Preform', 'Conveyor Hopper Putih', 'Preform Feeding Chute', 'Rotary Preform', 'Minion', 'Supply Hanger', 'Heater Lamp', 'Heating Tube', 'Vertical Punch', 'Servo 1', 'Midstation', 'Servo 2', 'Servo 3', 'Servo 4', 'Neckseal', 'Stretch Servo', 'Bottom Mold', 'Pin Bottom', 'Body Mould - Utara', 'Body Mould - Selatan', 'Molding', 'Overturn', 'Transfer Blow-Fill', 'Supply Chiller', 'Compresor - Highpress (Oilfree)', 'Compresor - Lowpress (Oilless)', 'RH TMS', 'Suhu TMS', 'Supply Preform', 'Trial', 'Blowing-Others', 'Changeover'],
-  'Filling': ['Laserjet', 'Gripper Washing', 'PLC', 'Ionizer', 'Carousel 1', 'Carousel 2', 'Carousel 3', 'Buffer Tank', 'Filling', 'Carousel 4', 'Carousel 5', 'Carousel 6', 'Cap Feeding Chute', 'Sealing', 'Heater', 'Cooling Heater Sealing', 'Wheelcap Ganjil', 'Wheelcap Genap', 'Conveyor Filling', 'Tandonan', 'Gear', 'Compresor-Oilfree', 'Compresor-Oilless', 'Trial', 'CIP/SIP', 'Filling-Others', 'Supply Listrik', 'Line Clearance', 'Break'],
-  'Mixing': ['Supply WFI', 'Tanki D1', 'Tanki D2', 'Filter Produk', 'Mixing Produk', 'CIP/SIP', 'Integrity', 'PLC', 'Trial'],
-  'Autoclave': ['Conveyor', 'Meja A', 'Meja B', 'Lifter A', 'Lifter B', 'Tray kereta', 'Turn table', 'Kereta Anjlok', 'Kereta Habis', 'Jalur penuh', 'Chamber A', 'Chamber B', 'Doorseal', 'Autoclave-Other', 'Pick and Place']
+  'All Team Packaging': ['Conveyor Inspeksi', 'IDDLE', 'Others', 'Robotic', 'Wait Produk', 'Line Clearance', 'Break'],
+  'Cartoning': ['Carton sealer', 'Carton Unpacker', 'Case Packer - Others', 'Collecting Conveyor', 'Conveyor', 'Floating conveyor', 'Ganti Label', 'IDDLE', 'Inkjet Printer', 'Labelling', 'Labelling - Others', 'Robot', 'Vacuum Case Packer', 'Weigher', 'Weighing Checker'],
+  'Conveyor': ['Carton sealer', 'Conveyor', 'Conveyor Hitam', 'Conveyor Inspek', 'Others'],
+  'Visual Inspeksi': ['Conveyor Inspeksi', 'Mesin Visual Inspeksi', 'Others'],
+  'Labelling': ['Carton sealer', 'Conveyor', 'Floating Conveyor', 'Ganti Label', 'Inkjet Printer', 'Labelling', 'Sensor Inkjet', 'Sensor label', 'Wait Produk'],
+  'Robot': ['Collecting conveyor', 'Conveyor', 'Floating conveyor', 'Meja Collecting', 'Others', 'Robot'],
+  'Unpacker': ['Carton Unpacker']
 };
 const ALL_UNITS_F = [...new Set(Object.values(UNIT_MAP_F).flat())];
 
-// Pure calculation functions
 const calculateOEERow = (row) => {
   const next = [...row];
-  const raw = (c) => next[c] !== null && next[c] !== undefined ? next[c] : '';
-  const v = (c) => {
-    const val = raw(c);
-    return (val === '' || isNaN(val)) ? 0 : parseFloat(val);
+  const v = (col) => {
+    let val = next[col];
+    return (val === "" || val === null || isNaN(val)) ? 0 : parseFloat(val);
   };
-  const setV = (c, val) => { next[c] = val; };
-  const timeDiff = (sh, sm, eh, em) => {
-    if (raw(sh) === '' && raw(sm) === '' && raw(eh) === '' && raw(em) === '') return '';
-    const diff = (v(eh) * 60 + v(em)) - (v(sh) * 60 + v(sm));
-    return diff < 0 ? diff + 24 * 60 : diff;
-  };
+  const setV = (col, val) => { next[col] = val; };
 
-  setV(C.STERIL_REJ_TOTAL, v(C.STERIL_BOCOR) + v(C.STERIL_H_PATAH_RING) + v(C.STERIL_H_PATAH_LIDAH) + v(C.STERIL_H_PATAH_LELEH) + v(C.STERIL_NO_HANGER));
-  
-  let sIn = v(C.STERIL_IN);
-  if (sIn > 0) setV(C.STERIL_OUT, sIn - v(C.STERIL_REJ_TOTAL) - v(C.STERIL_SAMPLE));
-  else setV(C.STERIL_OUT, '');
+  setV(12, v(7) + v(8) + v(9) + v(10) + v(11));
 
-  let sub = v(C.VI_END) - v(C.VI_START);
-  setV(C.VI_SUB, sub > 0 ? sub : '');
+  let sIn = v(6);
+  if (sIn > 0) setV(14, sIn - v(12) - v(13));
+  else setV(14, '');
 
-  setV(C.VI_REJ_TOTAL, v(C.VI_PARTIKEL) + v(C.VI_KOTIK));
+  let sub = v(16) - v(15); setV(17, sub > 0 ? sub : '');
 
-  let vSub = v(C.VI_SUB);
+  setV(21, v(19) + v(20));
+
+  let vSub = v(17);
   if (vSub > 0) {
-    let vBaik = vSub - v(C.VI_REJ_TOTAL);
-    setV(C.VI_HASIL_BAIK, vBaik);
-    setV(C.VI_TF_PACKING, vBaik - v(C.QC_1));
-  } else {
-    setV(C.VI_HASIL_BAIK, ''); setV(C.VI_TF_PACKING, '');
-  }
+    let vBaik = vSub - v(21);
+    setV(22, vBaik);
+    setV(24, vBaik - v(23));
+  } else { setV(22, ''); setV(24, ''); }
 
-  let pTrf = v(C.VI_TF_PACKING);
+  let pTrf = v(24);
   if (pTrf > 0) {
-    let pHasil = pTrf - v(C.PACK_REJECT);
-    setV(C.PACK_HASIL_BAIK, pHasil);
-    setV(C.PACK_FG, pHasil - v(C.PACK_S_QC) - v(C.PACK_S_OTHERS));
-  } else {
-    setV(C.PACK_HASIL_BAIK, ''); setV(C.PACK_FG, '');
-  }
+    let pHasil = pTrf - v(25);
+    setV(26, pHasil);
+    setV(29, pHasil - v(27) - v(28));
+  } else { setV(26, ''); setV(29, ''); }
 
-  let volKey = raw(C.VOLUME_BOTOL) || "500 ML";
-  let pFg = v(C.PACK_FG);
+  let volKey = next[5] || "500 ML";
+  let pFg = v(29);
   if (pFg > 0) {
-    setV(C.PACK_JML_BATCH, (pFg / (TEORI_BATCH[volKey] || 23076)).toFixed(2));
-    setV(C.PER_BATCH, ((pFg / TEORI_YIELD) * 100).toFixed(2));
-  } else {
-    setV(C.PACK_JML_BATCH, ''); setV(C.PER_BATCH, '');
-  }
+    setV(31, (pFg / (TEORI_BATCH[volKey] || 23076)).toFixed(2));
+    setV(33, ((pFg / TEORI_YIELD) * 100).toFixed(2));
+  } else { setV(31, ''); setV(33, ''); }
 
-  setV(C.AV_SUB, timeDiff(C.AV_SH, C.AV_SM, C.AV_EH, C.AV_EM));
-  setV(C.RUN_SUB, timeDiff(C.RUN_SH, C.RUN_SM, C.RUN_EH, C.RUN_EM));
-  let lc = timeDiff(C.CLEAR_SH, C.CLEAR_SM, C.CLEAR_EH, C.CLEAR_EM);
-  setV(C.CLEAR_SUB, lc);
-  let rSub = v(C.RUN_SUB);
-  let lSub = v(C.CLEAR_SUB);
-  if (rSub > 0 || lSub > 0) setV(C.PROCESS_TOTAL, rSub + lSub);
-  else setV(C.PROCESS_TOTAL, '');
+  const timeDiff = (sh, sm, eh, em) => {
+    if (v(sh) === 0 && v(sm) === 0 && v(eh) === 0 && v(em) === 0 && next[sh] === "") return '';
+    let diff = (v(eh) * 60 + v(em)) - (v(sh) * 60 + v(sm));
+    return diff < 0 ? diff + (24 * 60) : diff;
+  };
+
+  setV(39, timeDiff(35, 36, 37, 38));
+  setV(45, timeDiff(41, 42, 43, 44));
+  let lc = timeDiff(46, 47, 48, 49);
+  setV(50, lc); setV(52, lc); setV(53, lc);
+
+  let rSub = v(45); let lSub = v(50);
+  if (rSub > 0 || lSub > 0) setV(51, rSub + lSub);
+  else setV(51, '');
 
   return next;
 };
@@ -178,11 +155,11 @@ const calculateDTRow = (row) => {
     const val = raw(c);
     return (val === '' || isNaN(val)) ? 0 : parseFloat(val);
   };
-  if (raw(DC.SH) !== '' && raw(DC.EH) !== '') {
-    const diff = (v(DC.EH) * 60 + v(DC.EM)) - (v(DC.SH) * 60 + v(DC.SM));
-    next[DC.DURASI] = diff < 0 ? diff + 24 * 60 : diff;
+  if (raw(4) !== '' && raw(6) !== '') {
+    const diff = (v(6) * 60 + v(7)) - (v(4) * 60 + v(5));
+    next[8] = diff < 0 ? diff + 24 * 60 : diff;
   } else {
-    next[DC.DURASI] = '';
+    next[8] = '';
   }
   return next;
 };
@@ -469,7 +446,6 @@ const AutocompleteCombobox = ({
   );
 };
 
-// Highly optimized memoized row component (only re-renders when rowData or this row's selection/editing changes!)
 const SpreadsheetRow = React.memo(({
   rowData,
   rowIdx,
@@ -489,7 +465,7 @@ const SpreadsheetRow = React.memo(({
   onFinishEdit,
   onCancelEdit
 }) => {
-  const prosesValue = gridType === 'dt' ? rowData[DC.PROSES] : '';
+  const prosesValue = gridType === 'dt' ? rowData[11] : '';
   const unitOptions = gridType === 'dt' ? (UNIT_MAP_F[prosesValue] || ALL_UNITS_F) : [];
 
   return (
@@ -512,7 +488,7 @@ const SpreadsheetRow = React.memo(({
           bgClass = col.readOnly ? 'bg-slate-100' : 'bg-white';
         }
 
-        const borderSticky = isSticky && colIdx === (gridType === 'oee' ? 3 : 0) ? 'shadow-[1px_0_0_0_#cbd5e1]' : '';
+        const borderSticky = isSticky && colIdx === (gridType === 'oee' ? 4 : 0) ? 'shadow-[1px_0_0_0_#cbd5e1]' : '';
         const selectionRing = isSelected && !isEditing ? (gridType === 'oee' ? 'ring-1 ring-emerald-500 ring-inset' : 'ring-1 ring-indigo-500 ring-inset') : '';
 
         const initVal = (isEditing && editingInitialValue !== undefined) ? editingInitialValue : val;
@@ -603,8 +579,6 @@ const SpreadsheetRow = React.memo(({
   if (prev.editMode !== next.editMode) return false;
   if (prev.editingInitialValue !== next.editingInitialValue) return false;
 
-  // Only check selection columns if THIS row is currently selected or was previously selected!
-  // If it's not selected in either render, we don't care about the selection boundaries changing.
   if (prev.isSelectedRow || next.isSelectedRow) {
     if (prev.selectionMinCol !== next.selectionMinCol) return false;
     if (prev.selectionMaxCol !== next.selectionMaxCol) return false;
@@ -652,57 +626,57 @@ export default function InputF() {
     if (oeeTimers.current[rIdx]) clearTimeout(oeeTimers.current[rIdx]);
 
     oeeTimers.current[rIdx] = setTimeout(async () => {
-      if (!rowData[C.NO_BATCH] && !rowData[C.TANGGAL] && !rowData[C.SHIFT]) return;
+      if (!rowData[0] && !rowData[2] && !rowData[3]) return;
 
       const payloadData = {
         original_id: oeeIds.current[rIdx] || null,
-        no_batch: rowData[C.NO_BATCH],
-        lot_no: rowData[C.LOT_NO],
-        tanggal: rowData[C.TANGGAL],
-        shift: rowData[C.SHIFT],
-        group: rowData[C.GROUP],
-        volume_botol: rowData[C.VOLUME_BOTOL],
-        steril_in: rowData[C.STERIL_IN],
-        steril_bocor: rowData[C.STERIL_BOCOR],
-        steril_h_patah_ring: rowData[C.STERIL_H_PATAH_RING],
-        steril_h_patah_lidah: rowData[C.STERIL_H_PATAH_LIDAH],
-        steril_h_patah_leleh: rowData[C.STERIL_H_PATAH_LELEH],
-        steril_no_hanger: rowData[C.STERIL_NO_HANGER],
-        steril_rej_total: rowData[C.STERIL_REJ_TOTAL],
-        steril_sample: rowData[C.STERIL_SAMPLE],
-        steril_out: rowData[C.STERIL_OUT],
-        vi_start: rowData[C.VI_START],
-        vi_end: rowData[C.VI_END],
-        vi_sub: rowData[C.VI_SUB],
-        vi_partikel: rowData[C.VI_PARTIKEL],
-        vi_kotik: rowData[C.VI_KOTIK],
-        vi_rej_total: rowData[C.VI_REJ_TOTAL],
-        vi_hasil_baik: rowData[C.VI_HASIL_BAIK],
-        vi_tf_packing: rowData[C.VI_TF_PACKING],
-        pack_reject: rowData[C.PACK_REJECT],
-        pack_hasil_baik: rowData[C.PACK_HASIL_BAIK],
-        pack_s_qc: rowData[C.PACK_S_QC],
-        pack_s_others: rowData[C.PACK_S_OTHERS],
-        pack_fg: rowData[C.PACK_FG],
-        pack_utuh: rowData[C.PACK_UTUH],
-        pack_jml_batch: rowData[C.PACK_JML_BATCH],
-        av_sh: rowData[C.AV_SH],
-        av_sm: rowData[C.AV_SM],
-        av_eh: rowData[C.AV_EH],
-        av_em: rowData[C.AV_EM],
-        av_sub: rowData[C.AV_SUB],
-        total_avail_shift: rowData[C.TOTAL_AVAIL_SHIFT],
-        run_sh: rowData[C.RUN_SH],
-        run_sm: rowData[C.RUN_SM],
-        run_eh: rowData[C.RUN_EH],
-        run_em: rowData[C.RUN_EM],
-        run_sub: rowData[C.RUN_SUB],
-        clear_sh: rowData[C.CLEAR_SH],
-        clear_sm: rowData[C.CLEAR_SM],
-        clear_eh: rowData[C.CLEAR_EH],
-        clear_em: rowData[C.CLEAR_EM],
-        clear_sub: rowData[C.CLEAR_SUB],
-        process_total: rowData[C.PROCESS_TOTAL]
+        no_batch: rowData[0],
+        lot_no: rowData[1],
+        tanggal: rowData[2],
+        shift: rowData[3],
+        group: rowData[4],
+        volume_botol: rowData[5],
+        steril_in: rowData[6],
+        steril_bocor: rowData[7],
+        steril_h_patah_ring: rowData[8],
+        steril_h_patah_lidah: rowData[9],
+        steril_h_patah_leleh: rowData[10],
+        steril_no_hanger: rowData[11],
+        steril_rej_total: rowData[12],
+        steril_sample: rowData[13],
+        steril_out: rowData[14],
+        vi_start: rowData[15],
+        vi_end: rowData[16],
+        vi_sub: rowData[17],
+        vi_partikel: rowData[19],
+        vi_kotik: rowData[20],
+        vi_rej_total: rowData[21],
+        vi_hasil_baik: rowData[22],
+        vi_tf_packing: rowData[24],
+        pack_reject: rowData[25],
+        pack_hasil_baik: rowData[26],
+        pack_s_qc: rowData[27],
+        pack_s_others: rowData[28],
+        pack_fg: rowData[29],
+        pack_utuh: rowData[30],
+        pack_jml_batch: rowData[31],
+        av_sh: rowData[35],
+        av_sm: rowData[36],
+        av_eh: rowData[37],
+        av_em: rowData[38],
+        av_sub: rowData[39],
+        total_avail_shift: rowData[40],
+        run_sh: rowData[41],
+        run_sm: rowData[42],
+        run_eh: rowData[43],
+        run_em: rowData[44],
+        run_sub: rowData[45],
+        clear_sh: rowData[46],
+        clear_sm: rowData[47],
+        clear_eh: rowData[48],
+        clear_em: rowData[49],
+        clear_sub: rowData[50],
+        process_total: rowData[51]
       };
 
       const actionType = payloadData.original_id ? 'update_reject_f' : 'submit_reject_f';
@@ -719,22 +693,22 @@ export default function InputF() {
     if (dtTimers.current[rIdx]) clearTimeout(dtTimers.current[rIdx]);
 
     dtTimers.current[rIdx] = setTimeout(async () => {
-      if (!rowData[DC.TANGGAL] && !rowData[DC.NO_BATCH]) return;
+      if (!rowData[0] && !rowData[3]) return;
 
       const payloadData = {
         original_id: dtIds.current[rIdx] || null,
-        tanggal: rowData[DC.TANGGAL],
-        shift: rowData[DC.SHIFT],
-        group: rowData[DC.GRUP],
-        no_batch: rowData[DC.NO_BATCH],
-        start_h: rowData[DC.SH], start_m: rowData[DC.SM],
-        end_h: rowData[DC.EH], end_m: rowData[DC.EM],
-        duration: rowData[DC.DURASI],
-        plan_unplan: rowData[DC.TYPE],
-        root_cause: rowData[DC.ROOT],
-        proses: rowData[DC.PROSES],
-        unit: rowData[DC.UNIT],
-        kasus: rowData[DC.KASUS],
+        tanggal: rowData[0],
+        shift: rowData[1],
+        group: rowData[2],
+        no_batch: rowData[3],
+        start_h: rowData[4], start_m: rowData[5],
+        end_h: rowData[6], end_m: rowData[7],
+        duration: rowData[8],
+        plan_unplan: rowData[9],
+        root_cause: rowData[10],
+        proses: rowData[11],
+        unit: rowData[12],
+        kasus: rowData[13],
       };
 
       const actionType = payloadData.original_id ? 'update_downtime_f' : 'submit_downtime_f';
@@ -890,7 +864,7 @@ export default function InputF() {
           if (targetRow[colIdx] !== value) {
             pushHistory('dt', prev);
             targetRow[colIdx] = value;
-            if (colIdx === DC.PROSES) targetRow[DC.UNIT] = '';
+            if (colIdx === 11) targetRow[12] = '';
             const calculatedRow = calculateDTRow(targetRow);
             next[rowIdx] = calculatedRow;
             triggerAutosaveDT(rowIdx, calculatedRow);
@@ -1103,7 +1077,7 @@ export default function InputF() {
         const calcRow = gridType === 'oee' ? calculateOEERow : calculateDTRow;
         const triggerSave = gridType === 'oee' ? triggerAutosaveOEE : triggerAutosaveDT;
         const colsMeta = gridType === 'oee' ? OEE_COLS_META : DT_COLS_META;
-        const noBatchCol = gridType === 'oee' ? C.NO_BATCH : DC.NO_BATCH;
+        const noBatchCol = gridType === 'oee' ? 0 : 3;
 
         setData(prevData => {
           pushHistory(gridType, prevData);
@@ -1186,7 +1160,6 @@ export default function InputF() {
     return () => window.removeEventListener('mouseup', handleMouseUp);
   }, [pushHistory, triggerAutosaveOEE, triggerAutosaveDT]);
 
-  // Auto scroll into view on navigation
   useEffect(() => {
     if (!oeeGridRef.current) return;
     const tbody = oeeGridRef.current.querySelector('tbody');
@@ -1221,164 +1194,193 @@ export default function InputF() {
       thirtyDaysAgo.setHours(0, 0, 0, 0);
 
       const filterLast30Days = (row) => {
-        if (!row || !row.tanggal) return true;
-        const ymd = parseToYMD(row.tanggal);
-        if (!ymd) return true;
-        const d = new Date(ymd);
-        if (isNaN(d.getTime())) return true;
-        return d >= thirtyDaysAgo;
+        if (!row.tanggal) return false;
+        const d = new Date(row.tanggal);
+        return !isNaN(d.getTime()) && d >= thirtyDaysAgo;
       };
 
       let mappedOEE = [];
       let mappedOEEIds = [];
       if (resOEE?.status === 'success' && Array.isArray(resOEE.data)) {
-        mappedOEE = resOEE.data.filter(filterLast30Days).reverse().map((row) => {
+        const filteredOEE = [...resOEE.data].reverse().filter(filterLast30Days);
+        mappedOEE = filteredOEE.map((row) => {
           mappedOEEIds.push(row.id);
-          const r = [
-            row.no_batch ?? '', parseToYMD(row.tanggal), row.shift ?? '', row.group ?? '', row.reject_botol ?? '', row.reject_preform ?? '',
-            row.reject_blow ?? '', row.volume_botol ?? '', row.cnt_start ?? '', row.cnt_end ?? '', row.cnt_sub ?? '', row.utuh ?? 'Y',
-            row.jml_batch ?? '', '', row.r_washing ?? '', row.r_vk ?? '', row.r_vl ?? '', row.r_nocap ?? '',
-            row.r_sealnok ?? '', row.r_others ?? '', row.r_sub ?? '', row.s_ipc ?? '', row.s_others ?? '', row.s_sub ?? '',
-            row.trf_st ?? '', '', '', '', row.pre_in ?? '', row.pre_bocor ?? '',
-            row.pre_nocap ?? '', row.pre_vol ?? '', row.pre_thermo ?? '', row.pre_lain ?? '', row.pre_rej_total ?? '', row.pre_out ?? '',
-            row.av_sh ?? '', row.av_sm ?? '', row.av_eh ?? '', row.av_em ?? '', row.av_sub ?? '', row.total_avail_shift ?? '',
-            row.run_sh ?? '', row.run_sm ?? '', row.run_eh ?? '', row.run_em ?? '', row.run_sub ?? '', row.lc_sh ?? '',
-            row.lc_sm ?? '', row.lc_eh ?? '', row.lc_em ?? '', row.lc_sub ?? ''
-          ];
-          return calculateOEERow(r);
+          const arr = Array(55).fill('');
+          arr[0] = row.no_batch ?? '';
+          arr[1] = row.lot_no ?? '';
+          arr[2] = parseToYMD(row.tanggal);
+          arr[3] = row.shift ?? '';
+          arr[4] = row.group ?? '';
+          arr[5] = row.volume_botol ?? '';
+          arr[6] = row.steril_in ?? '';
+          arr[7] = row.steril_bocor ?? '';
+          arr[8] = row.steril_h_patah_ring ?? '';
+          arr[9] = row.steril_h_patah_lidah ?? '';
+          arr[10] = row.steril_h_patah_leleh ?? '';
+          arr[11] = row.steril_no_hanger ?? '';
+          arr[12] = row.steril_rej_total ?? '';
+          arr[13] = row.steril_sample ?? '';
+          arr[14] = row.steril_out ?? '';
+          arr[15] = row.vi_start ?? '';
+          arr[16] = row.vi_end ?? '';
+          arr[17] = row.vi_sub ?? '';
+          arr[19] = row.vi_partikel ?? '';
+          arr[20] = row.vi_kotik ?? '';
+          arr[21] = row.vi_rej_total ?? '';
+          arr[22] = row.vi_hasil_baik ?? '';
+          arr[24] = row.vi_tf_packing ?? '';
+          arr[25] = row.pack_reject ?? '';
+          arr[26] = row.pack_hasil_baik ?? '';
+          arr[27] = row.pack_s_qc ?? '';
+          arr[28] = row.pack_s_others ?? '';
+          arr[29] = row.pack_fg ?? '';
+          arr[30] = row.pack_utuh ?? 'Y';
+          arr[31] = row.pack_jml_batch ?? '';
+          arr[35] = row.av_sh ?? '';
+          arr[36] = row.av_sm ?? '';
+          arr[37] = row.av_eh ?? '';
+          arr[38] = row.av_em ?? '';
+          arr[39] = row.av_sub ?? '';
+          arr[40] = row.total_avail_shift ?? '';
+          arr[41] = row.run_sh ?? '';
+          arr[42] = row.run_sm ?? '';
+          arr[43] = row.run_eh ?? '';
+          arr[44] = row.run_em ?? '';
+          arr[45] = row.run_sub ?? '';
+          arr[46] = row.clear_sh ?? '';
+          arr[47] = row.clear_sm ?? '';
+          arr[48] = row.clear_eh ?? '';
+          arr[49] = row.clear_em ?? '';
+          arr[50] = row.clear_sub ?? '';
+          arr[51] = row.process_total ?? '';
+          return arr;
         });
       }
 
       let mappedDT = [];
       let mappedDTIds = [];
       if (resDT?.status === 'success' && Array.isArray(resDT.data)) {
-        mappedDT = resDT.data.filter(filterLast30Days).reverse().map((row) => {
+        const filteredDT = [...resDT.data].reverse().filter(filterLast30Days);
+        mappedDT = filteredDT.map((row) => {
           mappedDTIds.push(row.id);
-          const r = [
+          return [
             parseToYMD(row.tanggal), row.shift ?? '', row.group ?? '', row.no_batch ?? '', row.start_h ?? '', row.start_m ?? '',
             row.end_h ?? '', row.end_m ?? '', row.duration ?? '', row.plan_unplan ?? 'Unplanned', row.root_cause ?? '', row.proses ?? '',
             row.unit ?? '', row.kasus ?? ''
           ];
-          return calculateDTRow(r);
         });
       }
 
-      const EMPTY_ROWS = 50;
-      const finalOEE = [...mappedOEE, ...Array.from({ length: EMPTY_ROWS }, getEmptyOEE)];
-      const finalDT = [...mappedDT, ...Array.from({ length: EMPTY_ROWS }, getEmptyDT)];
+      const getEmptyOEEWithUtuh = () => {
+        const e = getEmptyOEE();
+        return e;
+      };
 
-      oeeIds.current = [...mappedOEEIds, ...Array(EMPTY_ROWS).fill(null)];
-      dtIds.current = [...mappedDTIds, ...Array(EMPTY_ROWS).fill(null)];
+      const finalOEEData = [...mappedOEE, ...Array.from({ length: Math.max(50, 100 - mappedOEE.length) }, getEmptyOEEWithUtuh)];
+      const finalDTData = [...mappedDT, ...Array.from({ length: Math.max(50, 100 - mappedDT.length) }, getEmptyDT)];
 
-      setOeeData(finalOEE);
-      setDtData(finalDT);
+      oeeIds.current = [...mappedOEEIds, ...Array(finalOEEData.length - mappedOEEIds.length).fill(null)];
+      dtIds.current = [...mappedDTIds, ...Array(finalDTData.length - mappedDTIds.length).fill(null)];
 
-      localStorage.setItem('F_DATA_OEE', JSON.stringify(finalOEE));
-      localStorage.setItem('F_DATA_DT', JSON.stringify(finalDT));
+      setOeeData(finalOEEData);
+      setDtData(finalDTData);
+
+      localStorage.setItem('F_DATA_OEE', JSON.stringify(finalOEEData));
+      localStorage.setItem('F_DATA_DT', JSON.stringify(finalDTData));
       localStorage.setItem('F_IDS_OEE', JSON.stringify(oeeIds.current));
       localStorage.setItem('F_IDS_DT', JSON.stringify(dtIds.current));
 
     } catch (error) {
-      console.error('[InputC] loadDataServer error:', error);
+      console.error('Fetch data error:', error);
     }
   }, [user]);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      void loadDataServer();
-    }, 0);
-    return () => clearTimeout(timer);
+    loadDataServer();
   }, [loadDataServer]);
 
-  const oeeMinR = Math.min(oeeSelection.startRow, oeeSelection.endRow);
-  const oeeMaxR = Math.max(oeeSelection.startRow, oeeSelection.endRow);
-  const oeeMinC = Math.min(oeeSelection.startCol, oeeSelection.endCol);
-  const oeeMaxC = Math.max(oeeSelection.startCol, oeeSelection.endCol);
-
-  const dtMinR = Math.min(dtSelection.startRow, dtSelection.endRow);
-  const dtMaxR = Math.max(dtSelection.startRow, dtSelection.endRow);
-  const dtMinC = Math.min(dtSelection.startCol, dtSelection.endCol);
-  const dtMaxC = Math.max(dtSelection.startCol, dtSelection.endCol);
-
   return (
-    <div className="min-h-screen bg-slate-50 p-6 text-slate-800 font-sans">
+    <div className="min-h-screen bg-slate-50 p-8 text-slate-800 font-sans outline-none" tabIndex={0} onKeyDown={(e) => {
+      if (oeeEditingCell || dtEditingCell) return;
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab', 'Enter', 'F2', 'Backspace', 'Delete'].includes(e.key) || (e.ctrlKey && ['z', 'y', 'a'].includes(e.key.toLowerCase())) || (e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey)) {
+        handleGridKeyDown(e, oeeSelection.endRow !== undefined && document.activeElement === oeeGridRef.current ? 'oee' : 'dt');
+      }
+    }}>
       <Toaster position="bottom-right" />
       <div className="max-w-full mx-auto">
 
         <div className="mb-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-black tracking-wider uppercase text-emerald-800 inline-block mr-3">
-              OEE Line 4 — Zone C
-            </h1>
-          </div>
+          <h1 className="text-2xl font-black tracking-wider uppercase text-emerald-800">
+            OEE Line 4 - Zone F
+          </h1>
         </div>
 
-        <div
-          ref={oeeGridRef}
-          tabIndex={0}
-          onKeyDown={(e) => handleGridKeyDown(e, 'oee')}
-          onCopy={(e) => handleCopy(e, 'oee')}
-          onPaste={(e) => handlePaste(e, 'oee')}
-          className="bg-white border border-slate-300 shadow-lg mb-10 rounded overflow-hidden focus:outline-none focus:ring-2 focus:ring-emerald-500"
-        >
-          <div className="overflow-x-auto max-h-[680px]">
-            <table className="border-collapse w-max min-w-full text-left">
-              <thead className="bg-slate-800 text-white text-[11px] uppercase tracking-wider font-bold sticky top-0 z-20">
-                <tr className="border-b border-slate-700 text-center divide-x divide-slate-700">
-                  <th colSpan="4" className="py-2 bg-slate-800 sticky left-0 z-30 shadow-[1px_0_0_0_#334155]">General Info</th>
-                  <th colSpan="4" className="py-2 bg-slate-800">Reject Botol & Volume</th>
-                  <th colSpan="6" className="py-2 bg-emerald-900">Counter Filling</th>
-                  <th colSpan="7" className="py-2 bg-slate-800">Rejection Filling</th>
-                  <th colSpan="3" className="py-2 bg-slate-800">Samples</th>
-                  <th colSpan="2" className="py-2 bg-emerald-900">Hasil Baik</th>
-                  <th colSpan="2" className="py-2 bg-slate-800">% Yield</th>
-                  <th colSpan="8" className="py-2 bg-red-950">Reject Before Steril</th>
-                  <th colSpan="6" className="py-2 bg-blue-950">Available Time</th>
-                  <th colSpan="5" className="py-2 bg-indigo-950">Run Time</th>
-                  <th colSpan="5" className="py-2 bg-purple-950">Line Clearance</th>
+        <div className="bg-white border-2 border-slate-300 shadow-xl mb-12 rounded overflow-hidden p-1">
+          <div className="w-full h-[700px] overflow-auto select-none" ref={oeeGridRef} tabIndex={0} onCopy={(e) => handleCopy(e, 'oee')} onPaste={(e) => handlePaste(e, 'oee')}>
+            <table className="w-max min-w-full border-collapse text-xs table-fixed">
+              <thead className="bg-slate-100 text-slate-700 font-semibold shadow-sm sticky top-0 z-40">
+                <tr>
+                  <th colSpan={6} className="border-r border-b border-slate-300 px-2 py-1.5 text-center"></th>
+                  <th colSpan={9} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Output After Steril</th>
+                  <th colSpan={10} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Output Visual Inspeksi</th>
+                  <th colSpan={8} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Output Packaging</th>
+                  <th colSpan={2} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">% Yield</th>
+                  <th colSpan={5} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Available Time</th>
+                  <th colSpan={1} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">TOTAL per Shift</th>
+                  <th colSpan={11} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Process Details</th>
                 </tr>
-                <tr className="border-b border-slate-700 text-center divide-x divide-slate-700 bg-slate-700/80">
-                  <th colSpan="4" className="py-1 bg-slate-800 sticky left-0 z-30 shadow-[1px_0_0_0_#334155]"></th>
-                  <th colSpan="4" className="py-1"></th>
-                  <th colSpan="3" className="py-1">Per Cycle Batch</th>
-                  <th colSpan="3" className="py-1"></th>
-                  <th colSpan="1" className="py-1">Washing</th>
-                  <th colSpan="2" className="py-1">Filling</th>
-                  <th colSpan="2" className="py-1">Sealing</th>
-                  <th colSpan="2" className="py-1"></th>
-                  <th colSpan="2" className="py-1">Botol</th>
-                  <th colSpan="1" className="py-1"></th>
-                  <th colSpan="2" className="py-1">Transfer to ST</th>
-                  <th colSpan="2" className="py-1"></th>
-                  <th colSpan="1" className="py-1"></th>
-                  <th colSpan="6" className="py-1">Reject Before Steril</th>
-                  <th colSpan="1" className="py-1"></th>
-                  <th colSpan="6" className="py-1"></th>
-                  <th colSpan="5" className="py-1">Filling</th>
-                  <th colSpan="5" className="py-1">CIP Minor</th>
+                <tr>
+                  <th colSpan={6} className="border-r border-b border-slate-300 px-2 py-1.5 text-center"></th>
+                  <th colSpan={1} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Input (Botol dari chamber)</th>
+                  <th colSpan={6} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Reject After Steril</th>
+                  <th colSpan={1} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Sampel QC</th>
+                  <th colSpan={1} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Output (TF to VI)</th>
+                  <th colSpan={4} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Input</th>
+                  <th colSpan={3} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Reject VI</th>
+                  <th colSpan={1} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Hasil Baik</th>
+                  <th colSpan={1} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Sample QC</th>
+                  <th colSpan={1} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Transfer ke Packing</th>
+                  <th colSpan={1} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Reject</th>
+                  <th colSpan={1} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Hasil Baik</th>
+                  <th colSpan={2} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Samples</th>
+                  <th colSpan={1} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Finished Goods</th>
+                  <th colSpan={1} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Utuh ?</th>
+                  <th colSpan={1} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Jumlah Batch</th>
+                  <th colSpan={1} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Total per shift</th>
+                  <th colSpan={2} className="border-r border-b border-slate-300 px-2 py-1.5 text-center"></th>
+                  <th colSpan={5} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">(waktu per shift)</th>
+                  <th colSpan={1} className="border-r border-b border-slate-300 px-2 py-1.5 text-center"></th>
+                  <th colSpan={5} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Machine Run</th>
+                  <th colSpan={5} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Line Clearance</th>
+                  <th colSpan={1} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">TOTAL</th>
                 </tr>
-                <tr className="border-b border-slate-700 text-center divide-x divide-slate-700 bg-slate-900">
-                  {OEE_COLS_META.map((col, idx) => {
-                    const isSticky = col.stickyLeft !== undefined;
-                    const stickyStyle = isSticky ? { position: 'sticky', left: col.stickyLeft, zIndex: 30 } : {};
-                    return (
-                      <th
-                        key={idx}
-                        style={{ width: col.width, minWidth: col.width, maxWidth: col.width, ...stickyStyle }}
-                        className={`py-2 px-1.5 text-center leading-tight whitespace-normal break-words ${isSticky ? 'bg-slate-900' : ''} ${isSticky && idx === 3 ? 'shadow-[1px_0_0_0_#334155]' : ''}`}
-                      >
-                        {col.title}
-                      </th>
-                    );
-                  })}
+                <tr>
+                  {OEE_COLS_META.map((col, idx) => (
+                    <th
+                      key={idx}
+                      style={{
+                        width: col.width, minWidth: col.width, maxWidth: col.width,
+                        position: col.stickyLeft !== undefined ? 'sticky' : 'static',
+                        left: col.stickyLeft !== undefined ? col.stickyLeft : 'auto',
+                        zIndex: col.stickyLeft !== undefined ? 41 : 40,
+                      }}
+                      className={`border-r border-b border-slate-300 px-1 py-2 text-center text-[10px] uppercase tracking-wide ${col.stickyLeft !== undefined ? 'bg-slate-200' : 'bg-slate-100'} ${col.stickyLeft !== undefined && idx === 4 ? 'shadow-[1px_0_0_0_#cbd5e1]' : ''}`}
+                    >
+                      {col.title}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
                 {oeeData.map((row, rowIdx) => {
-                  const isSelRow = rowIdx >= oeeMinR && rowIdx <= oeeMaxR;
-                  const edCol = (oeeEditingCell && oeeEditingCell.row === rowIdx) ? oeeEditingCell.col : -1;
+                  const isSelRow = rowIdx >= Math.min(oeeSelection.startRow, oeeSelection.endRow) && rowIdx <= Math.max(oeeSelection.startRow, oeeSelection.endRow);
+                  const minC = Math.min(oeeSelection.startCol, oeeSelection.endCol);
+                  const maxC = Math.max(oeeSelection.startCol, oeeSelection.endCol);
+                  const maxR = Math.max(oeeSelection.startRow, oeeSelection.endRow);
+                  const edCol = (oeeEditingCell && oeeEditingCell.row === rowIdx) ? oeeEditingCell.col : null;
                   const edMode = (oeeEditingCell && oeeEditingCell.row === rowIdx) ? oeeEditingCell.mode : null;
                   const edInit = (oeeEditingCell && oeeEditingCell.row === rowIdx) ? oeeEditingCell.initialValue : undefined;
+
                   return (
                     <SpreadsheetRow
                       key={rowIdx}
@@ -1387,9 +1389,9 @@ export default function InputF() {
                       colsMeta={OEE_COLS_META}
                       gridType="oee"
                       isSelectedRow={isSelRow}
-                      selectionMinCol={oeeMinC}
-                      selectionMaxCol={oeeMaxC}
-                      selectionMaxRow={oeeMaxR}
+                      selectionMinCol={minC}
+                      selectionMaxCol={maxC}
+                      selectionMaxRow={maxR}
                       editingColIdx={edCol}
                       editMode={edMode}
                       editingInitialValue={edInit}
@@ -1408,44 +1410,42 @@ export default function InputF() {
         </div>
 
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-xl font-black tracking-wider uppercase text-indigo-800">
-            Downtime Line 4 — Zone C
+          <h2 className="text-2xl font-black tracking-wider uppercase text-indigo-800">
+            Downtime Line 4 - Zone F
           </h2>
         </div>
 
-        <div
-          ref={dtGridRef}
-          tabIndex={0}
-          onKeyDown={(e) => handleGridKeyDown(e, 'dt')}
-          onCopy={(e) => handleCopy(e, 'dt')}
-          onPaste={(e) => handlePaste(e, 'dt')}
-          className="bg-white border border-slate-300 shadow-lg rounded overflow-hidden mb-12 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-        >
-          <div className="overflow-x-auto max-h-[500px]">
-            <table className="border-collapse w-max min-w-full text-left">
-              <thead className="bg-indigo-950 text-white text-[11px] uppercase tracking-wider font-bold sticky top-0 z-20">
-                <tr className="border-b border-indigo-900 text-center divide-x divide-indigo-900">
-                  {DT_COLS_META.map((col, idx) => {
-                    const isSticky = col.stickyLeft !== undefined;
-                    const stickyStyle = isSticky ? { position: 'sticky', left: col.stickyLeft, zIndex: 30 } : {};
-                    return (
-                      <th
-                        key={idx}
-                        style={{ width: col.width, minWidth: col.width, maxWidth: col.width, ...stickyStyle }}
-                        className={`py-2.5 px-2 text-center leading-tight whitespace-normal break-words ${isSticky ? 'bg-indigo-950 shadow-[1px_0_0_0_#312e81]' : ''}`}
-                      >
-                        {col.title}
-                      </th>
-                    );
-                  })}
+        <div className="bg-white border-2 border-slate-300 shadow-xl rounded overflow-hidden p-1 mb-10">
+          <div className="w-full h-[700px] overflow-auto select-none" ref={dtGridRef} tabIndex={0} onCopy={(e) => handleCopy(e, 'dt')} onPaste={(e) => handlePaste(e, 'dt')}>
+            <table className="w-max min-w-full border-collapse text-xs table-fixed">
+              <thead className="bg-slate-100 text-slate-700 font-semibold shadow-sm sticky top-0 z-40">
+                <tr>
+                  {DT_COLS_META.map((col, idx) => (
+                    <th
+                      key={idx}
+                      style={{
+                        width: col.width, minWidth: col.width, maxWidth: col.width,
+                        position: col.stickyLeft !== undefined ? 'sticky' : 'static',
+                        left: col.stickyLeft !== undefined ? col.stickyLeft : 'auto',
+                        zIndex: col.stickyLeft !== undefined ? 41 : 40,
+                      }}
+                      className={`border-r border-b border-slate-300 px-1 py-2 text-center text-[10px] uppercase tracking-wide ${col.stickyLeft !== undefined ? 'bg-slate-200' : 'bg-slate-100'} ${col.stickyLeft !== undefined && idx === 0 ? 'shadow-[1px_0_0_0_#cbd5e1]' : ''}`}
+                    >
+                      {col.title}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
                 {dtData.map((row, rowIdx) => {
-                  const isSelRow = rowIdx >= dtMinR && rowIdx <= dtMaxR;
-                  const edCol = (dtEditingCell && dtEditingCell.row === rowIdx) ? dtEditingCell.col : -1;
+                  const isSelRow = rowIdx >= Math.min(dtSelection.startRow, dtSelection.endRow) && rowIdx <= Math.max(dtSelection.startRow, dtSelection.endRow);
+                  const dtMinC = Math.min(dtSelection.startCol, dtSelection.endCol);
+                  const dtMaxC = Math.max(dtSelection.startCol, dtSelection.endCol);
+                  const dtMaxR = Math.max(dtSelection.startRow, dtSelection.endRow);
+                  const edCol = (dtEditingCell && dtEditingCell.row === rowIdx) ? dtEditingCell.col : null;
                   const edMode = (dtEditingCell && dtEditingCell.row === rowIdx) ? dtEditingCell.mode : null;
                   const edInit = (dtEditingCell && dtEditingCell.row === rowIdx) ? dtEditingCell.initialValue : undefined;
+
                   return (
                     <SpreadsheetRow
                       key={rowIdx}
