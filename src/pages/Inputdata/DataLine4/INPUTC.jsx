@@ -824,7 +824,8 @@ export default function InputC() {
       });
       let nextR = rowIdx;
       let nextC = colIdx;
-      if (moveKey === 'Enter' || moveKey === 'ArrowDown') nextR = Math.min(99, rowIdx + 1);
+      const maxR = oeeData.length - 1;
+      if (moveKey === 'Enter' || moveKey === 'ArrowDown') nextR = Math.min(maxR, rowIdx + 1);
       else if (moveKey === 'ArrowUp') nextR = Math.max(0, rowIdx - 1);
       else if (moveKey === 'Tab' || moveKey === 'ArrowRight') nextC = Math.min(51, colIdx + 1);
       else if (moveKey === 'ArrowLeft') nextC = Math.max(0, colIdx - 1);
@@ -851,7 +852,8 @@ export default function InputC() {
       });
       let nextR = rowIdx;
       let nextC = colIdx;
-      if (moveKey === 'Enter' || moveKey === 'ArrowDown') nextR = Math.min(99, rowIdx + 1);
+      const maxR = dtData.length - 1;
+      if (moveKey === 'Enter' || moveKey === 'ArrowDown') nextR = Math.min(maxR, rowIdx + 1);
       else if (moveKey === 'ArrowUp') nextR = Math.max(0, rowIdx - 1);
       else if (moveKey === 'Tab' || moveKey === 'ArrowRight') nextC = Math.min(13, colIdx + 1);
       else if (moveKey === 'ArrowLeft') nextC = Math.max(0, colIdx - 1);
@@ -861,7 +863,7 @@ export default function InputC() {
       }
       if (dtGridRef.current) dtGridRef.current.focus();
     }
-  }, [triggerAutosaveOEE, triggerAutosaveDT, pushHistory]);
+  }, [triggerAutosaveOEE, triggerAutosaveDT, pushHistory, oeeData.length, dtData.length]);
 
   const handleCancelEdit = useCallback(() => {
     setOeeEditingCell(null);
@@ -875,6 +877,7 @@ export default function InputC() {
     const setEditing = gridType === 'oee' ? setOeeEditingCell : setDtEditingCell;
     const colsMeta = gridType === 'oee' ? OEE_COLS_META : DT_COLS_META;
     const maxCols = colsMeta.length - 1;
+    const maxR = (gridType === 'oee' ? oeeData : dtData).length - 1;
 
     if (editing) return;
 
@@ -891,7 +894,7 @@ export default function InputC() {
     }
     if ((e.ctrlKey || e.metaKey) && (e.key === 'a' || e.key === 'A')) {
       e.preventDefault();
-      setSel({ startRow: 0, startCol: 0, endRow: 99, endCol: maxCols });
+      setSel({ startRow: 0, startCol: 0, endRow: maxR, endCol: maxCols });
       return;
     }
 
@@ -905,12 +908,12 @@ export default function InputC() {
       let nextC = activeCol;
 
       if (e.ctrlKey || e.metaKey) {
-        const edge = findEdgeCell(gridType === 'oee' ? oeeData : dtData, activeRow, activeCol, e.key, 99, maxCols);
+        const edge = findEdgeCell(gridType === 'oee' ? oeeData : dtData, activeRow, activeCol, e.key, maxR, maxCols);
         nextR = edge.r;
         nextC = edge.c;
       } else {
         if (e.key === 'ArrowUp') nextR = Math.max(0, activeRow - 1);
-        if (e.key === 'ArrowDown') nextR = Math.min(99, activeRow + 1);
+        if (e.key === 'ArrowDown') nextR = Math.min(maxR, activeRow + 1);
         if (e.key === 'ArrowLeft') nextC = Math.max(0, activeCol - 1);
         if (e.key === 'ArrowRight' || e.key === 'Tab') nextC = Math.min(maxCols, activeCol + 1);
       }
@@ -1190,18 +1193,18 @@ export default function InputC() {
         });
       }
 
-      const EMPTY_ROWS = 100;
+      const EMPTY_ROWS = 50;
       const finalOEE = [...mappedOEE, ...Array.from({ length: EMPTY_ROWS }, getEmptyOEE)];
       const finalDT = [...mappedDT, ...Array.from({ length: EMPTY_ROWS }, getEmptyDT)];
 
       oeeIds.current = [...mappedOEEIds, ...Array(EMPTY_ROWS).fill(null)];
       dtIds.current = [...mappedDTIds, ...Array(EMPTY_ROWS).fill(null)];
 
-      setOeeData(finalOEE.slice(0, 100));
-      setDtData(finalDT.slice(0, 100));
+      setOeeData(finalOEE);
+      setDtData(finalDT);
 
-      localStorage.setItem('C_DATA_OEE', JSON.stringify(finalOEE.slice(0, 100)));
-      localStorage.setItem('C_DATA_DT', JSON.stringify(finalDT.slice(0, 100)));
+      localStorage.setItem('C_DATA_OEE', JSON.stringify(finalOEE));
+      localStorage.setItem('C_DATA_DT', JSON.stringify(finalDT));
       localStorage.setItem('C_IDS_OEE', JSON.stringify(oeeIds.current));
       localStorage.setItem('C_IDS_DT', JSON.stringify(dtIds.current));
 
