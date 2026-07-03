@@ -5,9 +5,9 @@ import { fetchTodayRejectC, fetchTodayDowntimeC } from '../../../services/api';
 import { Toaster } from 'react-hot-toast';
 
 const TEORI_BATCH = {
-  "25 ML": 29412, "100 ML": 56880, "250 ML": 21509, "500 ML": 23076, "1000 ML": 60194,
+  "100 ML": 56880, "250 ML": 21509, "500 ML": 23076, "1000 ML": 60194,
 };
-const VOLUMES = ["25 ML", "100 ML", "250 ML", "500 ML", "1000 ML"];
+const VOLUMES = ["100 ML", "250 ML", "500 ML", "1000 ML"];
 
 const C = {
   NO_BATCH: 0, TANGGAL: 1, SHIFT: 2, GROUP: 3, REJ_BOTOL: 4, REJ_PREFORM: 5,
@@ -1285,7 +1285,7 @@ export default function InputC() {
         <div className="mb-4 flex items-center justify-between">
           <div>
             <h1 className="text-xl font-black tracking-wider uppercase text-emerald-800 inline-block mr-3">
-              OEE Line 4 — Zone C
+              OEE Line 2 — Zone C
             </h1>
           </div>
         </div>
@@ -1386,7 +1386,7 @@ export default function InputC() {
 
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-xl font-black tracking-wider uppercase text-indigo-800">
-            Downtime Line 4 — Zone C
+            Downtime Line 2 — Zone C
           </h2>
         </div>
 

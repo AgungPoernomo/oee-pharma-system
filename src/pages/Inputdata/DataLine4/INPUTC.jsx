@@ -5,9 +5,9 @@ import { fetchTodayRejectC, fetchTodayDowntimeC } from '../../../services/api';
 import { Toaster } from 'react-hot-toast';
 
 const TEORI_BATCH = {
-  "25 ML": 29412, "100 ML": 56880, "250 ML": 21509, "500 ML": 23076, "1000 ML": 60194,
+  "100 ML": 56880, "250 ML": 21509, "500 ML": 21730, "1000 ML": 60194,
 };
-const VOLUMES = ["25 ML", "100 ML", "250 ML", "500 ML", "1000 ML"];
+const VOLUMES = ["100 ML", "250 ML", "500 ML", "1000 ML"];
 
 const C = {
   NO_BATCH: 0, TANGGAL: 1, SHIFT: 2, GROUP: 3, REJ_BOTOL: 4, REJ_PREFORM: 5,
