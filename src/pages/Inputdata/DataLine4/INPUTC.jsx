@@ -1,11 +1,7 @@
-import React, { useEffect, useRef, useCallback } from 'react';
+import React, { useEffect, useRef, useCallback, useState } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import { fetchTodayRejectC, fetchTodayDowntimeC } from '../../../services/api';
-import toast, { Toaster } from 'react-hot-toast';
-
-import jspreadsheet from 'jspreadsheet-ce';
-import 'jspreadsheet-ce/dist/jspreadsheet.css';
-import 'jsuites/dist/jsuites.css';
+import { Toaster } from 'react-hot-toast';
 
 const TEORI_BATCH = {
   "25 ML": 29412, "100 ML": 56880, "250 ML": 21509, "500 ML": 23076, "1000 ML": 60194,
@@ -42,19 +38,21 @@ const parseToYMD = (val) => {
   try {
     const d = new Date(str);
     if (!isNaN(d.getTime())) return d.toISOString().split('T')[0];
-  } catch (_) { }
+  } catch (err) {
+    void err;
+  }
   return '';
 };
 
 const getEmptyOEE = () => {
-  const arr = Array(52).fill('');
-  arr[C.UTUH] = '';
+  const arr = Array(55).fill('');
+  arr[C.UTUH] = 'Y';
   return arr;
 };
 
 const getEmptyDT = () => {
   const arr = Array(14).fill('');
-  arr[DC.TYPE] = '';
+  arr[DC.TYPE] = 'Unplanned';
   return arr;
 };
 
@@ -88,26 +86,305 @@ const sendAutoSave = async (payload) => {
   }
 };
 
+const UNIT_MAP_C = {
+  'Blowing': ['Conveyor Preform Hijau', 'Hopper Preform', 'Conveyor Hopper Putih', 'Preform Feeding Chute', 'Rotary Preform', 'Minion', 'Supply Hanger', 'Heater Lamp', 'Heating Tube', 'Vertical Punch', 'Servo 1', 'Midstation', 'Servo 2', 'Servo 3', 'Servo 4', 'Neckseal', 'Stretch Servo', 'Bottom Mold', 'Pin Bottom', 'Body Mould - Utara', 'Body Mould - Selatan', 'Molding', 'Overturn', 'Transfer Blow-Fill', 'Supply Chiller', 'Compresor - Highpress (Oilfree)', 'Compresor - Lowpress (Oilless)', 'RH TMS', 'Suhu TMS', 'Supply Preform', 'Trial', 'Blowing-Others', 'Changeover'],
+  'Filling': ['Laserjet', 'Gripper Washing', 'PLC', 'Ionizer', 'Carousel 1', 'Carousel 2', 'Carousel 3', 'Buffer Tank', 'Filling', 'Carousel 4', 'Carousel 5', 'Carousel 6', 'Cap Feeding Chute', 'Sealing', 'Heater', 'Cooling Heater Sealing', 'Wheelcap Ganjil', 'Wheelcap Genap', 'Conveyor Filling', 'Tandonan', 'Gear', 'Compresor-Oilfree', 'Compresor-Oilless', 'Trial', 'CIP/SIP', 'Filling-Others', 'Supply Listrik', 'Line Clearance', 'Break'],
+  'Mixing': ['Supply WFI', 'Tanki D1', 'Tanki D2', 'Filter Produk', 'Mixing Produk', 'CIP/SIP', 'Integrity', 'PLC', 'Trial'],
+  'Autoclave': ['Conveyor', 'Meja A', 'Meja B', 'Lifter A', 'Lifter B', 'Tray kereta', 'Turn table', 'Kereta Anjlok', 'Kereta Habis', 'Jalur penuh', 'Chamber A', 'Chamber B', 'Doorseal', 'Autoclave-Other', 'Pick and Place']
+};
+const ALL_UNITS_C = [...new Set(Object.values(UNIT_MAP_C).flat())];
+
+// Pure calculation functions
+const calculateOEERow = (row) => {
+  const next = [...row];
+  const raw = (c) => next[c] !== null && next[c] !== undefined ? next[c] : '';
+  const v = (c) => {
+    const val = raw(c);
+    return (val === '' || isNaN(val)) ? 0 : parseFloat(val);
+  };
+  const setV = (c, val) => { next[c] = val; };
+  const timeDiff = (sh, sm, eh, em) => {
+    if (raw(sh) === '' && raw(sm) === '' && raw(eh) === '' && raw(em) === '') return '';
+    const diff = (v(eh) * 60 + v(em)) - (v(sh) * 60 + v(sm));
+    return diff < 0 ? diff + 24 * 60 : diff;
+  };
+
+  setV(C.REJ_BLOW, raw(C.REJ_BOTOL) !== '' || raw(C.REJ_PREFORM) !== '' ? v(C.REJ_BOTOL) + v(C.REJ_PREFORM) : '');
+  const sub = v(C.CNT_END) - v(C.CNT_START);
+  setV(C.CNT_SUB, sub > 0 ? sub : '');
+  const cntSub = v(C.CNT_SUB);
+  setV(C.JML_BATCH, cntSub > 0 ? (cntSub / (TEORI_BATCH[raw(C.VOL_BOTOL)] ?? 23076)).toFixed(2) : '');
+  setV(C.SUB_FILL, v(C.WASH) + v(C.VK) + v(C.VL) + v(C.TANPA_CAP_F) + v(C.SEAL_NOK) + v(C.OTHERS_F));
+  setV(C.SUB_SAMPLES, v(C.IPC) + v(C.OTHERS_S));
+  if (cntSub > 0) {
+    const trf = cntSub - (v(C.SUB_FILL) + v(C.SUB_SAMPLES));
+    setV(C.TRF_TO_ST, trf > 0 ? trf : 0);
+    setV(C.TOTAL_KESEL, cntSub);
+    setV(C.YIELD_BATCH, ((trf / cntSub) * 100).toFixed(2));
+    const inputSteril = trf - v(C.REJ_BLOW);
+    setV(C.INPUT_STERIL, inputSteril > 0 ? inputSteril : 0);
+  } else {
+    setV(C.TRF_TO_ST, ''); setV(C.TOTAL_KESEL, ''); setV(C.YIELD_BATCH, ''); setV(C.INPUT_STERIL, '');
+  }
+  setV(C.TOTAL_REJ_BS, v(C.REJ_BOCOR) + v(C.REJ_TANPA_CAP) + v(C.REJ_VOL) + v(C.REJ_THERMO) + v(C.REJ_LAINLAIN));
+  const inputSterilVal = v(C.INPUT_STERIL);
+  setV(C.OUTPUT_CHAMBER, inputSterilVal > 0 ? inputSterilVal - v(C.TOTAL_REJ_BS) : '');
+  setV(C.AT_SUB, timeDiff(C.AT_SH, C.AT_SM, C.AT_EH, C.AT_EM));
+  setV(C.RT_SUB, timeDiff(C.RT_SH, C.RT_SM, C.RT_EH, C.RT_EM));
+  const lc = timeDiff(C.LC_SH, C.LC_SM, C.LC_EH, C.LC_EM);
+  setV(C.LC_SUB, lc);
+  const jmlBatchVal = v(C.JML_BATCH);
+  setV(C.LC_PER_BATCH, (lc !== '' && jmlBatchVal > 0) ? (parseFloat(lc) / jmlBatchVal).toFixed(2) : (lc !== '' ? lc : ''));
+  setV(C.LC_PER_SHIFT, lc);
+
+  return next;
+};
+
+const calculateDTRow = (row) => {
+  const next = [...row];
+  const raw = (c) => next[c] !== null && next[c] !== undefined ? next[c] : '';
+  const v = (c) => {
+    const val = raw(c);
+    return (val === '' || isNaN(val)) ? 0 : parseFloat(val);
+  };
+  if (raw(DC.SH) !== '' && raw(DC.EH) !== '') {
+    const diff = (v(DC.EH) * 60 + v(DC.EM)) - (v(DC.SH) * 60 + v(DC.SM));
+    next[DC.DURASI] = diff < 0 ? diff + 24 * 60 : diff;
+  } else {
+    next[DC.DURASI] = '';
+  }
+  return next;
+};
+
+const OEE_COLS_META = [
+  { title: 'No Batch', width: 110, type: 'text', stickyLeft: 0 },
+  { title: 'Tanggal', width: 130, type: 'date', stickyLeft: 110 },
+  { title: 'Shift', width: 65, type: 'number', stickyLeft: 240 },
+  { title: 'Group', width: 65, type: 'text', stickyLeft: 305 },
+  { title: 'Reject Botol', width: 95, type: 'number' },
+  { title: 'Reject Preform', width: 105, type: 'number' },
+  { title: 'Reject Blow', width: 90, type: 'number', readOnly: true },
+  { title: 'Volume Botol', width: 110, type: 'select', options: VOLUMES },
+  { title: 'Start', width: 80, type: 'number' },
+  { title: 'End', width: 80, type: 'number' },
+  { title: 'Sub Total', width: 85, type: 'number', readOnly: true },
+  { title: 'Utuh?', width: 65, type: 'select', options: ['Y', 'N'] },
+  { title: 'Jumlah Batch', width: 100, type: 'number', readOnly: true },
+  { title: 'Total Cnt/Shift', width: 115, type: 'number', readOnly: true },
+  { title: 'Washing', width: 75, type: 'number' },
+  { title: 'VK', width: 60, type: 'number' },
+  { title: 'VL', width: 60, type: 'number' },
+  { title: 'Tanpa Cap', width: 80, type: 'number' },
+  { title: 'Seal NOT OK', width: 90, type: 'number' },
+  { title: 'Others/Bocor', width: 95, type: 'number' },
+  { title: 'Sub Total Fill-Seal', width: 140, type: 'number', readOnly: true },
+  { title: 'IPC', width: 60, type: 'number' },
+  { title: 'Others', width: 65, type: 'number' },
+  { title: 'Sub Total Samples', width: 135, type: 'number', readOnly: true },
+  { title: 'Transfer to ST', width: 110, type: 'number', readOnly: true },
+  { title: 'Total Keseluruhan', width: 135, type: 'number', readOnly: true },
+  { title: 'Yield/Batch (%)', width: 110, type: 'number', readOnly: true },
+  { title: 'AVG/Shift (%)', width: 110, type: 'number', readOnly: true },
+  { title: 'Input Before Steril', width: 140, type: 'number', readOnly: true },
+  { title: 'Reject Bocor', width: 100, type: 'number' },
+  { title: 'Reject Tanpa Cap', width: 120, type: 'number' },
+  { title: 'Reject Vol', width: 85, type: 'number' },
+  { title: 'Reject Thermo', width: 105, type: 'number' },
+  { title: 'Reject Lain-lain', width: 115, type: 'number' },
+  { title: 'Total Reject BS', width: 120, type: 'number', readOnly: true },
+  { title: 'Output (Chamber)', width: 130, type: 'number', readOnly: true },
+  { title: 'Start (Jam)', width: 80, type: 'number' },
+  { title: 'Start (Menit)', width: 90, type: 'number' },
+  { title: 'End (Jam)', width: 80, type: 'number' },
+  { title: 'End (Menit)', width: 90, type: 'number' },
+  { title: 'Sub Total', width: 85, type: 'number', readOnly: true },
+  { title: 'Total/Shift', width: 95, type: 'number', readOnly: true },
+  { title: 'Start (Jam)', width: 80, type: 'number' },
+  { title: 'Start (Menit)', width: 90, type: 'number' },
+  { title: 'End (Jam)', width: 80, type: 'number' },
+  { title: 'End (Menit)', width: 90, type: 'number' },
+  { title: 'Sub Total', width: 85, type: 'number', readOnly: true },
+  { title: 'Start (Jam)', width: 80, type: 'number' },
+  { title: 'Start (Menit)', width: 90, type: 'number' },
+  { title: 'End (Jam)', width: 80, type: 'number' },
+  { title: 'End (Menit)', width: 90, type: 'number' },
+  { title: 'Sub Total', width: 85, type: 'number', readOnly: true },
+  { title: 'LC/Batch', width: 85, type: 'number', readOnly: true },
+  { title: 'LC/Shift', width: 85, type: 'number', readOnly: true },
+  { title: 'Total Prep', width: 95, type: 'number' },
+];
+
+const DT_COLS_META = [
+  { title: 'Tanggal', width: 130, type: 'date', stickyLeft: 0 },
+  { title: 'Shift', width: 65, type: 'number' },
+  { title: 'Grup', width: 65, type: 'text' },
+  { title: 'No. Batch', width: 120, type: 'text' },
+  { title: 'Start (Jam)', width: 80, type: 'number' },
+  { title: 'Start (Menit)', width: 85, type: 'number' },
+  { title: 'End (Jam)', width: 80, type: 'number' },
+  { title: 'End (Menit)', width: 85, type: 'number' },
+  { title: 'Durasi (menit)', width: 105, type: 'number', readOnly: true },
+  { title: 'Planned / Unplanned', width: 160, type: 'select', options: ['Planned', 'Unplanned'] },
+  { title: 'Root Cause', width: 150, type: 'select', options: ['Production', 'Mechanical', 'Electrical', 'Utility', 'QA', 'QC', 'Warehouse', 'PPIC', 'R&D'] },
+  { title: 'Proses', width: 130, type: 'select', options: ['Blowing', 'Filling', 'Mixing', 'Autoclave'] },
+  { title: 'Unit', width: 180, type: 'select_unit' },
+  { title: 'Kasus', width: 400, type: 'text' },
+];
+
+// Memoized Row Components for high performance
+const OEERow = React.memo(({ rowData, rowIdx, onChange, onKeyDown, onPaste }) => {
+  return (
+    <tr className="hover:bg-emerald-50/40 border-b border-slate-200 text-xs">
+      {OEE_COLS_META.map((col, colIdx) => {
+        const val = rowData[colIdx] ?? '';
+        const isSticky = col.stickyLeft !== undefined;
+        const stickyStyle = isSticky ? { position: 'sticky', left: col.stickyLeft, zIndex: 10 } : {};
+
+        let cellContent;
+        if (col.readOnly) {
+          cellContent = (
+            <div className="w-full h-7 px-2 flex items-center bg-slate-100 text-slate-600 select-none overflow-hidden text-ellipsis whitespace-nowrap">
+              {val}
+            </div>
+          );
+        } else if (col.type === 'select') {
+          cellContent = (
+            <select
+              value={val}
+              onChange={(e) => onChange(rowIdx, colIdx, e.target.value)}
+              onKeyDown={(e) => onKeyDown(e, rowIdx, colIdx, 'oee')}
+              data-grid="oee"
+              data-row={rowIdx}
+              data-col={colIdx}
+              className="w-full h-7 px-1 bg-white border-0 focus:ring-1 focus:ring-emerald-500 text-xs outline-none"
+            >
+              <option value=""></option>
+              {col.options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+            </select>
+          );
+        } else {
+          cellContent = (
+            <input
+              type={col.type === 'date' ? 'date' : 'text'}
+              value={val}
+              onChange={(e) => onChange(rowIdx, colIdx, e.target.value)}
+              onKeyDown={(e) => onKeyDown(e, rowIdx, colIdx, 'oee')}
+              onPaste={(e) => onPaste(e, rowIdx, colIdx, true)}
+              data-grid="oee"
+              data-row={rowIdx}
+              data-col={colIdx}
+              className="w-full h-7 px-2 bg-transparent border-0 focus:ring-1 focus:ring-emerald-500 focus:bg-white text-xs outline-none"
+            />
+          );
+        }
+
+        return (
+          <td
+            key={colIdx}
+            style={{ width: col.width, minWidth: col.width, maxWidth: col.width, ...stickyStyle }}
+            className={`p-0 border-r border-slate-200 ${isSticky ? 'bg-white shadow-[1px_0_0_0_#e2e8f0]' : ''}`}
+          >
+            {cellContent}
+          </td>
+        );
+      })}
+    </tr>
+  );
+});
+
+const DTRow = React.memo(({ rowData, rowIdx, onChange, onKeyDown, onPaste }) => {
+  const prosesValue = rowData[DC.PROSES];
+  const unitOptions = UNIT_MAP_C[prosesValue] || ALL_UNITS_C;
+
+  return (
+    <tr className="hover:bg-indigo-50/40 border-b border-slate-200 text-xs">
+      {DT_COLS_META.map((col, colIdx) => {
+        const val = rowData[colIdx] ?? '';
+        const isSticky = col.stickyLeft !== undefined;
+        const stickyStyle = isSticky ? { position: 'sticky', left: col.stickyLeft, zIndex: 10 } : {};
+
+        let cellContent;
+        if (col.readOnly) {
+          cellContent = (
+            <div className="w-full h-7 px-2 flex items-center bg-slate-100 text-slate-600 select-none overflow-hidden text-ellipsis whitespace-nowrap">
+              {val}
+            </div>
+          );
+        } else if (col.type === 'select') {
+          cellContent = (
+            <select
+              value={val}
+              onChange={(e) => onChange(rowIdx, colIdx, e.target.value)}
+              onKeyDown={(e) => onKeyDown(e, rowIdx, colIdx, 'dt')}
+              data-grid="dt"
+              data-row={rowIdx}
+              data-col={colIdx}
+              className="w-full h-7 px-1 bg-white border-0 focus:ring-1 focus:ring-indigo-500 text-xs outline-none"
+            >
+              <option value=""></option>
+              {col.options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+            </select>
+          );
+        } else if (col.type === 'select_unit') {
+          cellContent = (
+            <select
+              value={val}
+              onChange={(e) => onChange(rowIdx, colIdx, e.target.value)}
+              onKeyDown={(e) => onKeyDown(e, rowIdx, colIdx, 'dt')}
+              data-grid="dt"
+              data-row={rowIdx}
+              data-col={colIdx}
+              className="w-full h-7 px-1 bg-white border-0 focus:ring-1 focus:ring-indigo-500 text-xs outline-none"
+            >
+              <option value=""></option>
+              {unitOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+            </select>
+          );
+        } else {
+          cellContent = (
+            <input
+              type={col.type === 'date' ? 'date' : 'text'}
+              value={val}
+              onChange={(e) => onChange(rowIdx, colIdx, e.target.value)}
+              onKeyDown={(e) => onKeyDown(e, rowIdx, colIdx, 'dt')}
+              onPaste={(e) => onPaste(e, rowIdx, colIdx, false)}
+              data-grid="dt"
+              data-row={rowIdx}
+              data-col={colIdx}
+              className="w-full h-7 px-2 bg-transparent border-0 focus:ring-1 focus:ring-indigo-500 focus:bg-white text-xs outline-none"
+            />
+          );
+        }
+
+        return (
+          <td
+            key={colIdx}
+            style={{ width: col.width, minWidth: col.width, maxWidth: col.width, ...stickyStyle }}
+            className={`p-0 border-r border-slate-200 ${isSticky ? 'bg-white shadow-[1px_0_0_0_#e2e8f0]' : ''}`}
+          >
+            {cellContent}
+          </td>
+        );
+      })}
+    </tr>
+  );
+});
+
 export default function InputC() {
   const { user } = useAuth();
 
-  const oeeTableRef = useRef(null);
-  const dtTableRef = useRef(null);
-  const oeeGrid = useRef(null);
-  const dtGrid = useRef(null);
-  const isCalculating = useRef(false);
+  const [oeeData, setOeeData] = useState(() => getCachedData('C_DATA_OEE', getEmptyOEE, 100));
+  const [dtData, setDtData] = useState(() => getCachedData('C_DATA_DT', getEmptyDT, 100));
 
   const oeeIds = useRef(getCachedIds('C_IDS_OEE'));
   const dtIds = useRef(getCachedIds('C_IDS_DT'));
   const oeeTimers = useRef({});
   const dtTimers = useRef({});
-  const calcTimers = useRef({});
 
-  const triggerAutosaveOEE = (rIdx, sheet) => {
+  const triggerAutosaveOEE = useCallback((rIdx, rowData) => {
     if (oeeTimers.current[rIdx]) clearTimeout(oeeTimers.current[rIdx]);
 
     oeeTimers.current[rIdx] = setTimeout(async () => {
-      const rowData = sheet.getRowData(rIdx);
       if (!rowData[C.NO_BATCH] && !rowData[C.TANGGAL] && !rowData[C.SHIFT]) return;
 
       const payloadData = {
@@ -170,13 +447,12 @@ export default function InputC() {
         localStorage.setItem('C_IDS_OEE', JSON.stringify(oeeIds.current));
       }
     }, 1000);
-  };
+  }, [user]);
 
-  const triggerAutosaveDT = (rIdx, sheet) => {
+  const triggerAutosaveDT = useCallback((rIdx, rowData) => {
     if (dtTimers.current[rIdx]) clearTimeout(dtTimers.current[rIdx]);
 
     dtTimers.current[rIdx] = setTimeout(async () => {
-      const rowData = sheet.getRowData(rIdx);
       if (!rowData[DC.TANGGAL] && !rowData[DC.NO_BATCH]) return;
 
       const payloadData = {
@@ -203,82 +479,85 @@ export default function InputC() {
         localStorage.setItem('C_IDS_DT', JSON.stringify(dtIds.current));
       }
     }, 1000);
-  };
+  }, [user]);
 
-  const runRowCalculations = useCallback((worksheet, row) => {
-    if (isCalculating.current) return;
-    const sheet = worksheet;
+  const handleOEECellChange = useCallback((rowIdx, colIdx, value) => {
+    setOeeData(prev => {
+      const next = [...prev];
+      const targetRow = [...next[rowIdx]];
+      targetRow[colIdx] = value;
+      const calculatedRow = calculateOEERow(targetRow);
+      next[rowIdx] = calculatedRow;
+      triggerAutosaveOEE(rowIdx, calculatedRow);
+      localStorage.setItem('C_DATA_OEE', JSON.stringify(next));
+      return next;
+    });
+  }, [triggerAutosaveOEE]);
 
-    const v = (c) => {
-      const raw = sheet.getValueFromCoords(c, row);
-      return (raw === '' || raw === null || raw === undefined || isNaN(raw)) ? 0 : parseFloat(raw);
-    };
-    const raw = (c) => sheet.getValueFromCoords(c, row) ?? '';
-    const setV = (c, val) => sheet.setValueFromCoords(c, row, val, true);
-    const timeDiff = (sh, sm, eh, em) => {
-      if (raw(sh) === '' && raw(sm) === '' || raw(eh) === '' && raw(em) === '') return '';
-      const diff = (v(eh) * 60 + v(em)) - (v(sh) * 60 + v(sm));
-      return diff < 0 ? diff + 24 * 60 : diff;
-    };
-
-    isCalculating.current = true;
-    try {
-      setV(C.REJ_BLOW, raw(C.REJ_BOTOL) !== '' || raw(C.REJ_PREFORM) !== '' ? v(C.REJ_BOTOL) + v(C.REJ_PREFORM) : '');
-      const sub = v(C.CNT_END) - v(C.CNT_START);
-      setV(C.CNT_SUB, sub > 0 ? sub : '');
-      const cntSub = v(C.CNT_SUB);
-      setV(C.JML_BATCH, cntSub > 0 ? (cntSub / (TEORI_BATCH[raw(C.VOL_BOTOL)] ?? 23076)).toFixed(2) : '');
-      setV(C.SUB_FILL, v(C.WASH) + v(C.VK) + v(C.VL) + v(C.TANPA_CAP_F) + v(C.SEAL_NOK) + v(C.OTHERS_F));
-      setV(C.SUB_SAMPLES, v(C.IPC) + v(C.OTHERS_S));
-      if (cntSub > 0) {
-        const trf = cntSub - (v(C.SUB_FILL) + v(C.SUB_SAMPLES));
-        setV(C.TRF_TO_ST, trf > 0 ? trf : 0);
-        setV(C.TOTAL_KESEL, cntSub);
-        setV(C.YIELD_BATCH, ((trf / cntSub) * 100).toFixed(2));
-        const inputSteril = trf - v(C.REJ_BLOW);
-        setV(C.INPUT_STERIL, inputSteril > 0 ? inputSteril : 0);
-      } else {
-        setV(C.TRF_TO_ST, ''); setV(C.TOTAL_KESEL, ''); setV(C.YIELD_BATCH, ''); setV(C.INPUT_STERIL, '');
+  const handleDTCellChange = useCallback((rowIdx, colIdx, value) => {
+    setDtData(prev => {
+      const next = [...prev];
+      const targetRow = [...next[rowIdx]];
+      targetRow[colIdx] = value;
+      if (colIdx === DC.PROSES) {
+        targetRow[DC.UNIT] = '';
       }
-      setV(C.TOTAL_REJ_BS, v(C.REJ_BOCOR) + v(C.REJ_TANPA_CAP) + v(C.REJ_VOL) + v(C.REJ_THERMO) + v(C.REJ_LAINLAIN));
-      const inputSterilVal = v(C.INPUT_STERIL);
-      setV(C.OUTPUT_CHAMBER, inputSterilVal > 0 ? inputSterilVal - v(C.TOTAL_REJ_BS) : '');
-      setV(C.AT_SUB, timeDiff(C.AT_SH, C.AT_SM, C.AT_EH, C.AT_EM));
-      setV(C.RT_SUB, timeDiff(C.RT_SH, C.RT_SM, C.RT_EH, C.RT_EM));
-      const lc = timeDiff(C.LC_SH, C.LC_SM, C.LC_EH, C.LC_EM);
-      setV(C.LC_SUB, lc);
-      setV(C.LC_PER_BATCH, (lc !== '' && v(C.JML_BATCH) > 0) ? (parseFloat(lc) / v(C.JML_BATCH)).toFixed(2) : (lc !== '' ? lc : ''));
-      setV(C.LC_PER_SHIFT, lc);
-    } finally {
-      isCalculating.current = false;
-      triggerAutosaveOEE(row, sheet);
+      const calculatedRow = calculateDTRow(targetRow);
+      next[rowIdx] = calculatedRow;
+      triggerAutosaveDT(rowIdx, calculatedRow);
+      localStorage.setItem('C_DATA_DT', JSON.stringify(next));
+      return next;
+    });
+  }, [triggerAutosaveDT]);
+
+  const handlePaste = useCallback((e, startRowIdx, startColIdx, isOEE) => {
+    e.preventDefault();
+    const pasteText = e.clipboardData.getData('text');
+    if (!pasteText) return;
+
+    const rows = pasteText.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+    if (rows[rows.length - 1] === '') rows.pop();
+
+    const setData = isOEE ? setOeeData : setDtData;
+    const calcRow = isOEE ? calculateOEERow : calculateDTRow;
+    const triggerSave = isOEE ? triggerAutosaveOEE : triggerAutosaveDT;
+    const maxCols = isOEE ? 55 : 14;
+
+    setData(prevData => {
+      const nextData = [...prevData];
+      rows.forEach((rowStr, rOffset) => {
+        const targetRowIdx = startRowIdx + rOffset;
+        if (targetRowIdx >= nextData.length) return;
+
+        const cells = rowStr.split('\t');
+        const targetRow = [...nextData[targetRowIdx]];
+
+        cells.forEach((cellVal, cOffset) => {
+          const targetColIdx = startColIdx + cOffset;
+          if (targetColIdx >= maxCols) return;
+          targetRow[targetColIdx] = cellVal.trim();
+        });
+
+        const calculatedRow = calcRow(targetRow);
+        nextData[targetRowIdx] = calculatedRow;
+        triggerSave(targetRowIdx, calculatedRow);
+      });
+
+      localStorage.setItem(isOEE ? 'C_DATA_OEE' : 'C_DATA_DT', JSON.stringify(nextData));
+      return nextData;
+    });
+  }, [triggerAutosaveOEE, triggerAutosaveDT]);
+
+  const handleKeyDown = useCallback((e, rowIdx, colIdx, gridType) => {
+    if (['ArrowDown', 'ArrowUp', 'Enter'].includes(e.key)) {
+      e.preventDefault();
+      let nextRow = rowIdx;
+      if (e.key === 'ArrowDown' || e.key === 'Enter') nextRow += 1;
+      if (e.key === 'ArrowUp') nextRow = Math.max(0, rowIdx - 1);
+
+      const nextElem = document.querySelector(`[data-grid="${gridType}"][data-row="${nextRow}"][data-col="${colIdx}"]`);
+      if (nextElem) nextElem.focus();
     }
-  }, []);
-
-  const handleOEEChange = useCallback((worksheet, _cell, _cStr, rStr, _value) => {
-    if (isCalculating.current) return;
-    const row = parseInt(rStr);
-    if (calcTimers.current[row]) clearTimeout(calcTimers.current[row]);
-    calcTimers.current[row] = setTimeout(() => {
-      runRowCalculations(worksheet, row);
-    }, 30);
-  }, [runRowCalculations]);
-
-  const handleDTChange = useCallback((worksheet, _cell, cStr, rStr, _value) => {
-    const col = parseInt(cStr); const row = parseInt(rStr); const sheet = worksheet;
-    if (calcTimers.current['dt_' + row]) clearTimeout(calcTimers.current['dt_' + row]);
-    calcTimers.current['dt_' + row] = setTimeout(() => {
-      if (col >= DC.SH && col <= DC.EM) {
-        const getRaw = (c) => sheet.getValueFromCoords(c, row) ?? '';
-        const getNum = (c) => parseFloat(getRaw(c)) || 0;
-        if (getRaw(DC.SH) !== '' && getRaw(DC.EH) !== '') {
-          const diff = (getNum(DC.EH) * 60 + getNum(DC.EM)) - (getNum(DC.SH) * 60 + getNum(DC.SM));
-          sheet.setValueFromCoords(DC.DURASI, row, diff < 0 ? diff + 24 * 60 : diff, true);
-        }
-      }
-      if (col === DC.PROSES) sheet.setValueFromCoords(DC.UNIT, row, '', true);
-      triggerAutosaveDT(row, sheet);
-    }, 30);
   }, []);
 
   const loadDataServer = useCallback(async () => {
@@ -294,7 +573,7 @@ export default function InputC() {
       if (resOEE?.status === 'success' && Array.isArray(resOEE.data)) {
         mappedOEE = [...resOEE.data].reverse().map((row) => {
           mappedOEEIds.push(row.id);
-          return [
+          const r = [
             row.no_batch ?? '', parseToYMD(row.tanggal), row.shift ?? '', row.group ?? '', row.reject_botol ?? '', row.reject_preform ?? '',
             row.reject_blow ?? '', row.volume_botol ?? '', row.cnt_start ?? '', row.cnt_end ?? '', row.cnt_sub ?? '', row.utuh ?? 'Y',
             row.jml_batch ?? '', '', row.r_washing ?? '', row.r_vk ?? '', row.r_vl ?? '', row.r_nocap ?? '',
@@ -305,6 +584,7 @@ export default function InputC() {
             row.run_sh ?? '', row.run_sm ?? '', row.run_eh ?? '', row.run_em ?? '', row.run_sub ?? '', row.lc_sh ?? '',
             row.lc_sm ?? '', row.lc_eh ?? '', row.lc_em ?? '', row.lc_sub ?? '', '', '', ''
           ];
+          return calculateOEERow(r);
         });
       }
 
@@ -313,11 +593,12 @@ export default function InputC() {
       if (resDT?.status === 'success' && Array.isArray(resDT.data)) {
         mappedDT = [...resDT.data].reverse().map((row) => {
           mappedDTIds.push(row.id);
-          return [
+          const r = [
             parseToYMD(row.tanggal), row.shift ?? '', row.group ?? '', row.no_batch ?? '', row.start_h ?? '', row.start_m ?? '',
             row.end_h ?? '', row.end_m ?? '', row.duration ?? '', row.plan_unplan ?? 'Unplanned', row.root_cause ?? '', row.proses ?? '',
             row.unit ?? '', row.kasus ?? ''
           ];
+          return calculateDTRow(r);
         });
       }
 
@@ -325,14 +606,14 @@ export default function InputC() {
       const finalOEE = [...mappedOEE, ...Array.from({ length: EMPTY_ROWS }, getEmptyOEE)];
       const finalDT = [...mappedDT, ...Array.from({ length: EMPTY_ROWS }, getEmptyDT)];
 
-      if (oeeIds && oeeIds.current) oeeIds.current = [...mappedOEEIds, ...Array(EMPTY_ROWS).fill(null)];
-      if (dtIds && dtIds.current) dtIds.current = [...mappedDTIds, ...Array(EMPTY_ROWS).fill(null)];
+      oeeIds.current = [...mappedOEEIds, ...Array(EMPTY_ROWS).fill(null)];
+      dtIds.current = [...mappedDTIds, ...Array(EMPTY_ROWS).fill(null)];
 
-      if (oeeGrid.current?.[0]) oeeGrid.current[0].setData(finalOEE);
-      if (dtGrid.current?.[0]) dtGrid.current[0].setData(finalDT);
+      setOeeData(finalOEE.slice(0, 100));
+      setDtData(finalDT.slice(0, 100));
 
-      localStorage.setItem('C_DATA_OEE', JSON.stringify(finalOEE));
-      localStorage.setItem('C_DATA_DT', JSON.stringify(finalDT));
+      localStorage.setItem('C_DATA_OEE', JSON.stringify(finalOEE.slice(0, 100)));
+      localStorage.setItem('C_DATA_DT', JSON.stringify(finalDT.slice(0, 100)));
       localStorage.setItem('C_IDS_OEE', JSON.stringify(oeeIds.current));
       localStorage.setItem('C_IDS_DT', JSON.stringify(dtIds.current));
 
@@ -341,196 +622,136 @@ export default function InputC() {
     }
   }, [user]);
 
-  const UNIT_MAP_C = {
-    'Blowing': ['Conveyor Preform Hijau', 'Hopper Preform', 'Conveyor Hopper Putih', 'Preform Feeding Chute', 'Rotary Preform', 'Minion', 'Supply Hanger', 'Heater Lamp', 'Heating Tube', 'Vertical Punch', 'Servo 1', 'Midstation', 'Servo 2', 'Servo 3', 'Servo 4', 'Neckseal', 'Stretch Servo', 'Bottom Mold', 'Pin Bottom', 'Body Mould - Utara', 'Body Mould - Selatan', 'Molding', 'Overturn', 'Transfer Blow-Fill', 'Supply Chiller', 'Compresor - Highpress (Oilfree)', 'Compresor - Lowpress (Oilless)', 'RH TMS', 'Suhu TMS', 'Supply Preform', 'Trial', 'Blowing-Others', 'Changeover'],
-    'Filling': ['Laserjet', 'Gripper Washing', 'PLC', 'Ionizer', 'Carousel 1', 'Carousel 2', 'Carousel 3', 'Buffer Tank', 'Filling', 'Carousel 4', 'Carousel 5', 'Carousel 6', 'Cap Feeding Chute', 'Sealing', 'Heater', 'Cooling Heater Sealing', 'Wheelcap Ganjil', 'Wheelcap Genap', 'Conveyor Filling', 'Tandonan', 'Gear', 'Compresor-Oilfree', 'Compresor-Oilless', 'Trial', 'CIP/SIP', 'Filling-Others', 'Supply Listrik', 'Line Clearance', 'Break'],
-    'Mixing': ['Supply WFI', 'Tanki D1', 'Tanki D2', 'Filter Produk', 'Mixing Produk', 'CIP/SIP', 'Integrity', 'PLC', 'Trial'],
-    'Autoclave': ['Conveyor', 'Meja A', 'Meja B', 'Lifter A', 'Lifter B', 'Tray kereta', 'Turn table', 'Kereta Anjlok', 'Kereta Habis', 'Jalur penuh', 'Chamber A', 'Chamber B', 'Doorseal', 'Autoclave-Other', 'Pick and Place']
-  };
-  const ALL_UNITS_C = [...new Set(Object.values(UNIT_MAP_C).flat())];
-
   useEffect(() => {
-    const initialOEE = getCachedData('C_DATA_OEE', getEmptyOEE, 100);
-    const initialDT = getCachedData('C_DATA_DT', getEmptyDT, 100);
-
-    if (oeeTableRef.current) {
-      oeeTableRef.current.innerHTML = '';
-      oeeGrid.current = jspreadsheet(oeeTableRef.current, {
-        worksheets: [{
-          data: initialOEE,
-          columns: [
-            { type: 'text', title: 'No Batch', width: 100 },
-            { type: 'calendar', title: 'Tanggal', width: 110, options: { format: 'YYYY-MM-DD' } },
-            { type: 'numeric', title: 'Shift', width: 60, },
-            { type: 'text', title: 'Group', width: 60, },
-            { type: 'numeric', title: 'Reject Botol', width: 95 },
-            { type: 'numeric', title: 'Reject Preform', width: 105 },
-            { type: 'numeric', title: 'Reject Blow', width: 90, readOnly: true },
-            { type: 'dropdown', title: 'Volume Botol', width: 100, source: VOLUMES },
-            { type: 'numeric', title: 'Start', width: 80, },
-            { type: 'numeric', title: 'End', width: 80 },
-            { type: 'numeric', title: 'Sub Total', width: 85, readOnly: true },
-            { type: 'dropdown', title: 'Utuh?', width: 60, source: ['Y', 'N'] },
-            { type: 'numeric', title: 'Jumlah Batch', width: 100, readOnly: true },
-            { type: 'numeric', title: 'Total Cnt/Shift', width: 115, readOnly: true },
-            { type: 'numeric', title: 'Washing', width: 75 },
-            { type: 'numeric', title: 'VK', width: 60 },
-            { type: 'numeric', title: 'VL', width: 60 },
-            { type: 'numeric', title: 'Tanpa Cap', width: 80 },
-            { type: 'numeric', title: 'Seal NOT OK', width: 90 },
-            { type: 'numeric', title: 'Others/Bocor', width: 90 },
-            { type: 'numeric', title: 'Sub Total Fill-Seal', width: 140, readOnly: true },
-            { type: 'numeric', title: 'IPC', width: 60 },
-            { type: 'numeric', title: 'Others', width: 65 },
-            { type: 'numeric', title: 'Sub Total Samples', width: 135, readOnly: true },
-            { type: 'numeric', title: 'Transfer to ST', width: 105, readOnly: true },
-            { type: 'numeric', title: 'Total Keseluruhan', width: 135, readOnly: true },
-            { type: 'numeric', title: 'Yield/Batch (%)', width: 100, readOnly: true },
-            { type: 'numeric', title: 'AVG/Shift (%)', width: 100, readOnly: true },
-            { type: 'numeric', title: 'Input Before Steril', width: 135, readOnly: true },
-            { type: 'numeric', title: 'Reject Bocor', width: 100 },
-            { type: 'numeric', title: 'Reject Tanpa Cap', width: 120 },
-            { type: 'numeric', title: 'Reject Vol', width: 85 },
-            { type: 'numeric', title: 'Reject Thermo', width: 105 },
-            { type: 'numeric', title: 'Reject Lain-lain', width: 115 },
-            { type: 'numeric', title: 'Total Reject BS', width: 115, readOnly: true },
-            { type: 'numeric', title: 'Output (Chamber)', width: 125, readOnly: true },
-            { type: 'numeric', title: 'Start (Jam)', width: 80 },
-            { type: 'numeric', title: 'Start (Menit)', width: 90 },
-            { type: 'numeric', title: 'End (Jam)', width: 80 },
-            { type: 'numeric', title: 'End (Menit)', width: 90 },
-            { type: 'numeric', title: 'Sub Total', width: 80, readOnly: true },
-            { type: 'numeric', title: 'Total/Shift', width: 95, readOnly: true },
-            { type: 'numeric', title: 'Start (Jam)', width: 80 },
-            { type: 'numeric', title: 'Start (Menit)', width: 90 },
-            { type: 'numeric', title: 'End (Jam)', width: 80 },
-            { type: 'numeric', title: 'End (Menit)', width: 90 },
-            { type: 'numeric', title: 'Sub Total', width: 80, readOnly: true },
-            { type: 'numeric', title: 'Start (Jam)', width: 80 },
-            { type: 'numeric', title: 'Start (Menit)', width: 90 },
-            { type: 'numeric', title: 'End (Jam)', width: 80 },
-            { type: 'numeric', title: 'End (Menit)', width: 90 },
-            { type: 'numeric', title: 'Sub Total', width: 80, readOnly: true },
-          ],
-          nestedHeaders: [
-            [
-              { title: '', colspan: 8 },
-              { title: 'Counter Filling', colspan: 6 },
-              { title: 'Rejection Filling', colspan: 7 },
-              { title: 'Samples', colspan: 3 },
-              { title: 'Hasil Baik', colspan: 2 },
-              { title: '% Yield', colspan: 2 },
-              { title: 'Reject Before Steril', colspan: 8 },
-              { title: 'Available Time', colspan: 6 },
-              { title: 'Run Time', colspan: 5 },
-              { title: 'Line Clearance', colspan: 5 },
-              { title: '', colspan: 1 },
-            ],
-            [
-              { title: '', colspan: 8 },
-              { title: 'Per Cycle Batch', colspan: 3 },
-              { title: '', colspan: 3 },
-              { title: 'Washing', colspan: 1 },
-              { title: 'Filling', colspan: 2 },
-              { title: 'Sealing', colspan: 2 },
-              { title: '', colspan: 2 },
-              { title: 'Botol', colspan: 2 },
-              { title: '', colspan: 1 },
-              { title: 'Transfer to ST', colspan: 2 },
-              { title: '', colspan: 2 },
-              { title: '', colspan: 1 },
-              { title: 'Reject Before Steril', colspan: 6 },
-              { title: '', colspan: 1 },
-              { title: '', colspan: 6 },
-              { title: 'Filling', colspan: 5 },
-              { title: 'CIP Minor', colspan: 5 },
-            ],
-          ],
-          freezeColumns: 4,
-          cellAlignment: 'left',
-          tableOverflow: true,
-          tableWidth: '100%',
-          tableHeight: '700px',
-        }],
-        onchange: handleOEEChange,
-      });
-    }
-
-    if (dtTableRef.current) {
-      dtTableRef.current.innerHTML = '';
-      dtGrid.current = jspreadsheet(dtTableRef.current, {
-        worksheets: [{
-          data: initialDT,
-          columns: [
-            { type: 'calendar', title: 'Tanggal', width: 110, options: { format: 'YYYY-MM-DD' } },
-            { type: 'numeric', title: 'Shift', width: 60, },
-            { type: 'text', title: 'Grup', width: 60, },
-            { type: 'text', title: 'No. Batch', width: 120 },
-            { type: 'numeric', title: 'Start (Jam)', width: 70 },
-            { type: 'numeric', title: 'Start (Menit)', width: 80 },
-            { type: 'numeric', title: 'End (Jam)', width: 70 },
-            { type: 'numeric', title: 'End (Menit)', width: 80 },
-            { type: 'numeric', title: 'Durasi (menit)', width: 90, readOnly: true },
-            { type: 'dropdown', title: 'Planned / Unplanned', width: 150, source: ['Planned', 'Unplanned'] },
-            { type: 'dropdown', title: 'Root Cause', width: 150, source: ['Production', 'Mechanical', 'Electrical', 'Utility', 'QA', 'QC', 'Warehouse', 'PPIC', 'R&D'] },
-            { type: 'dropdown', title: 'Proses', width: 120, source: ['Blowing', 'Filling', 'Mixing', 'Autoclave'] },
-            {
-              type: 'dropdown',
-              title: 'Unit',
-              width: 120,
-              source: ALL_UNITS_C,
-              filter: function (instance, cell, c, r, source) {
-                let sheet = dtGrid.current[0];
-                let prosesValue = sheet.getValueFromCoords(11, r);
-                return UNIT_MAP_C[prosesValue] || [];
-              }
-            },
-            { type: 'text', title: 'Kasus', align: 'left', width: 800, },
-          ],
-          freezeColumns: 1,
-          tableOverflow: true,
-          tableWidth: '100%',
-          tableHeight: '700px',
-        }],
-        onchange: handleDTChange,
-      });
-    }
-
-    loadDataServer();
-
-    return () => {
-      try {
-        if (oeeTableRef.current) jspreadsheet.destroy(oeeTableRef.current, true);
-        if (dtTableRef.current) jspreadsheet.destroy(dtTableRef.current, true);
-      } catch (e) { console.error('Destroy error', e); }
-      if (oeeTableRef.current) oeeTableRef.current.innerHTML = '';
-      if (dtTableRef.current) dtTableRef.current.innerHTML = '';
-      oeeGrid.current = null;
-      dtGrid.current = null;
-    };
-  }, [user, handleOEEChange, handleDTChange, loadDataServer]);
+    const timer = setTimeout(() => {
+      void loadDataServer();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [loadDataServer]);
 
   return (
-    <div className="min-h-screen bg-slate-50 p-8 text-slate-800 font-sans">
+    <div className="min-h-screen bg-slate-50 p-6 text-slate-800 font-sans">
       <Toaster position="bottom-right" />
       <div className="max-w-full mx-auto">
 
-        <div className="mb-4">
-          <h1 className="text-2xl font-black tracking-wider uppercase text-emerald-800">
-            OEE Line 4 — Zone C
+        <div className="mb-4 flex items-center justify-between">
+          <h1 className="text-xl font-black tracking-wider uppercase text-emerald-800">
+            OEE Line 4 — Zone C (Native Grid)
           </h1>
-        </div>
-        <div className="bg-white border-2 border-slate-300 shadow-xl mb-12 rounded overflow-hidden p-1">
-          <div ref={oeeTableRef} />
+          <span className="text-xs bg-emerald-100 text-emerald-800 px-3 py-1 rounded-full font-bold">
+            ⚡ HTML Fast Grid Enabled
+          </span>
         </div>
 
-        <div className="mb-4">
-          <h2 className="text-2xl font-black tracking-wider uppercase text-indigo-800">
-            Downtime Line 4 — Zone C
+        <div className="bg-white border border-slate-300 shadow-lg mb-10 rounded overflow-hidden">
+          <div className="overflow-x-auto max-h-[680px]">
+            <table className="border-collapse w-full text-left table-fixed">
+              <thead className="bg-slate-800 text-white text-[11px] uppercase tracking-wider font-bold sticky top-0 z-20">
+                <tr className="border-b border-slate-700 text-center divide-x divide-slate-700">
+                  <th colSpan="8" className="py-2 bg-slate-800 sticky left-0 z-30">General Info</th>
+                  <th colSpan="6" className="py-2 bg-emerald-900">Counter Filling</th>
+                  <th colSpan="7" className="py-2 bg-slate-800">Rejection Filling</th>
+                  <th colSpan="3" className="py-2 bg-slate-800">Samples</th>
+                  <th colSpan="2" className="py-2 bg-emerald-900">Hasil Baik</th>
+                  <th colSpan="2" className="py-2 bg-slate-800">% Yield</th>
+                  <th colSpan="8" className="py-2 bg-red-950">Reject Before Steril</th>
+                  <th colSpan="6" className="py-2 bg-blue-950">Available Time</th>
+                  <th colSpan="5" className="py-2 bg-indigo-950">Run Time</th>
+                  <th colSpan="5" className="py-2 bg-purple-950">Line Clearance</th>
+                  <th colSpan="1" className="py-2 bg-slate-800">Prep</th>
+                </tr>
+                <tr className="border-b border-slate-700 text-center divide-x divide-slate-700 bg-slate-700/80">
+                  <th colSpan="8" className="py-1 bg-slate-800 sticky left-0 z-30"></th>
+                  <th colSpan="3" className="py-1">Per Cycle Batch</th>
+                  <th colSpan="3" className="py-1"></th>
+                  <th colSpan="1" className="py-1">Washing</th>
+                  <th colSpan="2" className="py-1">Filling</th>
+                  <th colSpan="2" className="py-1">Sealing</th>
+                  <th colSpan="2" className="py-1"></th>
+                  <th colSpan="2" className="py-1">Botol</th>
+                  <th colSpan="1" className="py-1"></th>
+                  <th colSpan="2" className="py-1">Transfer to ST</th>
+                  <th colSpan="2" className="py-1"></th>
+                  <th colSpan="1" className="py-1"></th>
+                  <th colSpan="6" className="py-1">Reject Before Steril</th>
+                  <th colSpan="1" className="py-1"></th>
+                  <th colSpan="6" className="py-1"></th>
+                  <th colSpan="5" className="py-1">Filling</th>
+                  <th colSpan="5" className="py-1">CIP Minor</th>
+                  <th colSpan="1" className="py-1"></th>
+                </tr>
+                <tr className="border-b border-slate-700 text-center divide-x divide-slate-700 bg-slate-900">
+                  {OEE_COLS_META.map((col, idx) => {
+                    const isSticky = col.stickyLeft !== undefined;
+                    const stickyStyle = isSticky ? { position: 'sticky', left: col.stickyLeft, zIndex: 30 } : {};
+                    return (
+                      <th
+                        key={idx}
+                        style={{ width: col.width, minWidth: col.width, maxWidth: col.width, ...stickyStyle }}
+                        className={`py-2 px-1 overflow-hidden text-ellipsis whitespace-nowrap ${isSticky ? 'bg-slate-900 shadow-[1px_0_0_0_#334155]' : ''}`}
+                      >
+                        {col.title}
+                      </th>
+                    );
+                  })}
+                </tr>
+              </thead>
+              <tbody>
+                {oeeData.map((row, rowIdx) => (
+                  <OEERow
+                    key={rowIdx}
+                    rowData={row}
+                    rowIdx={rowIdx}
+                    onChange={handleOEECellChange}
+                    onKeyDown={handleKeyDown}
+                    onPaste={handlePaste}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-xl font-black tracking-wider uppercase text-indigo-800">
+            Downtime Line 4 — Zone C (Native Grid)
           </h2>
         </div>
-        <div className="bg-white border-2 border-slate-300 shadow-xl rounded overflow-hidden p-1 mb-10">
-          <div ref={dtTableRef} />
+
+        <div className="bg-white border border-slate-300 shadow-lg rounded overflow-hidden mb-12">
+          <div className="overflow-x-auto max-h-[500px]">
+            <table className="border-collapse w-full text-left table-fixed">
+              <thead className="bg-indigo-950 text-white text-[11px] uppercase tracking-wider font-bold sticky top-0 z-20">
+                <tr className="border-b border-indigo-900 text-center divide-x divide-indigo-900">
+                  {DT_COLS_META.map((col, idx) => {
+                    const isSticky = col.stickyLeft !== undefined;
+                    const stickyStyle = isSticky ? { position: 'sticky', left: col.stickyLeft, zIndex: 30 } : {};
+                    return (
+                      <th
+                        key={idx}
+                        style={{ width: col.width, minWidth: col.width, maxWidth: col.width, ...stickyStyle }}
+                        className={`py-2.5 px-2 overflow-hidden text-ellipsis whitespace-nowrap ${isSticky ? 'bg-indigo-950 shadow-[1px_0_0_0_#312e81]' : ''}`}
+                      >
+                        {col.title}
+                      </th>
+                    );
+                  })}
+                </tr>
+              </thead>
+              <tbody>
+                {dtData.map((row, rowIdx) => (
+                  <DTRow
+                    key={rowIdx}
+                    rowData={row}
+                    rowIdx={rowIdx}
+                    onChange={handleDTCellChange}
+                    onKeyDown={handleKeyDown}
+                    onPaste={handlePaste}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
 
       </div>
