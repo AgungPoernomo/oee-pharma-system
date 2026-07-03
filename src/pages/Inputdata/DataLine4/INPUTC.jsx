@@ -492,6 +492,7 @@ const SpreadsheetRow = React.memo(({
         const selectionRing = isSelected && !isEditing ? (gridType === 'oee' ? 'ring-1 ring-emerald-500 ring-inset' : 'ring-1 ring-indigo-500 ring-inset') : '';
 
         const initVal = (isEditing && editingInitialValue !== undefined) ? editingInitialValue : val;
+        const relativeClass = (isFillHandleCorner || isEditing) ? 'relative' : '';
 
         return (
           <td
@@ -499,7 +500,7 @@ const SpreadsheetRow = React.memo(({
             data-row={rowIdx}
             data-col={colIdx}
             style={{ width: col.width, minWidth: col.width, maxWidth: col.width, ...stickyStyle }}
-            className={`p-0 border-r border-slate-200 align-middle select-none relative ${bgClass} ${borderSticky} ${selectionRing}`}
+            className={`p-0 border-r border-slate-200 align-middle select-none ${relativeClass} ${bgClass} ${borderSticky} ${selectionRing}`}
             onMouseDown={(e) => onCellMouseDown(e, rowIdx, colIdx, gridType)}
             onMouseEnter={() => onCellMouseEnter(rowIdx, colIdx, gridType)}
             onDoubleClick={() => !col.readOnly && onCellDoubleClick(rowIdx, colIdx, gridType)}
@@ -571,6 +572,21 @@ const SpreadsheetRow = React.memo(({
       })}
     </tr>
   );
+}, (prev, next) => {
+  if (prev.rowData !== next.rowData) return false;
+  if (prev.isSelectedRow !== next.isSelectedRow) return false;
+  if (prev.editingColIdx !== next.editingColIdx) return false;
+  if (prev.editMode !== next.editMode) return false;
+  if (prev.editingInitialValue !== next.editingInitialValue) return false;
+
+  // Only check selection columns if THIS row is currently selected or was previously selected!
+  // If it's not selected in either render, we don't care about the selection boundaries changing.
+  if (prev.isSelectedRow || next.isSelectedRow) {
+    if (prev.selectionMinCol !== next.selectionMinCol) return false;
+    if (prev.selectionMaxCol !== next.selectionMaxCol) return false;
+    if (prev.selectionMaxRow !== next.selectionMaxRow) return false;
+  }
+  return true;
 });
 
 export default function InputC() {
@@ -807,63 +823,65 @@ export default function InputC() {
   }, []);
 
   const handleFinishEdit = useCallback((rowIdx, colIdx, value, gridType, moveKey) => {
-    if (gridType === 'oee') {
-      setOeeEditingCell(null);
-      setOeeData(prev => {
-        const next = [...prev];
-        const targetRow = [...next[rowIdx]];
-        if (targetRow[colIdx] !== value) {
-          pushHistory('oee', prev);
-          targetRow[colIdx] = value;
-          const calculatedRow = calculateOEERow(targetRow);
-          next[rowIdx] = calculatedRow;
-          triggerAutosaveOEE(rowIdx, calculatedRow);
-          setTimeout(() => localStorage.setItem('C_DATA_OEE', JSON.stringify(next)), 0);
-        }
-        return next;
-      });
-      let nextR = rowIdx;
-      let nextC = colIdx;
-      const maxR = oeeData.length - 1;
-      if (moveKey === 'Enter' || moveKey === 'ArrowDown') nextR = Math.min(maxR, rowIdx + 1);
-      else if (moveKey === 'ArrowUp') nextR = Math.max(0, rowIdx - 1);
-      else if (moveKey === 'Tab' || moveKey === 'ArrowRight') nextC = Math.min(51, colIdx + 1);
-      else if (moveKey === 'ArrowLeft') nextC = Math.max(0, colIdx - 1);
+    setTimeout(() => {
+      if (gridType === 'oee') {
+        setOeeEditingCell(null);
+        setOeeData(prev => {
+          const next = [...prev];
+          const targetRow = [...next[rowIdx]];
+          if (targetRow[colIdx] !== value) {
+            pushHistory('oee', prev);
+            targetRow[colIdx] = value;
+            const calculatedRow = calculateOEERow(targetRow);
+            next[rowIdx] = calculatedRow;
+            triggerAutosaveOEE(rowIdx, calculatedRow);
+            setTimeout(() => localStorage.setItem('C_DATA_OEE', JSON.stringify(next)), 0);
+          }
+          return next;
+        });
+        let nextR = rowIdx;
+        let nextC = colIdx;
+        const maxR = oeeData.length - 1;
+        if (moveKey === 'Enter' || moveKey === 'ArrowDown') nextR = Math.min(maxR, rowIdx + 1);
+        else if (moveKey === 'ArrowUp') nextR = Math.max(0, rowIdx - 1);
+        else if (moveKey === 'Tab' || moveKey === 'ArrowRight') nextC = Math.min(51, colIdx + 1);
+        else if (moveKey === 'ArrowLeft') nextC = Math.max(0, colIdx - 1);
 
-      if (moveKey) {
-        setOeeSelection({ startRow: nextR, startCol: nextC, endRow: nextR, endCol: nextC });
-      }
-      if (oeeGridRef.current) oeeGridRef.current.focus();
-    } else {
-      setDtEditingCell(null);
-      setDtData(prev => {
-        const next = [...prev];
-        const targetRow = [...next[rowIdx]];
-        if (targetRow[colIdx] !== value) {
-          pushHistory('dt', prev);
-          targetRow[colIdx] = value;
-          if (colIdx === DC.PROSES) targetRow[DC.UNIT] = '';
-          const calculatedRow = calculateDTRow(targetRow);
-          next[rowIdx] = calculatedRow;
-          triggerAutosaveDT(rowIdx, calculatedRow);
-          setTimeout(() => localStorage.setItem('C_DATA_DT', JSON.stringify(next)), 0);
+        if (moveKey) {
+          setOeeSelection({ startRow: nextR, startCol: nextC, endRow: nextR, endCol: nextC });
         }
-        return next;
-      });
-      let nextR = rowIdx;
-      let nextC = colIdx;
-      const maxR = dtData.length - 1;
-      if (moveKey === 'Enter' || moveKey === 'ArrowDown') nextR = Math.min(maxR, rowIdx + 1);
-      else if (moveKey === 'ArrowUp') nextR = Math.max(0, rowIdx - 1);
-      else if (moveKey === 'Tab' || moveKey === 'ArrowRight') nextC = Math.min(13, colIdx + 1);
-      else if (moveKey === 'ArrowLeft') nextC = Math.max(0, colIdx - 1);
+        if (oeeGridRef.current) oeeGridRef.current.focus();
+      } else {
+        setDtEditingCell(null);
+        setDtData(prev => {
+          const next = [...prev];
+          const targetRow = [...next[rowIdx]];
+          if (targetRow[colIdx] !== value) {
+            pushHistory('dt', prev);
+            targetRow[colIdx] = value;
+            if (colIdx === DC.PROSES) targetRow[DC.UNIT] = '';
+            const calculatedRow = calculateDTRow(targetRow);
+            next[rowIdx] = calculatedRow;
+            triggerAutosaveDT(rowIdx, calculatedRow);
+            setTimeout(() => localStorage.setItem('C_DATA_DT', JSON.stringify(next)), 0);
+          }
+          return next;
+        });
+        let nextR = rowIdx;
+        let nextC = colIdx;
+        const maxR = dtData.length - 1;
+        if (moveKey === 'Enter' || moveKey === 'ArrowDown') nextR = Math.min(maxR, rowIdx + 1);
+        else if (moveKey === 'ArrowUp') nextR = Math.max(0, rowIdx - 1);
+        else if (moveKey === 'Tab' || moveKey === 'ArrowRight') nextC = Math.min(13, colIdx + 1);
+        else if (moveKey === 'ArrowLeft') nextC = Math.max(0, colIdx - 1);
 
-      if (moveKey) {
-        setDtSelection({ startRow: nextR, startCol: nextC, endRow: nextR, endCol: nextC });
+        if (moveKey) {
+          setDtSelection({ startRow: nextR, startCol: nextC, endRow: nextR, endCol: nextC });
+        }
+        if (dtGridRef.current) dtGridRef.current.focus();
       }
-      if (dtGridRef.current) dtGridRef.current.focus();
-    }
-  }, [triggerAutosaveOEE, triggerAutosaveDT, pushHistory, oeeData.length, dtData.length]);
+    }, 0);
+  }, [oeeData.length, dtData.length, triggerAutosaveOEE, triggerAutosaveDT, pushHistory]);
 
   const handleCancelEdit = useCallback(() => {
     setOeeEditingCell(null);
@@ -919,14 +937,14 @@ export default function InputC() {
       }
 
       if (e.shiftKey && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
-        setSel({ startRow, startCol, endRow: nextR, endCol: nextC });
+        setTimeout(() => setSel({ startRow, startCol, endRow: nextR, endCol: nextC }), 0);
       } else {
-        setSel({ startRow: nextR, startCol: nextC, endRow: nextR, endCol: nextC });
+        setTimeout(() => setSel({ startRow: nextR, startCol: nextC, endRow: nextR, endCol: nextC }), 0);
       }
     } else if (e.key === 'Enter' || e.key === 'F2') {
       e.preventDefault();
       if (!colsMeta[activeCol].readOnly) {
-        setEditing({ row: activeRow, col: activeCol, mode: 'enter' });
+        setTimeout(() => setEditing({ row: activeRow, col: activeCol, mode: 'enter' }), 0);
       }
     } else if (e.key === 'Backspace' || e.key === 'Delete') {
       e.preventDefault();
@@ -939,35 +957,38 @@ export default function InputC() {
       const calcRow = gridType === 'oee' ? calculateOEERow : calculateDTRow;
       const triggerSave = gridType === 'oee' ? triggerAutosaveOEE : triggerAutosaveDT;
 
-      setData(prev => {
-        const next = [...prev];
-        let changedAny = false;
-        for (let r = minR; r <= maxR; r++) {
-          const targetRow = [...next[r]];
-          let changed = false;
-          for (let c = minC; c <= maxC; c++) {
-            if (!colsMeta[c].readOnly && targetRow[c] !== '') {
-              targetRow[c] = '';
-              changed = true;
-              changedAny = true;
+      setTimeout(() => {
+        setData(prev => {
+          const next = [...prev];
+          let changedAny = false;
+          for (let r = minR; r <= maxR; r++) {
+            const targetRow = [...next[r]];
+            let changed = false;
+            for (let c = minC; c <= maxC; c++) {
+              if (!colsMeta[c].readOnly && targetRow[c] !== '') {
+                targetRow[c] = '';
+                changed = true;
+                changedAny = true;
+              }
+            }
+            if (changed) {
+              const calculatedRow = calcRow(targetRow);
+              next[r] = calculatedRow;
+              triggerSave(r, calculatedRow);
             }
           }
-          if (changed) {
-            const calculatedRow = calcRow(targetRow);
-            next[r] = calculatedRow;
-            triggerSave(r, calculatedRow);
+          if (changedAny) {
+            pushHistory(gridType, prev);
+            setTimeout(() => localStorage.setItem(gridType === 'oee' ? 'C_DATA_OEE' : 'C_DATA_DT', JSON.stringify(next)), 0);
           }
-        }
-        if (changedAny) {
-          pushHistory(gridType, prev);
-          setTimeout(() => localStorage.setItem(gridType === 'oee' ? 'C_DATA_OEE' : 'C_DATA_DT', JSON.stringify(next)), 0);
-        }
-        return next;
-      });
+          return next;
+        });
+      }, 0);
     } else if (e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey) {
       if (!colsMeta[activeCol].readOnly) {
         e.preventDefault();
-        setEditing({ row: activeRow, col: activeCol, mode: 'direct', initialValue: e.key });
+        const initialValue = e.key;
+        setTimeout(() => setEditing({ row: activeRow, col: activeCol, mode: 'direct', initialValue }), 0);
       }
     }
   }, [oeeSelection, dtSelection, oeeEditingCell, dtEditingCell, oeeData, dtData, triggerAutosaveOEE, triggerAutosaveDT, handleUndo, handleRedo, pushHistory]);
