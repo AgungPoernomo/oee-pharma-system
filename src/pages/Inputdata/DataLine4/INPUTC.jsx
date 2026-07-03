@@ -554,7 +554,7 @@ const SpreadsheetRow = React.memo(({
                 />
               )
             ) : (
-              <div className="w-full h-7 px-1.5 flex items-center overflow-hidden whitespace-nowrap text-ellipsis cursor-cell relative">
+              <div className={`w-full h-7 px-1.5 flex items-center overflow-hidden whitespace-nowrap text-ellipsis cursor-cell ${isFillHandleCorner ? 'relative' : ''}`}>
                 {val}
                 {isFillHandleCorner && !isEditing && (
                   <div
@@ -784,42 +784,50 @@ export default function InputC() {
   const handleCellMouseDown = useCallback((e, rowIdx, colIdx, gridType) => {
     if (e.button !== 0) return;
     isDraggingRef.current[gridType] = true;
-    if (gridType === 'oee') {
-      setOeeSelection({ startRow: rowIdx, startCol: colIdx, endRow: rowIdx, endCol: colIdx });
-      setOeeEditingCell(null);
-      if (oeeGridRef.current) oeeGridRef.current.focus();
-    } else {
-      setDtSelection({ startRow: rowIdx, startCol: colIdx, endRow: rowIdx, endCol: colIdx });
-      setDtEditingCell(null);
-      if (dtGridRef.current) dtGridRef.current.focus();
-    }
+    setTimeout(() => {
+      if (gridType === 'oee') {
+        setOeeSelection({ startRow: rowIdx, startCol: colIdx, endRow: rowIdx, endCol: colIdx });
+        setOeeEditingCell(null);
+        if (oeeGridRef.current) oeeGridRef.current.focus();
+      } else {
+        setDtSelection({ startRow: rowIdx, startCol: colIdx, endRow: rowIdx, endCol: colIdx });
+        setDtEditingCell(null);
+        if (dtGridRef.current) dtGridRef.current.focus();
+      }
+    }, 0);
   }, []);
 
   const handleCellMouseEnter = useCallback((rowIdx, colIdx, gridType) => {
     if (fillDragRef.current.active && fillDragRef.current.gridType === gridType) {
       fillDragRef.current.targetRow = rowIdx;
       fillDragRef.current.targetCol = colIdx;
+      setTimeout(() => {
+        if (gridType === 'oee') {
+          setOeeSelection(prev => ({ ...prev, endRow: rowIdx, endCol: colIdx }));
+        } else {
+          setDtSelection(prev => ({ ...prev, endRow: rowIdx, endCol: colIdx }));
+        }
+      }, 0);
+      return;
+    }
+    if (!isDraggingRef.current[gridType]) return;
+    setTimeout(() => {
       if (gridType === 'oee') {
         setOeeSelection(prev => ({ ...prev, endRow: rowIdx, endCol: colIdx }));
       } else {
         setDtSelection(prev => ({ ...prev, endRow: rowIdx, endCol: colIdx }));
       }
-      return;
-    }
-    if (!isDraggingRef.current[gridType]) return;
-    if (gridType === 'oee') {
-      setOeeSelection(prev => ({ ...prev, endRow: rowIdx, endCol: colIdx }));
-    } else {
-      setDtSelection(prev => ({ ...prev, endRow: rowIdx, endCol: colIdx }));
-    }
+    }, 0);
   }, []);
 
   const handleCellDoubleClick = useCallback((rowIdx, colIdx, gridType) => {
-    if (gridType === 'oee') {
-      setOeeEditingCell({ row: rowIdx, col: colIdx, mode: 'enter' });
-    } else {
-      setDtEditingCell({ row: rowIdx, col: colIdx, mode: 'enter' });
-    }
+    setTimeout(() => {
+      if (gridType === 'oee') {
+        setOeeEditingCell({ row: rowIdx, col: colIdx, mode: 'enter' });
+      } else {
+        setDtEditingCell({ row: rowIdx, col: colIdx, mode: 'enter' });
+      }
+    }, 0);
   }, []);
 
   const handleFinishEdit = useCallback((rowIdx, colIdx, value, gridType, moveKey) => {
@@ -1158,17 +1166,21 @@ export default function InputC() {
   // Auto scroll into view on navigation
   useEffect(() => {
     if (!oeeGridRef.current) return;
-    const td = oeeGridRef.current.querySelector(`td[data-row="${oeeSelection.endRow}"][data-col="${oeeSelection.endCol}"]`);
+    const tbody = oeeGridRef.current.querySelector('tbody');
+    const rowEl = tbody?.rows?.[oeeSelection.endRow];
+    const td = rowEl?.cells?.[oeeSelection.endCol];
     if (td && typeof td.scrollIntoView === 'function') {
-      td.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+      td.scrollIntoView({ behavior: 'auto', block: 'nearest', inline: 'nearest' });
     }
   }, [oeeSelection.endRow, oeeSelection.endCol]);
 
   useEffect(() => {
     if (!dtGridRef.current) return;
-    const td = dtGridRef.current.querySelector(`td[data-row="${dtSelection.endRow}"][data-col="${dtSelection.endCol}"]`);
+    const tbody = dtGridRef.current.querySelector('tbody');
+    const rowEl = tbody?.rows?.[dtSelection.endRow];
+    const td = rowEl?.cells?.[dtSelection.endCol];
     if (td && typeof td.scrollIntoView === 'function') {
-      td.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+      td.scrollIntoView({ behavior: 'auto', block: 'nearest', inline: 'nearest' });
     }
   }, [dtSelection.endRow, dtSelection.endCol]);
 
