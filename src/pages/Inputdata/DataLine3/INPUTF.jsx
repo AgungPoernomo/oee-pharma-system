@@ -80,6 +80,7 @@ export default function InputF() {
   const oeeIds = useRef(getCachedIds('L3_F_IDS_OEE')); 
   const dtIds = useRef(getCachedIds('L3_F_IDS_DT'));  
   const oeeTimers = useRef({}); const dtTimers = useRef({});
+  const calcTimers = useRef({});
 
   const triggerAutosaveOEE = (rIdx, sheet) => {
     if (oeeTimers.current[rIdx]) clearTimeout(oeeTimers.current[rIdx]);
@@ -144,9 +145,9 @@ export default function InputF() {
     }, 1000);
   };
 
-  const handleOEEChange = useCallback((worksheet, _cell, cStr, rStr, _value) => {
+  const runRowCalculations = useCallback((worksheet, r) => {
     if (isCalculating.current) return;
-    let c = parseInt(cStr); let r = parseInt(rStr); let sheet = worksheet;
+    let sheet = worksheet;
 
     const v = (col) => {
         let val = sheet.getValueFromCoords(col, r);
@@ -156,54 +157,34 @@ export default function InputF() {
 
     isCalculating.current = true;
     try {
-      // 1. Steril Reject Total (Col 9) = 7 + 8
-      if (c === 7 || c === 8) setV(9, v(7) + v(8));
+      setV(9, v(7) + v(8));
       
-      // 2. Steril Out (Col 10) = Col 6 - Col 9
-      if (c === 6 || c === 7 || c === 8) {
-        let sIn = v(6);
-        if (sIn > 0) setV(10, sIn - v(9)); else setV(10, '');
-      }
+      let sIn = v(6);
+      if (sIn > 0) setV(10, sIn - v(9)); else setV(10, '');
 
-      // 3. VI Sub Time (Col 13) = Col 12 - Col 11
-      if (c === 11 || c === 12) {
-        let sub = v(12) - v(11); setV(13, sub > 0 ? sub : '');
-      }
+      let sub = v(12) - v(11); setV(13, sub > 0 ? sub : '');
 
-      // 4. VI Reject Total (Col 23) = Sum(14 to 22)
-      if (c >= 14 && c <= 22) {
-        setV(23, v(14)+v(15)+v(16)+v(17)+v(18)+v(19)+v(20)+v(21)+v(22));
-      }
+      setV(23, v(14)+v(15)+v(16)+v(17)+v(18)+v(19)+v(20)+v(21)+v(22));
 
-      // 5. VI Hasil Baik (Col 24) = Col 13 (Sub) - Col 23 (Reject)
-      if (c >= 11 && c <= 22) {
-        let vSub = v(13);
-        if (vSub > 0) {
-          let vBaik = vSub - v(23);
-          setV(24, vBaik);
-          setV(25, vBaik); // VI_TF_PACKING (Col 25) sama dengan Hasil Baik (Col 24)
-        } else { setV(24, ''); setV(25, ''); }
-      }
+      let vSub = v(13);
+      if (vSub > 0) {
+        let vBaik = vSub - v(23);
+        setV(24, vBaik);
+        setV(25, vBaik);
+      } else { setV(24, ''); setV(25, ''); }
 
-      // 6. Pack Hasil Baik (Col 27) = Col 25 - Col 26
-      // 7. Pack FG (Col 30) = Col 27 - Col 28 - Col 29
-      if (c >= 11 && c <= 29) {
-        let pTrf = v(25);
-        if (pTrf > 0) {
-          let pHasil = pTrf - v(26);
-          setV(27, pHasil);
-          setV(30, pHasil - v(28) - v(29));
-        } else { setV(27, ''); setV(30, ''); }
-      }
+      let pTrf = v(25);
+      if (pTrf > 0) {
+        let pHasil = pTrf - v(26);
+        setV(27, pHasil);
+        setV(30, pHasil - v(28) - v(29));
+      } else { setV(27, ''); setV(30, ''); }
 
-      // 8. Kalkulasi Jumlah Batch (Col 32)
-      if (c === 5 || (c >= 11 && c <= 29)) {
-        let volKey = sheet.getValueFromCoords(5, r) || "500 ML";
-        let pFg = v(30);
-        if (pFg > 0) {
-          setV(32, (pFg / (TEORI_BATCH[volKey] || 23076)).toFixed(2));
-        } else { setV(32, ''); }
-      }
+      let volKey = sheet.getValueFromCoords(5, r) || "500 ML";
+      let pFg = v(30);
+      if (pFg > 0) {
+        setV(32, (pFg / (TEORI_BATCH[volKey] || 23076)).toFixed(2));
+      } else { setV(32, ''); }
 
       const timeDiff = (sh, sm, eh, em) => {
           if (v(sh)===0 && v(sm)===0 && v(eh)===0 && v(em)===0 && sheet.getValueFromCoords(sh, r)==="") return '';
@@ -211,38 +192,47 @@ export default function InputF() {
           return diff < 0 ? diff + (24*60) : diff;
       };
 
-      if (c >= 33 && c <= 36) setV(37, timeDiff(33, 34, 35, 36)); // AV
-      if (c >= 38 && c <= 41) setV(42, timeDiff(38, 39, 40, 41)); // RUN
-      if (c >= 43 && c <= 46) setV(47, timeDiff(43, 44, 45, 46)); // CLEAR
+      setV(37, timeDiff(33, 34, 35, 36));
+      setV(42, timeDiff(38, 39, 40, 41));
+      setV(47, timeDiff(43, 44, 45, 46));
 
-      if ((c >= 38 && c <= 41) || (c >= 43 && c <= 46)) {
-        let rSub = v(42); let lSub = v(47);
-        if (rSub > 0 || lSub > 0) setV(48, rSub + lSub); // PROCESS TOTAL
-        else setV(48, '');
-      }
+      let rSub = v(42); let lSub = v(47);
+      if (rSub > 0 || lSub > 0) setV(48, rSub + lSub);
+      else setV(48, '');
     } finally {
       isCalculating.current = false;
       triggerAutosaveOEE(r, sheet);
     }
   }, []);
 
+  const handleOEEChange = useCallback((worksheet, _cell, _cStr, rStr, _value) => {
+    if (isCalculating.current) return;
+    let r = parseInt(rStr);
+    if (calcTimers.current[r]) clearTimeout(calcTimers.current[r]);
+    calcTimers.current[r] = setTimeout(() => {
+      runRowCalculations(worksheet, r);
+    }, 30);
+  }, [runRowCalculations]);
+
   const handleDTChange = useCallback((worksheet, _cell, cStr, rStr, _value) => {
     let c = parseInt(cStr); let r = parseInt(rStr); let sheet = worksheet; 
-    // Menghitung Durasi berdasarkan indeks kolom Line 3
-    if(c >= 5 && c <= 8) {
+    if (calcTimers.current['dt_' + r]) clearTimeout(calcTimers.current['dt_' + r]);
+    calcTimers.current['dt_' + r] = setTimeout(() => {
+      if(c >= 5 && c <= 8) {
         let sh = parseFloat(sheet.getValueFromCoords(5, r)) || 0;
         let sm = parseFloat(sheet.getValueFromCoords(6, r)) || 0;
         let eh = parseFloat(sheet.getValueFromCoords(7, r)) || 0;
         let em = parseFloat(sheet.getValueFromCoords(8, r)) || 0;
         if(sheet.getValueFromCoords(5, r) !== "" && sheet.getValueFromCoords(7, r) !== "") {
-            let diff = (eh*60 + em) - (sh*60 + sm);
-            sheet.setValueFromCoords(9, r, diff < 0 ? diff + (24*60) : diff, true);
+          let diff = (eh*60 + em) - (sh*60 + sm);
+          sheet.setValueFromCoords(9, r, diff < 0 ? diff + (24*60) : diff, true);
         }
-    }
-    if (c === 12) {
-        sheet.setValueFromCoords(13, r, '', true); // Reset Unit jika Proses berubah
-    }
-    triggerAutosaveDT(r, sheet);
+      }
+      if (c === 12) {
+        sheet.setValueFromCoords(13, r, '', true);
+      }
+      triggerAutosaveDT(r, sheet);
+    }, 30);
   }, []);
 
   const loadDataServer = useCallback(async () => {

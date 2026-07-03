@@ -101,6 +101,7 @@ export default function InputC() {
   const dtIds = useRef(getCachedIds('C_IDS_DT'));
   const oeeTimers = useRef({});
   const dtTimers = useRef({});
+  const calcTimers = useRef({});
 
   const triggerAutosaveOEE = (rIdx, sheet) => {
     if (oeeTimers.current[rIdx]) clearTimeout(oeeTimers.current[rIdx]);
@@ -204,9 +205,9 @@ export default function InputC() {
     }, 1000);
   };
 
-  const handleOEEChange = useCallback((worksheet, _cell, cStr, rStr, _value) => {
+  const runRowCalculations = useCallback((worksheet, row) => {
     if (isCalculating.current) return;
-    const col = parseInt(cStr); const row = parseInt(rStr); const sheet = worksheet;
+    const sheet = worksheet;
 
     const v = (c) => {
       const raw = sheet.getValueFromCoords(c, row);
@@ -222,70 +223,62 @@ export default function InputC() {
 
     isCalculating.current = true;
     try {
-      if (col === C.REJ_BOTOL || col === C.REJ_PREFORM) {
-        setV(C.REJ_BLOW, raw(C.REJ_BOTOL) !== '' || raw(C.REJ_PREFORM) !== '' ? v(C.REJ_BOTOL) + v(C.REJ_PREFORM) : '');
+      setV(C.REJ_BLOW, raw(C.REJ_BOTOL) !== '' || raw(C.REJ_PREFORM) !== '' ? v(C.REJ_BOTOL) + v(C.REJ_PREFORM) : '');
+      const sub = v(C.CNT_END) - v(C.CNT_START);
+      setV(C.CNT_SUB, sub > 0 ? sub : '');
+      const cntSub = v(C.CNT_SUB);
+      setV(C.JML_BATCH, cntSub > 0 ? (cntSub / (TEORI_BATCH[raw(C.VOL_BOTOL)] ?? 23076)).toFixed(2) : '');
+      setV(C.SUB_FILL, v(C.WASH) + v(C.VK) + v(C.VL) + v(C.TANPA_CAP_F) + v(C.SEAL_NOK) + v(C.OTHERS_F));
+      setV(C.SUB_SAMPLES, v(C.IPC) + v(C.OTHERS_S));
+      if (cntSub > 0) {
+        const trf = cntSub - (v(C.SUB_FILL) + v(C.SUB_SAMPLES));
+        setV(C.TRF_TO_ST, trf > 0 ? trf : 0);
+        setV(C.TOTAL_KESEL, cntSub);
+        setV(C.YIELD_BATCH, ((trf / cntSub) * 100).toFixed(2));
+        const inputSteril = trf - v(C.REJ_BLOW);
+        setV(C.INPUT_STERIL, inputSteril > 0 ? inputSteril : 0);
+      } else {
+        setV(C.TRF_TO_ST, ''); setV(C.TOTAL_KESEL, ''); setV(C.YIELD_BATCH, ''); setV(C.INPUT_STERIL, '');
       }
-      if (col === C.CNT_END || col === C.CNT_START) {
-        const sub = v(C.CNT_END) - v(C.CNT_START);
-        setV(C.CNT_SUB, sub > 0 ? sub : '');
-      }
-      if (col === C.VOL_BOTOL || col === C.CNT_SUB || col === C.CNT_END || col === C.CNT_START) {
-        const cntSub = v(C.CNT_SUB);
-        setV(C.JML_BATCH, cntSub > 0 ? (cntSub / (TEORI_BATCH[raw(C.VOL_BOTOL)] ?? 23076)).toFixed(2) : '');
-      }
-      if (col >= C.WASH && col <= C.OTHERS_F) {
-        setV(C.SUB_FILL, v(C.WASH) + v(C.VK) + v(C.VL) + v(C.TANPA_CAP_F) + v(C.SEAL_NOK) + v(C.OTHERS_F));
-      }
-      if (col === C.IPC || col === C.OTHERS_S) {
-        setV(C.SUB_SAMPLES, v(C.IPC) + v(C.OTHERS_S));
-      }
-      if (col === C.CNT_SUB || col === C.CNT_END || col === C.CNT_START || col === C.SUB_FILL || col === C.SUB_SAMPLES || col === C.REJ_BOTOL || col === C.REJ_PREFORM) {
-        const sub = v(C.CNT_SUB);
-        if (sub > 0) {
-          const trf = sub - (v(C.SUB_FILL) + v(C.SUB_SAMPLES));
-          setV(C.TRF_TO_ST, trf > 0 ? trf : 0);
-          setV(C.TOTAL_KESEL, sub);
-          setV(C.YIELD_BATCH, ((trf / sub) * 100).toFixed(2));
-          const inputSteril = trf - v(C.REJ_BLOW);
-          setV(C.INPUT_STERIL, inputSteril > 0 ? inputSteril : 0);
-        } else {
-          setV(C.TRF_TO_ST, ''); setV(C.TOTAL_KESEL, ''); setV(C.YIELD_BATCH, ''); setV(C.INPUT_STERIL, '');
-        }
-      }
-      if (col >= C.REJ_BOCOR && col <= C.REJ_LAINLAIN) {
-        setV(C.TOTAL_REJ_BS, v(C.REJ_BOCOR) + v(C.REJ_TANPA_CAP) + v(C.REJ_VOL) + v(C.REJ_THERMO) + v(C.REJ_LAINLAIN));
-      }
-      if (col === C.INPUT_STERIL || (col >= C.REJ_BOCOR && col <= C.REJ_LAINLAIN)) {
-        const inputSteril = v(C.INPUT_STERIL);
-        setV(C.OUTPUT_CHAMBER, inputSteril > 0 ? inputSteril - v(C.TOTAL_REJ_BS) : '');
-      }
-      if (col >= C.AT_SH && col <= C.AT_EM) setV(C.AT_SUB, timeDiff(C.AT_SH, C.AT_SM, C.AT_EH, C.AT_EM));
-      if (col >= C.RT_SH && col <= C.RT_EM) setV(C.RT_SUB, timeDiff(C.RT_SH, C.RT_SM, C.RT_EH, C.RT_EM));
-      if (col >= C.LC_SH && col <= C.LC_EM) {
-        const lc = timeDiff(C.LC_SH, C.LC_SM, C.LC_EH, C.LC_EM);
-        setV(C.LC_SUB, lc);
-        setV(C.LC_PER_BATCH, (lc !== '' && v(C.JML_BATCH) > 0) ? (parseFloat(lc) / v(C.JML_BATCH)).toFixed(2) : (lc !== '' ? lc : ''));
-        setV(C.LC_PER_SHIFT, lc);
-      }
+      setV(C.TOTAL_REJ_BS, v(C.REJ_BOCOR) + v(C.REJ_TANPA_CAP) + v(C.REJ_VOL) + v(C.REJ_THERMO) + v(C.REJ_LAINLAIN));
+      const inputSterilVal = v(C.INPUT_STERIL);
+      setV(C.OUTPUT_CHAMBER, inputSterilVal > 0 ? inputSterilVal - v(C.TOTAL_REJ_BS) : '');
+      setV(C.AT_SUB, timeDiff(C.AT_SH, C.AT_SM, C.AT_EH, C.AT_EM));
+      setV(C.RT_SUB, timeDiff(C.RT_SH, C.RT_SM, C.RT_EH, C.RT_EM));
+      const lc = timeDiff(C.LC_SH, C.LC_SM, C.LC_EH, C.LC_EM);
+      setV(C.LC_SUB, lc);
+      setV(C.LC_PER_BATCH, (lc !== '' && v(C.JML_BATCH) > 0) ? (parseFloat(lc) / v(C.JML_BATCH)).toFixed(2) : (lc !== '' ? lc : ''));
+      setV(C.LC_PER_SHIFT, lc);
     } finally {
       isCalculating.current = false;
       triggerAutosaveOEE(row, sheet);
     }
   }, []);
 
+  const handleOEEChange = useCallback((worksheet, _cell, _cStr, rStr, _value) => {
+    if (isCalculating.current) return;
+    const row = parseInt(rStr);
+    if (calcTimers.current[row]) clearTimeout(calcTimers.current[row]);
+    calcTimers.current[row] = setTimeout(() => {
+      runRowCalculations(worksheet, row);
+    }, 30);
+  }, [runRowCalculations]);
+
   const handleDTChange = useCallback((worksheet, _cell, cStr, rStr, _value) => {
     const col = parseInt(cStr); const row = parseInt(rStr); const sheet = worksheet;
-
-    if (col >= DC.SH && col <= DC.EM) {
-      const getRaw = (c) => sheet.getValueFromCoords(c, row) ?? '';
-      const getNum = (c) => parseFloat(getRaw(c)) || 0;
-      if (getRaw(DC.SH) !== '' && getRaw(DC.EH) !== '') {
-        const diff = (getNum(DC.EH) * 60 + getNum(DC.EM)) - (getNum(DC.SH) * 60 + getNum(DC.SM));
-        sheet.setValueFromCoords(DC.DURASI, row, diff < 0 ? diff + 24 * 60 : diff, true);
+    if (calcTimers.current['dt_' + row]) clearTimeout(calcTimers.current['dt_' + row]);
+    calcTimers.current['dt_' + row] = setTimeout(() => {
+      if (col >= DC.SH && col <= DC.EM) {
+        const getRaw = (c) => sheet.getValueFromCoords(c, row) ?? '';
+        const getNum = (c) => parseFloat(getRaw(c)) || 0;
+        if (getRaw(DC.SH) !== '' && getRaw(DC.EH) !== '') {
+          const diff = (getNum(DC.EH) * 60 + getNum(DC.EM)) - (getNum(DC.SH) * 60 + getNum(DC.SM));
+          sheet.setValueFromCoords(DC.DURASI, row, diff < 0 ? diff + 24 * 60 : diff, true);
+        }
       }
-    }
-    if (col === DC.PROSES) sheet.setValueFromCoords(DC.UNIT, row, '', true);
-    triggerAutosaveDT(row, sheet);
+      if (col === DC.PROSES) sheet.setValueFromCoords(DC.UNIT, row, '', true);
+      triggerAutosaveDT(row, sheet);
+    }, 30);
   }, []);
 
   const loadDataServer = useCallback(async () => {
