@@ -68,7 +68,6 @@ OEE-PHARMA-SYSTEM/
 │   ├── index.css
 │   └── main.jsx
 ├── .dockerignore
-├── .env
 ├── .gitattributes
 ├── .gitignore
 ├── components.json
@@ -86,4 +85,4 @@ OEE-PHARMA-SYSTEM/
 
 ```
 
-*Terakhir diperbarui pada: 2/7/2026, 16.08.03 WIB*
+*Terakhir diperbarui pada: 3/7/2026, 09.54.22 WIB*

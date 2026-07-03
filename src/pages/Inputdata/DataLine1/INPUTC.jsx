@@ -10,8 +10,6 @@ import 'jsuites/dist/jsuites.css';
 const TEORI_BATCH = {
   "25 ML": 29412, "100 ML": 56880, "250 ML": 21509, "500 ML": 23076, "1000 ML": 60194,
 };
-const SHIFTS  = ["1", "2", "3"];
-const GROUPS  = ["A", "B", "C", "D"];
 const VOLUMES = ["25 ML", "100 ML", "250 ML", "500 ML", "1000 ML"];
 
 const C = {
@@ -44,19 +42,19 @@ const parseToYMD = (val) => {
   try {
     const d = new Date(str);
     if (!isNaN(d.getTime())) return d.toISOString().split('T')[0];
-  } catch (_) {}
+  } catch (_) { }
   return '';
 };
 
 const getEmptyOEE = () => {
-  const arr = Array(55).fill('');
-  arr[C.UTUH] = '';         
+  const arr = Array(52).fill('');
+  arr[C.UTUH] = '';
   return arr;
 };
 
 const getEmptyDT = () => {
   const arr = Array(14).fill('');
-  arr[DC.TYPE] = '';  
+  arr[DC.TYPE] = '';
   return arr;
 };
 
@@ -94,13 +92,13 @@ export default function InputC() {
   const { user } = useAuth();
 
   const oeeTableRef = useRef(null);
-  const dtTableRef  = useRef(null);
-  const oeeGrid     = useRef(null);
-  const dtGrid      = useRef(null);
+  const dtTableRef = useRef(null);
+  const oeeGrid = useRef(null);
+  const dtGrid = useRef(null);
   const isCalculating = useRef(false);
 
-  const oeeIds = useRef(getCachedIds('C_IDS_OEE')); 
-  const dtIds = useRef(getCachedIds('C_IDS_DT'));  
+  const oeeIds = useRef(getCachedIds('C_IDS_OEE'));
+  const dtIds = useRef(getCachedIds('C_IDS_DT'));
   const oeeTimers = useRef({});
   const dtTimers = useRef({});
 
@@ -165,7 +163,7 @@ export default function InputC() {
 
       const actionType = payloadData.original_id ? 'update_reject_c' : 'submit_reject_c';
       const res = await sendAutoSave({ action: actionType, data: payloadData, user });
-      
+
       if (res.status === 'success' && res.original_id) {
         oeeIds.current[rIdx] = res.original_id;
         localStorage.setItem('C_IDS_OEE', JSON.stringify(oeeIds.current));
@@ -198,7 +196,7 @@ export default function InputC() {
 
       const actionType = payloadData.original_id ? 'update_downtime_c' : 'submit_downtime_c';
       const res = await sendAutoSave({ action: actionType, data: payloadData, user });
-      
+
       if (res.status === 'success' && res.original_id) {
         dtIds.current[rIdx] = res.original_id;
         localStorage.setItem('C_IDS_DT', JSON.stringify(dtIds.current));
@@ -299,7 +297,7 @@ export default function InputC() {
       ]);
 
       let mappedOEE = [];
-      let mappedOEEIds = []; 
+      let mappedOEEIds = [];
       if (resOEE?.status === 'success' && Array.isArray(resOEE.data)) {
         mappedOEE = [...resOEE.data].reverse().map((row) => {
           mappedOEEIds.push(row.id);
@@ -313,7 +311,7 @@ export default function InputC() {
             row.av_sh ?? '', row.av_sm ?? '', row.av_eh ?? '', row.av_em ?? '', row.av_sub ?? '', row.total_avail_shift ?? '',
             row.run_sh ?? '', row.run_sm ?? '', row.run_eh ?? '', row.run_em ?? '', row.run_sub ?? '', row.lc_sh ?? '',
             row.lc_sm ?? '', row.lc_eh ?? '', row.lc_em ?? '', row.lc_sub ?? '', '', '', ''
-          ]; 
+          ];
         });
       }
 
@@ -332,17 +330,14 @@ export default function InputC() {
 
       const EMPTY_ROWS = 100;
       const finalOEE = [...mappedOEE, ...Array.from({ length: EMPTY_ROWS }, getEmptyOEE)];
-      const finalDT  = [...mappedDT,  ...Array.from({ length: EMPTY_ROWS }, getEmptyDT)];
+      const finalDT = [...mappedDT, ...Array.from({ length: EMPTY_ROWS }, getEmptyDT)];
 
-      // Simpan referensi ID terbaru
       if (oeeIds && oeeIds.current) oeeIds.current = [...mappedOEEIds, ...Array(EMPTY_ROWS).fill(null)];
       if (dtIds && dtIds.current) dtIds.current = [...mappedDTIds, ...Array(EMPTY_ROWS).fill(null)];
 
-      // Terapkan data ke grid
       if (oeeGrid.current?.[0]) oeeGrid.current[0].setData(finalOEE);
       if (dtGrid.current?.[0]) dtGrid.current[0].setData(finalDT);
 
-      // SIMPAN KE INGATAN LOKAL (CACHE)
       localStorage.setItem('C_DATA_OEE', JSON.stringify(finalOEE));
       localStorage.setItem('C_DATA_DT', JSON.stringify(finalDT));
       localStorage.setItem('C_IDS_OEE', JSON.stringify(oeeIds.current));
@@ -362,9 +357,8 @@ export default function InputC() {
   const ALL_UNITS_C = [...new Set(Object.values(UNIT_MAP_C).flat())];
 
   useEffect(() => {
-    // Tarik data langsung dari memori saat halaman dimuat (Instant Load)
     const initialOEE = getCachedData('C_DATA_OEE', getEmptyOEE, 100);
-    const initialDT  = getCachedData('C_DATA_DT', getEmptyDT, 100);
+    const initialDT = getCachedData('C_DATA_DT', getEmptyDT, 100);
 
     if (oeeTableRef.current) {
       oeeTableRef.current.innerHTML = '';
@@ -372,97 +366,91 @@ export default function InputC() {
         worksheets: [{
           data: initialOEE,
           columns: [
-            { type: 'text',     title: 'No Batch',           width: 100 },
-            { type: 'calendar', title: 'Tanggal',            width: 110, options: { format: 'YYYY-MM-DD' } },
-            { type: 'dropdown', title: 'Shift',              width: 60,  source: SHIFTS },
-            { type: 'dropdown', title: 'Group',              width: 60,  source: GROUPS },
-            { type: 'numeric',  title: 'Reject Botol',       width: 95  },
-            { type: 'numeric',  title: 'Reject Preform',     width: 105 },
-            { type: 'numeric',  title: 'Reject Blow',        width: 90,  readOnly: true },
-            { type: 'dropdown', title: 'Volume Botol',       width: 100, source: VOLUMES },
-            { type: 'numeric',  title: 'Start',              width: 80, },
-            { type: 'numeric',  title: 'End',                width: 80  },
-            { type: 'numeric',  title: 'Sub Total',          width: 85,  readOnly: true },
-            { type: 'dropdown', title: 'Utuh?',              width: 60,  source: ['Y', 'N'] },
-            { type: 'numeric',  title: 'Jumlah Batch',       width: 100, readOnly: true },
-            { type: 'numeric',  title: 'Total Cnt/Shift',    width: 115, readOnly: true },
-            { type: 'numeric',  title: 'Washing',            width: 75  },
-            { type: 'numeric',  title: 'VK',                 width: 60  },
-            { type: 'numeric',  title: 'VL',                 width: 60  },
-            { type: 'numeric',  title: 'Tanpa Cap',          width: 80  },
-            { type: 'numeric',  title: 'Seal NOT OK',        width: 90  },
-            { type: 'numeric',  title: 'Others/Bocor',       width: 90  },
-            { type: 'numeric',  title: 'Sub Total Fill-Seal',width: 140, readOnly: true },
-            { type: 'numeric',  title: 'IPC',                width: 60  },
-            { type: 'numeric',  title: 'Others',             width: 65  },
-            { type: 'numeric',  title: 'Sub Total Samples',  width: 135, readOnly: true },
-            { type: 'numeric',  title: 'Transfer to ST',     width: 105, readOnly: true },
-            { type: 'numeric',  title: 'Total Keseluruhan',  width: 135, readOnly: true },
-            { type: 'numeric',  title: 'Yield/Batch (%)',    width: 100, readOnly: true },
-            { type: 'numeric',  title: 'AVG/Shift (%)',      width: 100, readOnly: true },
-            { type: 'numeric',  title: 'Input Before Steril',width: 135, readOnly: true },
-            { type: 'numeric',  title: 'Reject Bocor',       width: 100 },
-            { type: 'numeric',  title: 'Reject Tanpa Cap',   width: 120 },
-            { type: 'numeric',  title: 'Reject Vol',         width: 85  },
-            { type: 'numeric',  title: 'Reject Thermo',      width: 105 },
-            { type: 'numeric',  title: 'Reject Lain-lain',   width: 115 },
-            { type: 'numeric',  title: 'Total Reject BS',    width: 115, readOnly: true },
-            { type: 'numeric',  title: 'Output (Chamber)',   width: 125, readOnly: true },
-            { type: 'numeric',  title: 'Start (Jam)',        width: 80  },
-            { type: 'numeric',  title: 'Start (Menit)',      width: 90  },
-            { type: 'numeric',  title: 'End (Jam)',          width: 80  },
-            { type: 'numeric',  title: 'End (Menit)',        width: 90  },
-            { type: 'numeric',  title: 'Sub Total',          width: 80,  readOnly: true },
-            { type: 'numeric',  title: 'Total/Shift',        width: 95,  readOnly: true },
-            { type: 'numeric',  title: 'Start (Jam)',        width: 80  },
-            { type: 'numeric',  title: 'Start (Menit)',      width: 90  },
-            { type: 'numeric',  title: 'End (Jam)',          width: 80  },
-            { type: 'numeric',  title: 'End (Menit)',        width: 90  },
-            { type: 'numeric',  title: 'Sub Total',          width: 80,  readOnly: true },
-            { type: 'numeric',  title: 'Start (Jam)',        width: 80  },
-            { type: 'numeric',  title: 'Start (Menit)',      width: 90  },
-            { type: 'numeric',  title: 'End (Jam)',          width: 80  },
-            { type: 'numeric',  title: 'End (Menit)',        width: 90  },
-            { type: 'numeric',  title: 'Sub Total',          width: 80,  readOnly: true },
-            { type: 'numeric',  title: 'Total Prep+Clear',   width: 130, readOnly: true },
-            { type: 'numeric',  title: 'Per Batch',          width: 80,  readOnly: true },
-            { type: 'numeric',  title: 'Per Shift',          width: 80,  readOnly: true },
+            { type: 'text', title: 'No Batch', width: 100 },
+            { type: 'calendar', title: 'Tanggal', width: 110, options: { format: 'YYYY-MM-DD' } },
+            { type: 'numeric', title: 'Shift', width: 60, },
+            { type: 'text', title: 'Group', width: 60, },
+            { type: 'numeric', title: 'Reject Botol', width: 95 },
+            { type: 'numeric', title: 'Reject Preform', width: 105 },
+            { type: 'numeric', title: 'Reject Blow', width: 90, readOnly: true },
+            { type: 'dropdown', title: 'Volume Botol', width: 100, source: VOLUMES },
+            { type: 'numeric', title: 'Start', width: 80, },
+            { type: 'numeric', title: 'End', width: 80 },
+            { type: 'numeric', title: 'Sub Total', width: 85, readOnly: true },
+            { type: 'dropdown', title: 'Utuh?', width: 60, source: ['Y', 'N'] },
+            { type: 'numeric', title: 'Jumlah Batch', width: 100, readOnly: true },
+            { type: 'numeric', title: 'Total Cnt/Shift', width: 115, readOnly: true },
+            { type: 'numeric', title: 'Washing', width: 75 },
+            { type: 'numeric', title: 'VK', width: 60 },
+            { type: 'numeric', title: 'VL', width: 60 },
+            { type: 'numeric', title: 'Tanpa Cap', width: 80 },
+            { type: 'numeric', title: 'Seal NOT OK', width: 90 },
+            { type: 'numeric', title: 'Others/Bocor', width: 90 },
+            { type: 'numeric', title: 'Sub Total Fill-Seal', width: 140, readOnly: true },
+            { type: 'numeric', title: 'IPC', width: 60 },
+            { type: 'numeric', title: 'Others', width: 65 },
+            { type: 'numeric', title: 'Sub Total Samples', width: 135, readOnly: true },
+            { type: 'numeric', title: 'Transfer to ST', width: 105, readOnly: true },
+            { type: 'numeric', title: 'Total Keseluruhan', width: 135, readOnly: true },
+            { type: 'numeric', title: 'Yield/Batch (%)', width: 100, readOnly: true },
+            { type: 'numeric', title: 'AVG/Shift (%)', width: 100, readOnly: true },
+            { type: 'numeric', title: 'Input Before Steril', width: 135, readOnly: true },
+            { type: 'numeric', title: 'Reject Bocor', width: 100 },
+            { type: 'numeric', title: 'Reject Tanpa Cap', width: 120 },
+            { type: 'numeric', title: 'Reject Vol', width: 85 },
+            { type: 'numeric', title: 'Reject Thermo', width: 105 },
+            { type: 'numeric', title: 'Reject Lain-lain', width: 115 },
+            { type: 'numeric', title: 'Total Reject BS', width: 115, readOnly: true },
+            { type: 'numeric', title: 'Output (Chamber)', width: 125, readOnly: true },
+            { type: 'numeric', title: 'Start (Jam)', width: 80 },
+            { type: 'numeric', title: 'Start (Menit)', width: 90 },
+            { type: 'numeric', title: 'End (Jam)', width: 80 },
+            { type: 'numeric', title: 'End (Menit)', width: 90 },
+            { type: 'numeric', title: 'Sub Total', width: 80, readOnly: true },
+            { type: 'numeric', title: 'Total/Shift', width: 95, readOnly: true },
+            { type: 'numeric', title: 'Start (Jam)', width: 80 },
+            { type: 'numeric', title: 'Start (Menit)', width: 90 },
+            { type: 'numeric', title: 'End (Jam)', width: 80 },
+            { type: 'numeric', title: 'End (Menit)', width: 90 },
+            { type: 'numeric', title: 'Sub Total', width: 80, readOnly: true },
+            { type: 'numeric', title: 'Start (Jam)', width: 80 },
+            { type: 'numeric', title: 'Start (Menit)', width: 90 },
+            { type: 'numeric', title: 'End (Jam)', width: 80 },
+            { type: 'numeric', title: 'End (Menit)', width: 90 },
+            { type: 'numeric', title: 'Sub Total', width: 80, readOnly: true },
           ],
           nestedHeaders: [
             [
-              { title: '',                   colspan: 8  },
-              { title: 'Counter Filling',    colspan: 6  },
-              { title: 'Rejection Filling',  colspan: 7  },
-              { title: 'Samples',            colspan: 3  },
-              { title: 'Hasil Baik',         colspan: 2  },
-              { title: '% Yield',            colspan: 2  },
+              { title: '', colspan: 8 },
+              { title: 'Counter Filling', colspan: 6 },
+              { title: 'Rejection Filling', colspan: 7 },
+              { title: 'Samples', colspan: 3 },
+              { title: 'Hasil Baik', colspan: 2 },
+              { title: '% Yield', colspan: 2 },
               { title: 'Reject Before Steril', colspan: 8 },
-              { title: 'Available Time',     colspan: 6  },
-              { title: 'Run Time',           colspan: 5  },
-              { title: 'Line Clearance',     colspan: 5  },
-              { title: '',                   colspan: 1  },
-              { title: 'Jeda Antar Batch',   colspan: 2  },
+              { title: 'Available Time', colspan: 6 },
+              { title: 'Run Time', colspan: 5 },
+              { title: 'Line Clearance', colspan: 5 },
+              { title: '', colspan: 1 },
             ],
             [
-              { title: '',               colspan: 8 },
+              { title: '', colspan: 8 },
               { title: 'Per Cycle Batch', colspan: 3 },
-              { title: '',               colspan: 3 },
-              { title: 'Washing',        colspan: 1 },
-              { title: 'Filling',        colspan: 2 },
-              { title: 'Sealing',        colspan: 2 },
-              { title: '',               colspan: 2 },
-              { title: 'Botol',          colspan: 2 },
-              { title: '',               colspan: 1 },
+              { title: '', colspan: 3 },
+              { title: 'Washing', colspan: 1 },
+              { title: 'Filling', colspan: 2 },
+              { title: 'Sealing', colspan: 2 },
+              { title: '', colspan: 2 },
+              { title: 'Botol', colspan: 2 },
+              { title: '', colspan: 1 },
               { title: 'Transfer to ST', colspan: 2 },
-              { title: '',               colspan: 2 },
-              { title: '',               colspan: 1 },
+              { title: '', colspan: 2 },
+              { title: '', colspan: 1 },
               { title: 'Reject Before Steril', colspan: 6 },
-              { title: '',               colspan: 1 },
-              { title: '',               colspan: 6 },
-              { title: 'Filling',        colspan: 5 },
-              { title: 'CIP Minor',      colspan: 5 },
-              { title: '',               colspan: 1 },
-              { title: '',               colspan: 2 },
+              { title: '', colspan: 1 },
+              { title: '', colspan: 6 },
+              { title: 'Filling', colspan: 5 },
+              { title: 'CIP Minor', colspan: 5 },
             ],
           ],
           freezeColumns: 4,
@@ -472,11 +460,10 @@ export default function InputC() {
           tableHeight: '700px',
         }],
         onafterchanges: (worksheet, records) => {
-            // hitung ulang HANYA baris-baris unik yang terdampak, sekali per baris
           const rows = [...new Set(records.map(r => r.row))];
           isCalculating.current = true;
           try {
-            rows.forEach(row => recalcRow(worksheet, row)); // pindahkan isi if/else dari handleOEEChange ke sini, jalan per-row bukan per-col
+            rows.forEach(row => recalcRow(worksheet, row));
           } finally {
             isCalculating.current = false;
           }
@@ -492,29 +479,29 @@ export default function InputC() {
           data: initialDT,
           columns: [
             { type: 'calendar', title: 'Tanggal', width: 110, options: { format: 'YYYY-MM-DD' } },
-            { type: 'dropdown', title: 'Shift', width: 60,  source: SHIFTS },
-            { type: 'dropdown', title: 'Grup', width: 60,  source: GROUPS },
-            { type: 'text',     title: 'No. Batch', width: 120 },
-            { type: 'numeric',  title: 'Start (Jam)', width: 70  },
-            { type: 'numeric',  title: 'Start (Menit)', width: 80  },
-            { type: 'numeric',  title: 'End (Jam)', width: 70  },
-            { type: 'numeric',  title: 'End (Menit)', width: 80  },
-            { type: 'numeric',  title: 'Durasi (menit)', width: 90,  readOnly: true },
+            { type: 'numeric', title: 'Shift', width: 60, },
+            { type: 'text', title: 'Grup', width: 60, },
+            { type: 'text', title: 'No. Batch', width: 120 },
+            { type: 'numeric', title: 'Start (Jam)', width: 70 },
+            { type: 'numeric', title: 'Start (Menit)', width: 80 },
+            { type: 'numeric', title: 'End (Jam)', width: 70 },
+            { type: 'numeric', title: 'End (Menit)', width: 80 },
+            { type: 'numeric', title: 'Durasi (menit)', width: 90, readOnly: true },
             { type: 'dropdown', title: 'Planned / Unplanned', width: 150, source: ['Planned', 'Unplanned'] },
             { type: 'dropdown', title: 'Root Cause', width: 150, source: ['Production', 'Mechanical', 'Electrical', 'Utility', 'QA', 'QC', 'Warehouse', 'PPIC', 'R&D'] },
             { type: 'dropdown', title: 'Proses', width: 120, source: ['Blowing', 'Filling', 'Mixing', 'Autoclave'] },
-            { 
-              type: 'dropdown', 
+            {
+              type: 'dropdown',
               title: 'Unit',
               width: 120,
               source: ALL_UNITS_C,
-              filter: function(instance, cell, c, r, source) {
+              filter: function (instance, cell, c, r, source) {
                 let sheet = dtGrid.current[0];
                 let prosesValue = sheet.getValueFromCoords(11, r);
                 return UNIT_MAP_C[prosesValue] || [];
               }
             },
-            { type: 'text', title: 'Kasus', align: 'left', width: 800,},
+            { type: 'text', title: 'Kasus', align: 'left', width: 800, },
           ],
           freezeColumns: 1,
           tableOverflow: true,
@@ -531,9 +518,9 @@ export default function InputC() {
       if (typeof oeeGrid.current?.[0]?.destroy === 'function') oeeGrid.current[0].destroy();
       if (typeof dtGrid.current?.[0]?.destroy === 'function') dtGrid.current[0].destroy();
       if (oeeTableRef.current) oeeTableRef.current.innerHTML = '';
-      if (dtTableRef.current)  dtTableRef.current.innerHTML  = '';
+      if (dtTableRef.current) dtTableRef.current.innerHTML = '';
       oeeGrid.current = null;
-      dtGrid.current  = null;
+      dtGrid.current = null;
     };
   }, [user, handleOEEChange, handleDTChange, loadDataServer]);
 
@@ -544,7 +531,7 @@ export default function InputC() {
 
         <div className="mb-4">
           <h1 className="text-2xl font-black tracking-wider uppercase text-emerald-800">
-            OEE Line 1 — Zone C <span className="text-sm font-normal normal-case text-gray-500 ml-2">(Auto-Saving & Cached)</span>
+            OEE Line 1 — Zone C
           </h1>
         </div>
         <div className="bg-white border-2 border-slate-300 shadow-xl mb-12 rounded overflow-hidden p-1">

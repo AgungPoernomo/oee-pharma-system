@@ -9,13 +9,11 @@ import 'jsuites/dist/jsuites.css';
 
 const TEORI_BATCH = { "25 ML": 29412, "100 ML": 56880, "250 ML": 21509, "500 ML": 23076, "1000 ML": 60194 };
 const TEORI_YIELD = 21923;
-const SHIFTS = ["1", "2", "3"];
-const GROUPS = ["A", "B", "C", "D"];
 const VOLUMES = ["25 ML", "100 ML", "250 ML", "500 ML", "1000 ML"];
 
 const parseToYMD = (val) => {
   if (!val) return '';
-  let str = String(val).replace(/'/g, '').trim(); 
+  let str = String(val).replace(/'/g, '').trim();
   if (str.includes('/')) {
     const parts = str.split('/');
     if (parts.length === 3) return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
@@ -23,20 +21,20 @@ const parseToYMD = (val) => {
   try {
     const d = new Date(str);
     if (!isNaN(d.getTime())) return d.toISOString().split('T')[0];
-  } catch (e) {}
+  } catch (e) { }
   return '';
 };
 
 const getEmptyOEE_F = () => {
   const arr = Array(52).fill('');
-  arr[5] = ''; 
-  arr[30] = 'Y';     
+  arr[5] = '';
+  arr[30] = 'Y';
   return arr;
 };
 
 const getEmptyDT = () => {
   const arr = Array(14).fill('');
-  arr[9] = 'Unplanned'; 
+  arr[9] = 'Unplanned';
   return arr;
 };
 
@@ -73,17 +71,17 @@ const sendAutoSave = async (payload) => {
 
 export default function InputF() {
   const { user } = useAuth();
-  
+
   const oeeTableRef = useRef(null);
   const dtTableRef = useRef(null);
   const oeeGrid = useRef(null);
   const dtGrid = useRef(null);
-  
+
   const isCalculating = useRef(false);
 
   // Load ID dari Cache
-  const oeeIds = useRef(getCachedIds('F_IDS_OEE')); 
-  const dtIds = useRef(getCachedIds('F_IDS_DT'));  
+  const oeeIds = useRef(getCachedIds('F_IDS_OEE'));
+  const dtIds = useRef(getCachedIds('F_IDS_DT'));
   const oeeTimers = useRef({});
   const dtTimers = useRef({});
 
@@ -147,7 +145,7 @@ export default function InputF() {
 
       const actionType = payloadData.original_id ? 'update_reject_f' : 'submit_reject_f';
       const res = await sendAutoSave({ action: actionType, data: payloadData, user });
-      
+
       if (res.status === 'success' && res.original_id) {
         oeeIds.current[rIdx] = res.original_id;
         localStorage.setItem('F_IDS_OEE', JSON.stringify(oeeIds.current));
@@ -180,7 +178,7 @@ export default function InputF() {
 
       const actionType = payloadData.original_id ? 'update_downtime_f' : 'submit_downtime_f';
       const res = await sendAutoSave({ action: actionType, data: payloadData, user });
-      
+
       if (res.status === 'success' && res.original_id) {
         dtIds.current[rIdx] = res.original_id;
         localStorage.setItem('F_IDS_DT', JSON.stringify(dtIds.current));
@@ -194,15 +192,15 @@ export default function InputF() {
     let sheet = worksheet;
 
     const v = (col) => {
-        let val = sheet.getValueFromCoords(col, r);
-        return (val === "" || val === null || isNaN(val)) ? 0 : parseFloat(val);
+      let val = sheet.getValueFromCoords(col, r);
+      return (val === "" || val === null || isNaN(val)) ? 0 : parseFloat(val);
     };
-    const setV = (col, val) => sheet.setValueFromCoords(col, r, val, true); 
+    const setV = (col, val) => sheet.setValueFromCoords(col, r, val, true);
 
     isCalculating.current = true;
     try {
-      if (c >= 7 && c <= 11) setV(12, v(7)+v(8)+v(9)+v(10)+v(11));
-      
+      if (c >= 7 && c <= 11) setV(12, v(7) + v(8) + v(9) + v(10) + v(11));
+
       if (c === 6 || (c >= 7 && c <= 11) || c === 13) {
         let sIn = v(6);
         if (sIn > 0) setV(14, sIn - v(12) - v(13));
@@ -213,7 +211,7 @@ export default function InputF() {
         let sub = v(16) - v(15); setV(17, sub > 0 ? sub : '');
       }
 
-      if (c === 19 || c === 20) setV(21, v(19)+v(20));
+      if (c === 19 || c === 20) setV(21, v(19) + v(20));
 
       if (c === 15 || c === 16 || c === 19 || c === 20 || c === 23) {
         let vSub = v(17);
@@ -243,16 +241,16 @@ export default function InputF() {
       }
 
       const timeDiff = (sh, sm, eh, em) => {
-          if (v(sh)===0 && v(sm)===0 && v(eh)===0 && v(em)===0 && sheet.getValueFromCoords(sh, r)==="") return '';
-          let diff = (v(eh)*60 + v(em)) - (v(sh)*60 + v(sm));
-          return diff < 0 ? diff + (24*60) : diff;
+        if (v(sh) === 0 && v(sm) === 0 && v(eh) === 0 && v(em) === 0 && sheet.getValueFromCoords(sh, r) === "") return '';
+        let diff = (v(eh) * 60 + v(em)) - (v(sh) * 60 + v(sm));
+        return diff < 0 ? diff + (24 * 60) : diff;
       };
 
       if (c >= 35 && c <= 38) setV(39, timeDiff(35, 36, 37, 38));
       if (c >= 41 && c <= 44) setV(45, timeDiff(41, 42, 43, 44));
       if (c >= 46 && c <= 49) {
-          let lc = timeDiff(46, 47, 48, 49);
-          setV(50, lc); setV(52, lc); setV(53, lc);
+        let lc = timeDiff(46, 47, 48, 49);
+        setV(50, lc); setV(52, lc); setV(53, lc);
       }
       if ((c >= 41 && c <= 44) || (c >= 46 && c <= 49)) {
         let rSub = v(45); let lSub = v(50);
@@ -266,19 +264,19 @@ export default function InputF() {
   }, []);
 
   const handleDTChange = useCallback((worksheet, _cell, cStr, rStr, _value) => {
-    let c = parseInt(cStr); let r = parseInt(rStr); let sheet = worksheet; 
-    if(c >= 4 && c <= 7) {
-        let sh = parseFloat(sheet.getValueFromCoords(4, r)) || 0;
-        let sm = parseFloat(sheet.getValueFromCoords(5, r)) || 0;
-        let eh = parseFloat(sheet.getValueFromCoords(6, r)) || 0;
-        let em = parseFloat(sheet.getValueFromCoords(7, r)) || 0;
-        if(sheet.getValueFromCoords(4, r) !== "" && sheet.getValueFromCoords(6, r) !== "") {
-            let diff = (eh*60 + em) - (sh*60 + sm);
-            sheet.setValueFromCoords(8, r, diff < 0 ? diff + (24*60) : diff, true);
-        }
+    let c = parseInt(cStr); let r = parseInt(rStr); let sheet = worksheet;
+    if (c >= 4 && c <= 7) {
+      let sh = parseFloat(sheet.getValueFromCoords(4, r)) || 0;
+      let sm = parseFloat(sheet.getValueFromCoords(5, r)) || 0;
+      let eh = parseFloat(sheet.getValueFromCoords(6, r)) || 0;
+      let em = parseFloat(sheet.getValueFromCoords(7, r)) || 0;
+      if (sheet.getValueFromCoords(4, r) !== "" && sheet.getValueFromCoords(6, r) !== "") {
+        let diff = (eh * 60 + em) - (sh * 60 + sm);
+        sheet.setValueFromCoords(8, r, diff < 0 ? diff + (24 * 60) : diff, true);
+      }
     }
     if (c === 11) {
-        sheet.setValueFromCoords(12, r, '', true);
+      sheet.setValueFromCoords(12, r, '', true);
     }
     triggerAutosaveDT(r, sheet);
   }, []);
@@ -296,7 +294,7 @@ export default function InputF() {
       if (resOEE?.status === 'success' && Array.isArray(resOEE.data)) {
         mappedOEE = [...resOEE.data].reverse().map((row) => {
           mappedOEEIds.push(row.id);
-          
+
           const arr = Array(55).fill('');
           arr[0] = row.no_batch ?? '';
           arr[1] = row.lot_no ?? '';
@@ -377,18 +375,17 @@ export default function InputF() {
       localStorage.setItem('F_IDS_OEE', JSON.stringify(oeeIds.current));
       localStorage.setItem('F_IDS_DT', JSON.stringify(dtIds.current));
 
-    } catch (error) { 
-      console.error(error); 
+    } catch (error) {
+      console.error(error);
     }
   }, [user]);
 
   useEffect(() => {
-    // Tarik data langsung dari memori saat halaman dimuat (Instant Load)
     const initialEmptyOEE = getCachedData('F_DATA_OEE', getEmptyOEE_F, 100);
     const initialEmptyDT = getCachedData('F_DATA_DT', getEmptyDT, 100);
 
     if (oeeTableRef.current) {
-      oeeTableRef.current.innerHTML = ''; 
+      oeeTableRef.current.innerHTML = '';
       oeeGrid.current = jspreadsheet(oeeTableRef.current, {
         worksheets: [{
           data: initialEmptyOEE,
@@ -398,7 +395,7 @@ export default function InputF() {
             { type: 'calendar', title: 'Tanggal', width: 100, options: { format: 'YYYY-MM-DD' } },
             { type: 'numeric', title: 'Shift', width: 60 },
             { type: 'text', title: 'Grup', width: 60 },
-            { type: 'text', title: 'Volume', width: 90 },
+            { type: 'dropdown', title: 'Volume', width: 90, source: VOLUMES },
             { type: 'numeric', title: 'Input (Botol chamber)', width: 100 },
             { type: 'numeric', title: 'Reject Bocor', width: 90 },
             { type: 'numeric', title: 'Reject Patah ring', width: 90 },
@@ -418,7 +415,7 @@ export default function InputF() {
             { type: 'numeric', title: 'Hasil Baik', width: 90, readOnly: true },
             { type: 'numeric', title: 'QC', width: 80 },
             { type: 'numeric', title: 'Transfer ke Packing', width: 130, readOnly: true },
-            
+
             { type: 'numeric', title: 'Reject', width: 80 },
             { type: 'numeric', title: 'Hasil Baik', width: 90, readOnly: true },
             { type: 'numeric', title: 'QC', width: 70 },
@@ -427,17 +424,17 @@ export default function InputF() {
             { type: 'text', title: 'Utuh ?', width: 70 },
             { type: 'numeric', title: 'Jumlah Batch', width: 100, readOnly: true },
             { type: 'numeric', title: 'Total per shift', width: 110, readOnly: true },
-            
+
             { type: 'percent', title: 'per Batch', width: 90, readOnly: true },
             { type: 'percent', title: 'AVERAGE per shift', width: 120, readOnly: true },
-            
+
             { type: 'numeric', title: 'Start (Jam)', width: 80 },
             { type: 'numeric', title: 'Start (Menit)', width: 90 },
             { type: 'numeric', title: 'End (Jam)', width: 80 },
             { type: 'numeric', title: 'End (Menit)', width: 90 },
             { type: 'numeric', title: 'Sub Total', width: 90, readOnly: true },
             { type: 'numeric', title: 'TOTAL', width: 80, readOnly: true },
-            
+
             { type: 'numeric', title: 'Start (Jam)', width: 80 },
             { type: 'numeric', title: 'Start (Menit)', width: 90 },
             { type: 'numeric', title: 'End (Jam)', width: 80 },
@@ -500,7 +497,7 @@ export default function InputF() {
     }
 
     if (dtTableRef.current) {
-      dtTableRef.current.innerHTML = ''; 
+      dtTableRef.current.innerHTML = '';
       const UNIT_MAP = {
         'All Team Packaging': ['Conveyor Inspeksi', 'IDDLE', 'Others', 'Robotic', 'Wait Produk', 'Line Clearance', 'Break'],
         'Cartoning': ['Carton sealer', 'Carton Unpacker', 'Case Packer - Others', 'Collecting Conveyor', 'Conveyor', 'Floating conveyor', 'Ganti Label', 'IDDLE', 'Inkjet Printer', 'Labelling', 'Labelling - Others', 'Robot', 'Vacuum Case Packer', 'Weigher', 'Weighing Checker'],
@@ -516,23 +513,23 @@ export default function InputF() {
           data: initialEmptyDT,
           columns: [
             { type: 'calendar', title: 'Tanggal', width: 100, options: { format: 'YYYY-MM-DD' } },
-            { type: 'dropdown', title: 'Shift', source: SHIFTS, width: 60 },
-            { type: 'dropdown', title: 'Grup', source: GROUPS, width: 60 },
+            { type: 'numeric', title: 'Shift', width: 60 },
+            { type: 'text', title: 'Grup', width: 60 },
             { type: 'text', title: 'No. Batch', width: 120 },
             { type: 'numeric', title: 'Start (jam)', width: 80 },
             { type: 'numeric', title: 'Start (menit)', width: 90 },
             { type: 'numeric', title: 'End (jam)', width: 80 },
             { type: 'numeric', title: 'End (menit)', width: 90 },
             { type: 'numeric', title: 'Durasi (m)', width: 100, readOnly: true },
-            { type: 'dropdown', title: 'Planned / Unplanned', source: ['Planned', 'Unplanned'], width: 150 },
+            { type: 'text', title: 'Planned / Unplanned', width: 150 },
             { type: 'dropdown', title: 'Root Cause', source: ['Production', 'Mechanical', 'Electrical', 'Utility', 'QA', 'QC', 'Warehouse', 'PPIC', 'R&D'], width: 150 },
             { type: 'dropdown', title: 'Proses', source: ['All Team Packaging', 'Cartoning', 'Conveyor', 'Visual Inspeksi', 'Labelling', 'Robot', 'Unpacker'], width: 120 },
-            { 
-              type: 'dropdown', 
-              title: 'Unit', 
+            {
+              type: 'dropdown',
+              title: 'Unit',
               width: 120,
-              source: ALL_UNITS, 
-              filter: function(instance, cell, c, r, source) {
+              source: ALL_UNITS,
+              filter: function (instance, cell, c, r, source) {
                 let sheet = dtGrid.current[0];
                 let prosesValue = sheet.getValueFromCoords(11, r);
                 return UNIT_MAP[prosesValue] || [];
@@ -550,7 +547,6 @@ export default function InputF() {
       });
     }
 
-    // Eksekusi penarikan data untuk Revalidasi di belakang layar
     loadDataServer();
 
     return () => {
@@ -562,7 +558,7 @@ export default function InputF() {
       }
       if (oeeTableRef.current) oeeTableRef.current.innerHTML = '';
       if (dtTableRef.current) dtTableRef.current.innerHTML = '';
-      
+
       oeeGrid.current = null; dtGrid.current = null;
     };
   }, [user, handleOEEChange, handleDTChange, loadDataServer]);
@@ -571,13 +567,13 @@ export default function InputF() {
     <div className="min-h-screen bg-slate-50 p-8 text-slate-800 font-sans">
       <Toaster position="bottom-right" />
       <div className="max-w-full mx-auto">
-        
+
         <div className="mb-4">
           <h1 className="text-2xl font-black tracking-wider uppercase text-emerald-800">
-            OEE Line 4 - Zone F <span className="text-sm font-normal normal-case text-gray-500 ml-2">(Auto-Saving & Cached)</span>
+            OEE Line 4 - Zone F
           </h1>
         </div>
-        
+
         <div className="bg-white border-2 border-slate-300 shadow-xl mb-12 rounded overflow-hidden p-1">
           <div ref={oeeTableRef} />
         </div>
