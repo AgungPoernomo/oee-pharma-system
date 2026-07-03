@@ -9,19 +9,19 @@ export default async function handler(req, res) {
 
   try {
     if (action === 'get_today_reject_c') {
-      const [rows] = await db.query(`SELECT * FROM oee_line${lineNum}_zonec ORDER BY id DESC LIMIT 1000`);
+      const [rows] = await db.query(`SELECT * FROM oee_line${lineNum}_zonec ORDER BY id DESC LIMIT 5000`);
       return res.status(200).json({ status: 'success', data: rows });
     }
     else if (action === 'get_today_downtime_c') {
-      const [rows] = await db.query(`SELECT * FROM downtime_line${lineNum}_zonec ORDER BY id DESC LIMIT 1000`);
+      const [rows] = await db.query(`SELECT * FROM downtime_line${lineNum}_zonec ORDER BY id DESC LIMIT 5000`);
       return res.status(200).json({ status: 'success', data: rows });
     }
     else if (action === 'get_today_reject_f') {
-      const [rows] = await db.query(`SELECT * FROM oee_line${lineNum}_zonef ORDER BY id DESC LIMIT 1000`);
+      const [rows] = await db.query(`SELECT * FROM oee_line${lineNum}_zonef ORDER BY id DESC LIMIT 5000`);
       return res.status(200).json({ status: 'success', data: rows });
     }
     else if (action === 'get_today_downtime_f') {
-      const [rows] = await db.query(`SELECT * FROM downtime_line${lineNum}_zonef ORDER BY id DESC LIMIT 1000`);
+      const [rows] = await db.query(`SELECT * FROM downtime_line${lineNum}_zonef ORDER BY id DESC LIMIT 5000`);
       return res.status(200).json({ status: 'success', data: rows });
     }
     

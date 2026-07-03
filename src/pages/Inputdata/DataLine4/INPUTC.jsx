@@ -1159,10 +1159,24 @@ export default function InputC() {
         fetchTodayDowntimeC(user),
       ]);
 
+      const now = new Date();
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(now.getDate() - 30);
+      thirtyDaysAgo.setHours(0, 0, 0, 0);
+
+      const filterLast30Days = (row) => {
+        if (!row || !row.tanggal) return true;
+        const ymd = parseToYMD(row.tanggal);
+        if (!ymd) return true;
+        const d = new Date(ymd);
+        if (isNaN(d.getTime())) return true;
+        return d >= thirtyDaysAgo;
+      };
+
       let mappedOEE = [];
       let mappedOEEIds = [];
       if (resOEE?.status === 'success' && Array.isArray(resOEE.data)) {
-        mappedOEE = [...resOEE.data].reverse().map((row) => {
+        mappedOEE = resOEE.data.filter(filterLast30Days).reverse().map((row) => {
           mappedOEEIds.push(row.id);
           const r = [
             row.no_batch ?? '', parseToYMD(row.tanggal), row.shift ?? '', row.group ?? '', row.reject_botol ?? '', row.reject_preform ?? '',
@@ -1182,7 +1196,7 @@ export default function InputC() {
       let mappedDT = [];
       let mappedDTIds = [];
       if (resDT?.status === 'success' && Array.isArray(resDT.data)) {
-        mappedDT = [...resDT.data].reverse().map((row) => {
+        mappedDT = resDT.data.filter(filterLast30Days).reverse().map((row) => {
           mappedDTIds.push(row.id);
           const r = [
             parseToYMD(row.tanggal), row.shift ?? '', row.group ?? '', row.no_batch ?? '', row.start_h ?? '', row.start_m ?? '',
