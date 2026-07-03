@@ -1,44 +1,73 @@
-import React, { useEffect, useRef, useCallback } from 'react';
+import React, { useEffect, useRef, useCallback, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useAuth } from '../../../context/AuthContext';
 import { fetchTodayRejectF, fetchTodayDowntimeF } from '../../../services/api';
-import toast, { Toaster } from 'react-hot-toast';
-
-import jspreadsheet from 'jspreadsheet-ce';
-import 'jspreadsheet-ce/dist/jspreadsheet.css';
-import 'jsuites/dist/jsuites.css';
+import { Toaster } from 'react-hot-toast';
 
 const TEORI_BATCH = { "25 ML": 29412, "100 ML": 56880, "250 ML": 21509, "500 ML": 23076, "1000 ML": 60194 };
 const TEORI_YIELD = 21923;
 const VOLUMES = ["25 ML", "100 ML", "250 ML", "500 ML", "1000 ML"];
 
+const C = {
+  NO_BATCH: 0, LOT_NO: 1, TANGGAL: 2, SHIFT: 3, GROUP: 4, VOLUME_BOTOL: 5,
+  STERIL_IN: 6, STERIL_BOCOR: 7, STERIL_H_PATAH_RING: 8, STERIL_H_PATAH_LIDAH: 9, STERIL_H_PATAH_LELEH: 10,
+  STERIL_NO_HANGER: 11, STERIL_REJ_TOTAL: 12, STERIL_SAMPLE: 13, STERIL_OUT: 14,
+  VI_START: 15, VI_END: 16, VI_SUB: 17, TOTAL_SHIFT_1: 18,
+  VI_PARTIKEL: 19, VI_KOTIK: 20, VI_REJ_TOTAL: 21, VI_HASIL_BAIK: 22,
+  QC_1: 23, VI_TF_PACKING: 24, PACK_REJECT: 25, PACK_HASIL_BAIK: 26,
+  PACK_S_QC: 27, PACK_S_OTHERS: 28, PACK_FG: 29, PACK_UTUH: 30,
+  PACK_JML_BATCH: 31, TOTAL_SHIFT_2: 32, PER_BATCH: 33, AVG_SHIFT: 34,
+  AV_SH: 35, AV_SM: 36, AV_EH: 37, AV_EM: 38, AV_SUB: 39, TOTAL_AVAIL_SHIFT: 40,
+  RUN_SH: 41, RUN_SM: 42, RUN_EH: 43, RUN_EM: 44, RUN_SUB: 45,
+  CLEAR_SH: 46, CLEAR_SM: 47, CLEAR_EH: 48, CLEAR_EM: 49, CLEAR_SUB: 50, PROCESS_TOTAL: 51
+};
+
+const DC = {
+  TANGGAL: 0, SHIFT: 1, GRUP: 2, NO_BATCH: 3, SH: 4, SM: 5, EH: 6, EM: 7,
+  DURASI: 8, TYPE: 9, ROOT: 10, PROSES: 11, UNIT: 12, KASUS: 13,
+};
+
 const parseToYMD = (val) => {
   if (!val) return '';
-  let str = String(val).replace(/'/g, '').trim();
+  const str = String(val).replace(/'/g, '').trim();
   if (str.includes('/')) {
     const parts = str.split('/');
-    if (parts.length === 3) return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+    if (parts.length === 3) {
+      return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+    }
   }
   try {
     const d = new Date(str);
     if (!isNaN(d.getTime())) return d.toISOString().split('T')[0];
-  } catch (e) { }
+  } catch (err) {
+    void err;
+  }
   return '';
 };
 
-const getEmptyOEE_F = () => {
+const incrementBatchNumber = (str, step) => {
+  if (!str || String(str).length < 2) return str;
+  const s = String(str);
+  const prefix = s.slice(0, -2);
+  const last2 = s.slice(-2);
+  const num = parseInt(last2, 10);
+  if (isNaN(num)) return str;
+  const nextNum = num + step;
+  return prefix + String(nextNum < 0 ? 0 : nextNum).padStart(2, '0');
+};
+
+const getEmptyOEE = () => {
   const arr = Array(52).fill('');
-  arr[5] = '';
-  arr[30] = 'Y';
+  arr[C.UTUH] = 'Y';
   return arr;
 };
 
 const getEmptyDT = () => {
   const arr = Array(14).fill('');
-  arr[9] = 'Unplanned';
+  arr[DC.TYPE] = 'Unplanned';
   return arr;
 };
 
-// ── FUNGSI SISTEM INGATAN (CACHE) ──
 const getCachedData = (key, emptyGenerator, count = 100) => {
   try {
     const cached = localStorage.getItem(key);
@@ -69,79 +98,611 @@ const sendAutoSave = async (payload) => {
   }
 };
 
+const UNIT_MAP_F = {
+  'Blowing': ['Conveyor Preform Hijau', 'Hopper Preform', 'Conveyor Hopper Putih', 'Preform Feeding Chute', 'Rotary Preform', 'Minion', 'Supply Hanger', 'Heater Lamp', 'Heating Tube', 'Vertical Punch', 'Servo 1', 'Midstation', 'Servo 2', 'Servo 3', 'Servo 4', 'Neckseal', 'Stretch Servo', 'Bottom Mold', 'Pin Bottom', 'Body Mould - Utara', 'Body Mould - Selatan', 'Molding', 'Overturn', 'Transfer Blow-Fill', 'Supply Chiller', 'Compresor - Highpress (Oilfree)', 'Compresor - Lowpress (Oilless)', 'RH TMS', 'Suhu TMS', 'Supply Preform', 'Trial', 'Blowing-Others', 'Changeover'],
+  'Filling': ['Laserjet', 'Gripper Washing', 'PLC', 'Ionizer', 'Carousel 1', 'Carousel 2', 'Carousel 3', 'Buffer Tank', 'Filling', 'Carousel 4', 'Carousel 5', 'Carousel 6', 'Cap Feeding Chute', 'Sealing', 'Heater', 'Cooling Heater Sealing', 'Wheelcap Ganjil', 'Wheelcap Genap', 'Conveyor Filling', 'Tandonan', 'Gear', 'Compresor-Oilfree', 'Compresor-Oilless', 'Trial', 'CIP/SIP', 'Filling-Others', 'Supply Listrik', 'Line Clearance', 'Break'],
+  'Mixing': ['Supply WFI', 'Tanki D1', 'Tanki D2', 'Filter Produk', 'Mixing Produk', 'CIP/SIP', 'Integrity', 'PLC', 'Trial'],
+  'Autoclave': ['Conveyor', 'Meja A', 'Meja B', 'Lifter A', 'Lifter B', 'Tray kereta', 'Turn table', 'Kereta Anjlok', 'Kereta Habis', 'Jalur penuh', 'Chamber A', 'Chamber B', 'Doorseal', 'Autoclave-Other', 'Pick and Place']
+};
+const ALL_UNITS_F = [...new Set(Object.values(UNIT_MAP_F).flat())];
+
+// Pure calculation functions
+const calculateOEERow = (row) => {
+  const next = [...row];
+  const raw = (c) => next[c] !== null && next[c] !== undefined ? next[c] : '';
+  const v = (c) => {
+    const val = raw(c);
+    return (val === '' || isNaN(val)) ? 0 : parseFloat(val);
+  };
+  const setV = (c, val) => { next[c] = val; };
+  const timeDiff = (sh, sm, eh, em) => {
+    if (raw(sh) === '' && raw(sm) === '' && raw(eh) === '' && raw(em) === '') return '';
+    const diff = (v(eh) * 60 + v(em)) - (v(sh) * 60 + v(sm));
+    return diff < 0 ? diff + 24 * 60 : diff;
+  };
+
+  setV(C.STERIL_REJ_TOTAL, v(C.STERIL_BOCOR) + v(C.STERIL_H_PATAH_RING) + v(C.STERIL_H_PATAH_LIDAH) + v(C.STERIL_H_PATAH_LELEH) + v(C.STERIL_NO_HANGER));
+  
+  let sIn = v(C.STERIL_IN);
+  if (sIn > 0) setV(C.STERIL_OUT, sIn - v(C.STERIL_REJ_TOTAL) - v(C.STERIL_SAMPLE));
+  else setV(C.STERIL_OUT, '');
+
+  let sub = v(C.VI_END) - v(C.VI_START);
+  setV(C.VI_SUB, sub > 0 ? sub : '');
+
+  setV(C.VI_REJ_TOTAL, v(C.VI_PARTIKEL) + v(C.VI_KOTIK));
+
+  let vSub = v(C.VI_SUB);
+  if (vSub > 0) {
+    let vBaik = vSub - v(C.VI_REJ_TOTAL);
+    setV(C.VI_HASIL_BAIK, vBaik);
+    setV(C.VI_TF_PACKING, vBaik - v(C.QC_1));
+  } else {
+    setV(C.VI_HASIL_BAIK, ''); setV(C.VI_TF_PACKING, '');
+  }
+
+  let pTrf = v(C.VI_TF_PACKING);
+  if (pTrf > 0) {
+    let pHasil = pTrf - v(C.PACK_REJECT);
+    setV(C.PACK_HASIL_BAIK, pHasil);
+    setV(C.PACK_FG, pHasil - v(C.PACK_S_QC) - v(C.PACK_S_OTHERS));
+  } else {
+    setV(C.PACK_HASIL_BAIK, ''); setV(C.PACK_FG, '');
+  }
+
+  let volKey = raw(C.VOLUME_BOTOL) || "500 ML";
+  let pFg = v(C.PACK_FG);
+  if (pFg > 0) {
+    setV(C.PACK_JML_BATCH, (pFg / (TEORI_BATCH[volKey] || 23076)).toFixed(2));
+    setV(C.PER_BATCH, ((pFg / TEORI_YIELD) * 100).toFixed(2));
+  } else {
+    setV(C.PACK_JML_BATCH, ''); setV(C.PER_BATCH, '');
+  }
+
+  setV(C.AV_SUB, timeDiff(C.AV_SH, C.AV_SM, C.AV_EH, C.AV_EM));
+  setV(C.RUN_SUB, timeDiff(C.RUN_SH, C.RUN_SM, C.RUN_EH, C.RUN_EM));
+  let lc = timeDiff(C.CLEAR_SH, C.CLEAR_SM, C.CLEAR_EH, C.CLEAR_EM);
+  setV(C.CLEAR_SUB, lc);
+  let rSub = v(C.RUN_SUB);
+  let lSub = v(C.CLEAR_SUB);
+  if (rSub > 0 || lSub > 0) setV(C.PROCESS_TOTAL, rSub + lSub);
+  else setV(C.PROCESS_TOTAL, '');
+
+  return next;
+};
+
+const calculateDTRow = (row) => {
+  const next = [...row];
+  const raw = (c) => next[c] !== null && next[c] !== undefined ? next[c] : '';
+  const v = (c) => {
+    const val = raw(c);
+    return (val === '' || isNaN(val)) ? 0 : parseFloat(val);
+  };
+  if (raw(DC.SH) !== '' && raw(DC.EH) !== '') {
+    const diff = (v(DC.EH) * 60 + v(DC.EM)) - (v(DC.SH) * 60 + v(DC.SM));
+    next[DC.DURASI] = diff < 0 ? diff + 24 * 60 : diff;
+  } else {
+    next[DC.DURASI] = '';
+  }
+  return next;
+};
+
+const findEdgeCell = (data, r, c, key, maxR, maxC) => {
+  let dr = 0, dc = 0;
+  if (key === 'ArrowUp') dr = -1;
+  if (key === 'ArrowDown') dr = 1;
+  if (key === 'ArrowLeft') dc = -1;
+  if (key === 'ArrowRight') dc = 1;
+
+  const isVal = (rowIdx, colIdx) => {
+    if (rowIdx < 0 || rowIdx > maxR || colIdx < 0 || colIdx > maxC) return false;
+    const v = data[rowIdx]?.[colIdx];
+    return v !== null && v !== undefined && v !== '';
+  };
+
+  let currR = r + dr;
+  let currC = c + dc;
+  if (currR < 0 || currR > maxR || currC < 0 || currC > maxC) return { r, c };
+
+  const startHasVal = isVal(r, c);
+  const nextHasVal = isVal(currR, currC);
+
+  if (!startHasVal || !nextHasVal) {
+    while (currR >= 0 && currR <= maxR && currC >= 0 && currC <= maxC) {
+      if (isVal(currR, currC)) return { r: currR, c: currC };
+      currR += dr;
+      currC += dc;
+    }
+    return {
+      r: Math.max(0, Math.min(maxR, currR - dr)),
+      c: Math.max(0, Math.min(maxC, currC - dc))
+    };
+  } else {
+    while (currR >= 0 && currR <= maxR && currC >= 0 && currC <= maxC) {
+      if (!isVal(currR + dr, currC + dc)) return { r: currR, c: currC };
+      currR += dr;
+      currC += dc;
+    }
+    return { r: currR, c: currC };
+  }
+};
+
+const OEE_COLS_META = [
+  { title: 'No Batch', width: 90, type: 'text', stickyLeft: 0 },
+  { title: 'Lot No', width: 90, type: 'text', stickyLeft: 90 },
+  { title: 'Tanggal', width: 100, type: 'date', stickyLeft: 180 },
+  { title: 'Shift', width: 60, type: 'number', stickyLeft: 280 },
+  { title: 'Group', width: 60, type: 'text', stickyLeft: 340 },
+  { title: 'Volume', width: 90, type: 'select', options: VOLUMES },
+  { title: 'Input (Botol chamber)', width: 100, type: 'number' },
+  { title: 'Reject Bocor', width: 90, type: 'number' },
+  { title: 'Reject Patah ring', width: 90, type: 'number' },
+  { title: 'Reject Patah Lidah', width: 90, type: 'number' },
+  { title: 'Reject Patah Lelehan', width: 90, type: 'number' },
+  { title: 'Reject Tanpa Hanger', width: 90, type: 'number' },
+  { title: 'TOTAL', width: 80, type: 'number', readOnly: true },
+  { title: 'Sampel QC', width: 80, type: 'number' },
+  { title: 'Output (TF to VI)', width: 120, type: 'number', readOnly: true },
+  { title: 'Start', width: 80, type: 'number' },
+  { title: 'End', width: 80, type: 'number' },
+  { title: 'Sub total', width: 90, type: 'number', readOnly: true },
+  { title: 'Total per Shift', width: 110, type: 'number', readOnly: true },
+  { title: 'Partikel', width: 80, type: 'number' },
+  { title: 'Kosmetik', width: 80, type: 'number' },
+  { title: 'TOTAL', width: 80, type: 'number', readOnly: true },
+  { title: 'Hasil Baik', width: 90, type: 'number', readOnly: true },
+  { title: 'QC', width: 80, type: 'number' },
+  { title: 'Transfer ke Packing', width: 130, type: 'number', readOnly: true },
+  { title: 'Reject', width: 80, type: 'number' },
+  { title: 'Hasil Baik', width: 90, type: 'number', readOnly: true },
+  { title: 'QC', width: 70, type: 'number' },
+  { title: 'Others', width: 70, type: 'number' },
+  { title: 'Finished Goods', width: 110, type: 'number', readOnly: true },
+  { title: 'Utuh ?', width: 70, type: 'select', options: ['Y', 'N'] },
+  { title: 'Jumlah Batch', width: 100, type: 'number', readOnly: true },
+  { title: 'Total per shift', width: 110, type: 'number', readOnly: true },
+  { title: 'per Batch (%)', width: 90, type: 'number', readOnly: true },
+  { title: 'AVERAGE per shift (%)', width: 120, type: 'number', readOnly: true },
+  { title: 'Start (Jam)', width: 80, type: 'number' },
+  { title: 'Start (Menit)', width: 90, type: 'number' },
+  { title: 'End (Jam)', width: 80, type: 'number' },
+  { title: 'End (Menit)', width: 90, type: 'number' },
+  { title: 'Sub Total', width: 90, type: 'number', readOnly: true },
+  { title: 'TOTAL', width: 80, type: 'number', readOnly: true },
+  { title: 'Start (Jam)', width: 80, type: 'number' },
+  { title: 'Start (Menit)', width: 90, type: 'number' },
+  { title: 'End (Jam)', width: 80, type: 'number' },
+  { title: 'End (Menit)', width: 90, type: 'number' },
+  { title: 'Sub Total', width: 90, type: 'number', readOnly: true },
+  { title: 'Start (Jam)', width: 80, type: 'number' },
+  { title: 'Start (Menit)', width: 90, type: 'number' },
+  { title: 'End (Jam)', width: 80, type: 'number' },
+  { title: 'End (Menit)', width: 90, type: 'number' },
+  { title: 'Sub Total', width: 90, type: 'number', readOnly: true },
+  { title: 'TOTAL', width: 80, type: 'number', readOnly: true }
+];
+
+const DT_COLS_META = [
+  { title: 'Tanggal', width: 120, type: 'date', stickyLeft: 0 },
+  { title: 'Shift', width: 60, type: 'number' },
+  { title: 'Grup', width: 60, type: 'text' },
+  { title: 'No. Batch', width: 115, type: 'text' },
+  { title: 'Start (Jam)', width: 80, type: 'number' },
+  { title: 'Start (Menit)', width: 85, type: 'number' },
+  { title: 'End (Jam)', width: 80, type: 'number' },
+  { title: 'End (Menit)', width: 85, type: 'number' },
+  { title: 'Durasi (menit)', width: 105, type: 'number', readOnly: true },
+  { title: 'Planned / Unplanned', width: 155, type: 'select', options: ['Planned', 'Unplanned'] },
+  { title: 'Root Cause', width: 145, type: 'select', options: ['Production', 'Mechanical', 'Electrical', 'Utility', 'QA', 'QC', 'Warehouse', 'PPIC', 'R&D'] },
+  { title: 'Proses', width: 125, type: 'select', options: ['All Team Packaging', 'Cartoning', 'Conveyor', 'Visual Inspeksi', 'Labelling', 'Robot', 'Unpacker'] },
+  { title: 'Unit', width: 180, type: 'select_unit' },
+  { title: 'Kasus', width: 400, type: 'text' },
+];
+
+const AutocompleteCombobox = ({
+  initVal,
+  options,
+  onFinish,
+  onCancel,
+  editMode,
+  gridType
+}) => {
+  const [val, setVal] = useState(initVal || '');
+  const [isOpen, setIsOpen] = useState(true);
+  const inputRef = useRef(null);
+  const listRef = useRef(null);
+  const [rect, setRect] = useState(null);
+
+  const filteredOptions = (options || []).filter(o =>
+    String(o).toLowerCase().includes(String(val).toLowerCase())
+  );
+
+  const getInitialIdx = () => {
+    if (!initVal) return 0;
+    const found = filteredOptions.findIndex(o => String(o).toLowerCase() === String(initVal).toLowerCase());
+    return found !== -1 ? found : 0;
+  };
+
+  const [highlightIdx, setHighlightIdx] = useState(getInitialIdx);
+
+  const updateRect = useCallback(() => {
+    if (inputRef.current) {
+      setRect(inputRef.current.getBoundingClientRect());
+    }
+  }, []);
+
+  useEffect(() => {
+    updateRect();
+    window.addEventListener('scroll', updateRect, true);
+    window.addEventListener('resize', updateRect);
+    return () => {
+      window.removeEventListener('scroll', updateRect, true);
+      window.removeEventListener('resize', updateRect);
+    };
+  }, [updateRect]);
+
+  useEffect(() => {
+    if (listRef.current) {
+      const activeEl = listRef.current.querySelector(`[data-idx="${highlightIdx}"]`);
+      if (activeEl && typeof activeEl.scrollIntoView === 'function') {
+        activeEl.scrollIntoView({ block: 'nearest' });
+      }
+    }
+  }, [highlightIdx, isOpen]);
+
+  const getAutoSelectedVal = (currentVal) => {
+    if (isOpen && filteredOptions.length > 0) {
+      return filteredOptions[highlightIdx] !== undefined ? filteredOptions[highlightIdx] : filteredOptions[0];
+    }
+    return currentVal;
+  };
+
+  return (
+    <div className="w-full h-full relative flex items-center">
+      <input
+        ref={inputRef}
+        type="text"
+        autoFocus
+        value={val}
+        onMouseDown={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
+        onDoubleClick={(e) => e.stopPropagation()}
+        onFocus={(e) => {
+          updateRect();
+          if (editMode === 'direct') {
+            const el = e.target;
+            el.selectionStart = el.selectionEnd = el.value.length;
+          }
+        }}
+        onChange={(e) => {
+          setVal(e.target.value);
+          setIsOpen(true);
+          setHighlightIdx(0);
+        }}
+        onBlur={() => {
+          onFinish(getAutoSelectedVal(val));
+        }}
+        onKeyDown={(e) => {
+          e.stopPropagation();
+          if (e.key === 'ArrowDown') {
+            if (isOpen && filteredOptions.length > 0) {
+              e.preventDefault();
+              setHighlightIdx(prev => (prev + 1) % filteredOptions.length);
+            } else if (editMode === 'direct') {
+              e.preventDefault();
+              onFinish(getAutoSelectedVal(val), 'ArrowDown');
+            }
+          } else if (e.key === 'ArrowUp') {
+            if (isOpen && filteredOptions.length > 0) {
+              e.preventDefault();
+              setHighlightIdx(prev => (prev - 1 + filteredOptions.length) % filteredOptions.length);
+            } else if (editMode === 'direct') {
+              e.preventDefault();
+              onFinish(getAutoSelectedVal(val), 'ArrowUp');
+            }
+          } else if (e.key === 'Enter') {
+            e.preventDefault();
+            onFinish(getAutoSelectedVal(val), 'Enter');
+          } else if (e.key === 'Tab') {
+            e.preventDefault();
+            onFinish(getAutoSelectedVal(val), 'Tab');
+          } else if (e.key === 'Escape') {
+            e.preventDefault();
+            if (isOpen) setIsOpen(false);
+            else onCancel();
+          } else if (editMode === 'direct' && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+            e.preventDefault();
+            onFinish(getAutoSelectedVal(val), e.key);
+          }
+        }}
+        className={`w-full h-7 px-1.5 text-xs font-semibold border-2 outline-none bg-white z-50 relative pr-5 ${gridType === 'oee' ? 'border-emerald-600' : 'border-indigo-600'}`}
+      />
+      <button
+        type="button"
+        tabIndex={-1}
+        onMouseDown={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setIsOpen(prev => !prev);
+          updateRect();
+        }}
+        className="absolute right-1 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 z-50 px-0.5 focus:outline-none"
+      >
+        ▼
+      </button>
+
+      {isOpen && rect && filteredOptions.length > 0 && createPortal(
+        <div
+          ref={listRef}
+          style={{
+            position: 'fixed',
+            top: rect.bottom + 2,
+            left: rect.left,
+            width: Math.max(rect.width, 220),
+            maxHeight: '220px'
+          }}
+          className="overflow-y-auto bg-white border border-slate-300 shadow-2xl rounded py-1 z-[999999] text-xs font-sans"
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          {filteredOptions.map((opt, idx) => {
+            const isHi = idx === highlightIdx;
+            return (
+              <div
+                key={opt}
+                data-idx={idx}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onFinish(opt, 'Enter');
+                }}
+                onMouseEnter={() => setHighlightIdx(idx)}
+                className={`px-2.5 py-1.5 cursor-pointer font-medium transition-colors ${isHi ? (gridType === 'oee' ? 'bg-emerald-600 text-white' : 'bg-indigo-600 text-white') : 'text-slate-700 hover:bg-slate-100'}`}
+              >
+                {opt}
+              </div>
+            );
+          })}
+        </div>,
+        document.body
+      )}
+    </div>
+  );
+};
+
+// Highly optimized memoized row component (only re-renders when rowData or this row's selection/editing changes!)
+const SpreadsheetRow = React.memo(({
+  rowData,
+  rowIdx,
+  colsMeta,
+  gridType,
+  isSelectedRow,
+  selectionMinCol,
+  selectionMaxCol,
+  selectionMaxRow,
+  editingColIdx,
+  editMode,
+  editingInitialValue,
+  onCellMouseDown,
+  onCellMouseEnter,
+  onCellDoubleClick,
+  onFillHandleMouseDown,
+  onFinishEdit,
+  onCancelEdit
+}) => {
+  const prosesValue = gridType === 'dt' ? rowData[DC.PROSES] : '';
+  const unitOptions = gridType === 'dt' ? (UNIT_MAP_F[prosesValue] || ALL_UNITS_F) : [];
+
+  return (
+    <tr className="border-b border-slate-200 text-xs hover:bg-slate-50/60">
+      {colsMeta.map((col, colIdx) => {
+        const val = rowData[colIdx] ?? '';
+        const isSticky = col.stickyLeft !== undefined;
+        const isSelected = isSelectedRow && colIdx >= selectionMinCol && colIdx <= selectionMaxCol;
+        const isFillHandleCorner = isSelectedRow && rowIdx === selectionMaxRow && colIdx === selectionMaxCol;
+        const isEditing = editingColIdx === colIdx;
+
+        const stickyStyle = isSticky ? { position: 'sticky', left: col.stickyLeft, zIndex: 10 } : {};
+
+        let bgClass = 'bg-white';
+        if (col.readOnly) bgClass = 'bg-slate-100/90 text-slate-600';
+        if (isSelected && !isEditing) {
+          bgClass = gridType === 'oee' ? 'bg-emerald-100/90' : 'bg-indigo-100/90';
+        }
+        if (isSticky && !isSelected) {
+          bgClass = col.readOnly ? 'bg-slate-100' : 'bg-white';
+        }
+
+        const borderSticky = isSticky && colIdx === (gridType === 'oee' ? 3 : 0) ? 'shadow-[1px_0_0_0_#cbd5e1]' : '';
+        const selectionRing = isSelected && !isEditing ? (gridType === 'oee' ? 'ring-1 ring-emerald-500 ring-inset' : 'ring-1 ring-indigo-500 ring-inset') : '';
+
+        const initVal = (isEditing && editingInitialValue !== undefined) ? editingInitialValue : val;
+        const relativeClass = (isFillHandleCorner || isEditing) ? 'relative' : '';
+
+        return (
+          <td
+            key={colIdx}
+            data-row={rowIdx}
+            data-col={colIdx}
+            style={{ width: col.width, minWidth: col.width, maxWidth: col.width, ...stickyStyle }}
+            className={`p-0 border-r border-slate-200 align-middle select-none ${relativeClass} ${bgClass} ${borderSticky} ${selectionRing}`}
+            onMouseDown={(e) => onCellMouseDown(e, rowIdx, colIdx, gridType)}
+            onMouseEnter={() => onCellMouseEnter(rowIdx, colIdx, gridType)}
+            onDoubleClick={() => !col.readOnly && onCellDoubleClick(rowIdx, colIdx, gridType)}
+          >
+            {isEditing && !col.readOnly ? (
+              col.type === 'select' || col.type === 'select_unit' ? (
+                <AutocompleteCombobox
+                  initVal={initVal}
+                  options={col.type === 'select_unit' ? unitOptions : col.options}
+                  onFinish={(newVal, moveKey) => onFinishEdit(rowIdx, colIdx, newVal, gridType, moveKey)}
+                  onCancel={onCancelEdit}
+                  editMode={editMode}
+                  gridType={gridType}
+                />
+              ) : (
+                <input
+                  type={col.type === 'date' ? 'date' : 'text'}
+                  autoFocus
+                  defaultValue={initVal}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={(e) => e.stopPropagation()}
+                  onDoubleClick={(e) => e.stopPropagation()}
+                  onFocus={(e) => {
+                    if (editMode === 'direct') {
+                      const el = e.target;
+                      el.selectionStart = el.selectionEnd = el.value.length;
+                    }
+                  }}
+                  onBlur={(e) => onFinishEdit(rowIdx, colIdx, e.target.value, gridType)}
+                  onKeyDown={(e) => {
+                    e.stopPropagation();
+                    if (editMode === 'direct') {
+                      if (['Enter', 'Tab', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+                        e.preventDefault();
+                        onFinishEdit(rowIdx, colIdx, e.currentTarget.value, gridType, e.key);
+                      } else if (e.key === 'Escape') {
+                        e.preventDefault();
+                        onCancelEdit();
+                      }
+                    } else {
+                      if (e.key === 'Enter' || e.key === 'Tab') {
+                        e.preventDefault();
+                        onFinishEdit(rowIdx, colIdx, e.currentTarget.value, gridType, e.key);
+                      } else if (e.key === 'Escape') {
+                        e.preventDefault();
+                        onCancelEdit();
+                      }
+                    }
+                  }}
+                  className={`w-full h-7 px-1.5 text-xs font-semibold border-2 outline-none bg-white z-50 relative ${gridType === 'oee' ? 'border-emerald-600' : 'border-indigo-600'}`}
+                />
+              )
+            ) : (
+              <div className={`w-full h-7 px-1.5 flex items-center overflow-hidden whitespace-nowrap text-ellipsis cursor-cell ${isFillHandleCorner ? 'relative' : ''}`}>
+                {val}
+                {isFillHandleCorner && !isEditing && (
+                  <div
+                    onMouseDown={(e) => {
+                      e.stopPropagation();
+                      onFillHandleMouseDown(e, rowIdx, colIdx, gridType);
+                    }}
+                    className={`absolute -bottom-1 -right-1 w-2.5 h-2.5 border border-white cursor-crosshair z-30 ${gridType === 'oee' ? 'bg-emerald-600' : 'bg-indigo-600'}`}
+                  />
+                )}
+              </div>
+            )}
+          </td>
+        );
+      })}
+    </tr>
+  );
+}, (prev, next) => {
+  if (prev.rowData !== next.rowData) return false;
+  if (prev.isSelectedRow !== next.isSelectedRow) return false;
+  if (prev.editingColIdx !== next.editingColIdx) return false;
+  if (prev.editMode !== next.editMode) return false;
+  if (prev.editingInitialValue !== next.editingInitialValue) return false;
+
+  // Only check selection columns if THIS row is currently selected or was previously selected!
+  // If it's not selected in either render, we don't care about the selection boundaries changing.
+  if (prev.isSelectedRow || next.isSelectedRow) {
+    if (prev.selectionMinCol !== next.selectionMinCol) return false;
+    if (prev.selectionMaxCol !== next.selectionMaxCol) return false;
+    if (prev.selectionMaxRow !== next.selectionMaxRow) return false;
+  }
+  return true;
+});
+
 export default function InputF() {
   const { user } = useAuth();
 
-  const oeeTableRef = useRef(null);
-  const dtTableRef = useRef(null);
-  const oeeGrid = useRef(null);
-  const dtGrid = useRef(null);
+  const [oeeData, setOeeData] = useState(() => getCachedData('F_DATA_OEE', getEmptyOEE, 100));
+  const [dtData, setDtData] = useState(() => getCachedData('F_DATA_DT', getEmptyDT, 100));
 
-  const isCalculating = useRef(false);
+  const [oeeSelection, setOeeSelection] = useState({ startRow: 0, startCol: 0, endRow: 0, endCol: 0 });
+  const [dtSelection, setDtSelection] = useState({ startRow: 0, startCol: 0, endRow: 0, endCol: 0 });
 
-  // Load ID dari Cache
+  const [oeeEditingCell, setOeeEditingCell] = useState(null);
+  const [dtEditingCell, setDtEditingCell] = useState(null);
+
+  const isDraggingRef = useRef({ oee: false, dt: false });
+  const fillDragRef = useRef({ active: false });
+  const oeeGridRef = useRef(null);
+  const dtGridRef = useRef(null);
+
   const oeeIds = useRef(getCachedIds('F_IDS_OEE'));
   const dtIds = useRef(getCachedIds('F_IDS_DT'));
   const oeeTimers = useRef({});
   const dtTimers = useRef({});
-  const calcTimers = useRef({});
 
-  const triggerAutosaveOEE = (rIdx, sheet) => {
+  const oeeHistory = useRef([]);
+  const oeeRedo = useRef([]);
+  const dtHistory = useRef([]);
+  const dtRedo = useRef([]);
+
+  const pushHistory = useCallback((gridType, prevData) => {
+    const histRef = gridType === 'oee' ? oeeHistory : dtHistory;
+    const redoRef = gridType === 'oee' ? oeeRedo : dtRedo;
+    if (histRef.current.length >= 50) histRef.current.shift();
+    histRef.current.push(prevData);
+    redoRef.current = [];
+  }, []);
+
+  const triggerAutosaveOEE = useCallback((rIdx, rowData) => {
     if (oeeTimers.current[rIdx]) clearTimeout(oeeTimers.current[rIdx]);
 
     oeeTimers.current[rIdx] = setTimeout(async () => {
-      const rowData = sheet.getRowData(rIdx);
-      if (!rowData[0] && !rowData[2] && !rowData[3]) return;
+      if (!rowData[C.NO_BATCH] && !rowData[C.TANGGAL] && !rowData[C.SHIFT]) return;
 
       const payloadData = {
         original_id: oeeIds.current[rIdx] || null,
-        no_batch: rowData[0],
-        lot_no: rowData[1],
-        tanggal: rowData[2],
-        shift: rowData[3],
-        group: rowData[4],
-        volume_botol: rowData[5],
-        steril_in: rowData[6],
-        steril_bocor: rowData[7],
-        steril_h_patah_ring: rowData[8],
-        steril_h_patah_lidah: rowData[9],
-        steril_h_patah_leleh: rowData[10],
-        steril_no_hanger: rowData[11],
-        steril_rej_total: rowData[12],
-        steril_sample: rowData[13],
-        steril_out: rowData[14],
-        vi_start: rowData[15],
-        vi_end: rowData[16],
-        vi_sub: rowData[17],
-        vi_partikel: rowData[19],
-        vi_kotik: rowData[20],
-        vi_rej_total: rowData[21],
-        vi_hasil_baik: rowData[22],
-        vi_tf_packing: rowData[24],
-        pack_reject: rowData[25],
-        pack_hasil_baik: rowData[26],
-        pack_s_qc: rowData[27],
-        pack_s_others: rowData[28],
-        pack_fg: rowData[29],
-        pack_utuh: rowData[30],
-        pack_jml_batch: rowData[31],
-        av_sh: rowData[35],
-        av_sm: rowData[36],
-        av_eh: rowData[37],
-        av_em: rowData[38],
-        av_sub: rowData[39],
-        total_avail_shift: rowData[40],
-        run_sh: rowData[41],
-        run_sm: rowData[42],
-        run_eh: rowData[43],
-        run_em: rowData[44],
-        run_sub: rowData[45],
-        clear_sh: rowData[46],
-        clear_sm: rowData[47],
-        clear_eh: rowData[48],
-        clear_em: rowData[49],
-        clear_sub: rowData[50],
-        process_total: rowData[51]
+        no_batch: rowData[C.NO_BATCH],
+        lot_no: rowData[C.LOT_NO],
+        tanggal: rowData[C.TANGGAL],
+        shift: rowData[C.SHIFT],
+        group: rowData[C.GROUP],
+        volume_botol: rowData[C.VOLUME_BOTOL],
+        steril_in: rowData[C.STERIL_IN],
+        steril_bocor: rowData[C.STERIL_BOCOR],
+        steril_h_patah_ring: rowData[C.STERIL_H_PATAH_RING],
+        steril_h_patah_lidah: rowData[C.STERIL_H_PATAH_LIDAH],
+        steril_h_patah_leleh: rowData[C.STERIL_H_PATAH_LELEH],
+        steril_no_hanger: rowData[C.STERIL_NO_HANGER],
+        steril_rej_total: rowData[C.STERIL_REJ_TOTAL],
+        steril_sample: rowData[C.STERIL_SAMPLE],
+        steril_out: rowData[C.STERIL_OUT],
+        vi_start: rowData[C.VI_START],
+        vi_end: rowData[C.VI_END],
+        vi_sub: rowData[C.VI_SUB],
+        vi_partikel: rowData[C.VI_PARTIKEL],
+        vi_kotik: rowData[C.VI_KOTIK],
+        vi_rej_total: rowData[C.VI_REJ_TOTAL],
+        vi_hasil_baik: rowData[C.VI_HASIL_BAIK],
+        vi_tf_packing: rowData[C.VI_TF_PACKING],
+        pack_reject: rowData[C.PACK_REJECT],
+        pack_hasil_baik: rowData[C.PACK_HASIL_BAIK],
+        pack_s_qc: rowData[C.PACK_S_QC],
+        pack_s_others: rowData[C.PACK_S_OTHERS],
+        pack_fg: rowData[C.PACK_FG],
+        pack_utuh: rowData[C.PACK_UTUH],
+        pack_jml_batch: rowData[C.PACK_JML_BATCH],
+        av_sh: rowData[C.AV_SH],
+        av_sm: rowData[C.AV_SM],
+        av_eh: rowData[C.AV_EH],
+        av_em: rowData[C.AV_EM],
+        av_sub: rowData[C.AV_SUB],
+        total_avail_shift: rowData[C.TOTAL_AVAIL_SHIFT],
+        run_sh: rowData[C.RUN_SH],
+        run_sm: rowData[C.RUN_SM],
+        run_eh: rowData[C.RUN_EH],
+        run_em: rowData[C.RUN_EM],
+        run_sub: rowData[C.RUN_SUB],
+        clear_sh: rowData[C.CLEAR_SH],
+        clear_sm: rowData[C.CLEAR_SM],
+        clear_eh: rowData[C.CLEAR_EH],
+        clear_em: rowData[C.CLEAR_EM],
+        clear_sub: rowData[C.CLEAR_SUB],
+        process_total: rowData[C.PROCESS_TOTAL]
       };
 
       const actionType = payloadData.original_id ? 'update_reject_f' : 'submit_reject_f';
@@ -152,29 +713,28 @@ export default function InputF() {
         localStorage.setItem('F_IDS_OEE', JSON.stringify(oeeIds.current));
       }
     }, 1000);
-  };
+  }, [user]);
 
-  const triggerAutosaveDT = (rIdx, sheet) => {
+  const triggerAutosaveDT = useCallback((rIdx, rowData) => {
     if (dtTimers.current[rIdx]) clearTimeout(dtTimers.current[rIdx]);
 
     dtTimers.current[rIdx] = setTimeout(async () => {
-      const rowData = sheet.getRowData(rIdx);
-      if (!rowData[0] && !rowData[3]) return;
+      if (!rowData[DC.TANGGAL] && !rowData[DC.NO_BATCH]) return;
 
       const payloadData = {
         original_id: dtIds.current[rIdx] || null,
-        tanggal: rowData[0],
-        shift: rowData[1],
-        group: rowData[2],
-        no_batch: rowData[3],
-        start_h: rowData[4], start_m: rowData[5],
-        end_h: rowData[6], end_m: rowData[7],
-        duration: rowData[8],
-        plan_unplan: rowData[9],
-        root_cause: rowData[10],
-        proses: rowData[11],
-        unit: rowData[12],
-        kasus: rowData[13],
+        tanggal: rowData[DC.TANGGAL],
+        shift: rowData[DC.SHIFT],
+        group: rowData[DC.GRUP],
+        no_batch: rowData[DC.NO_BATCH],
+        start_h: rowData[DC.SH], start_m: rowData[DC.SM],
+        end_h: rowData[DC.EH], end_m: rowData[DC.EM],
+        duration: rowData[DC.DURASI],
+        plan_unplan: rowData[DC.TYPE],
+        root_cause: rowData[DC.ROOT],
+        proses: rowData[DC.PROSES],
+        unit: rowData[DC.UNIT],
+        kasus: rowData[DC.KASUS],
       };
 
       const actionType = payloadData.original_id ? 'update_downtime_f' : 'submit_downtime_f';
@@ -185,406 +745,733 @@ export default function InputF() {
         localStorage.setItem('F_IDS_DT', JSON.stringify(dtIds.current));
       }
     }, 1000);
-  };
+  }, [user]);
 
-  const runRowCalculations = useCallback((worksheet, r) => {
-    if (isCalculating.current) return;
-    let sheet = worksheet;
+  const handleUndo = useCallback((gridType) => {
+    const histRef = gridType === 'oee' ? oeeHistory : dtHistory;
+    const redoRef = gridType === 'oee' ? oeeRedo : dtRedo;
+    const setData = gridType === 'oee' ? setOeeData : setDtData;
 
-    const v = (col) => {
-      let val = sheet.getValueFromCoords(col, r);
-      return (val === "" || val === null || isNaN(val)) ? 0 : parseFloat(val);
+    if (histRef.current.length === 0) return;
+    setData(prevData => {
+      redoRef.current.push(prevData);
+      const targetState = histRef.current.pop();
+      localStorage.setItem(gridType === 'oee' ? 'F_DATA_OEE' : 'F_DATA_DT', JSON.stringify(targetState));
+      const triggerSave = gridType === 'oee' ? triggerAutosaveOEE : triggerAutosaveDT;
+      targetState.forEach((row, rIdx) => {
+        if (row !== prevData[rIdx]) triggerSave(rIdx, row);
+      });
+      return targetState;
+    });
+  }, [triggerAutosaveOEE, triggerAutosaveDT]);
+
+  const handleRedo = useCallback((gridType) => {
+    const histRef = gridType === 'oee' ? oeeHistory : dtHistory;
+    const redoRef = gridType === 'oee' ? oeeRedo : dtRedo;
+    const setData = gridType === 'oee' ? setOeeData : setDtData;
+
+    if (redoRef.current.length === 0) return;
+    setData(prevData => {
+      histRef.current.push(prevData);
+      const targetState = redoRef.current.pop();
+      localStorage.setItem(gridType === 'oee' ? 'F_DATA_OEE' : 'F_DATA_DT', JSON.stringify(targetState));
+      const triggerSave = gridType === 'oee' ? triggerAutosaveOEE : triggerAutosaveDT;
+      targetState.forEach((row, rIdx) => {
+        if (row !== prevData[rIdx]) triggerSave(rIdx, row);
+      });
+      return targetState;
+    });
+  }, [triggerAutosaveOEE, triggerAutosaveDT]);
+
+  const handleFillHandleMouseDown = useCallback((e, rowIdx, colIdx, gridType) => {
+    if (e.button !== 0) return;
+    const sel = gridType === 'oee' ? oeeSelection : dtSelection;
+    const minR = Math.min(sel.startRow, sel.endRow);
+    const maxR = Math.max(sel.startRow, sel.endRow);
+    const minC = Math.min(sel.startCol, sel.endCol);
+    const maxC = Math.max(sel.startCol, sel.endCol);
+
+    fillDragRef.current = {
+      active: true,
+      gridType,
+      startRow: minR,
+      endRow: maxR,
+      startCol: minC,
+      endCol: maxC,
+      targetRow: maxR,
+      targetCol: maxC,
+      isCtrl: e.ctrlKey || e.metaKey
     };
-    const setV = (col, val) => sheet.setValueFromCoords(col, r, val, true);
+  }, [oeeSelection, dtSelection]);
 
-    isCalculating.current = true;
-    try {
-      setV(12, v(7) + v(8) + v(9) + v(10) + v(11));
-
-      let sIn = v(6);
-      if (sIn > 0) setV(14, sIn - v(12) - v(13));
-      else setV(14, '');
-
-      let sub = v(16) - v(15); setV(17, sub > 0 ? sub : '');
-
-      setV(21, v(19) + v(20));
-
-      let vSub = v(17);
-      if (vSub > 0) {
-        let vBaik = vSub - v(21);
-        setV(22, vBaik);
-        setV(24, vBaik - v(23));
-      } else { setV(22, ''); setV(24, ''); }
-
-      let pTrf = v(24);
-      if (pTrf > 0) {
-        let pHasil = pTrf - v(25);
-        setV(26, pHasil);
-        setV(29, pHasil - v(27) - v(28));
-      } else { setV(26, ''); setV(29, ''); }
-
-      let volKey = sheet.getValueFromCoords(5, r) || "500 ML";
-      let pFg = v(29);
-      if (pFg > 0) {
-        setV(31, (pFg / (TEORI_BATCH[volKey] || 23076)).toFixed(2));
-        setV(33, ((pFg / TEORI_YIELD) * 100).toFixed(2));
-      } else { setV(31, ''); setV(33, ''); }
-
-      const timeDiff = (sh, sm, eh, em) => {
-        if (v(sh) === 0 && v(sm) === 0 && v(eh) === 0 && v(em) === 0 && sheet.getValueFromCoords(sh, r) === "") return '';
-        let diff = (v(eh) * 60 + v(em)) - (v(sh) * 60 + v(sm));
-        return diff < 0 ? diff + (24 * 60) : diff;
-      };
-
-      setV(39, timeDiff(35, 36, 37, 38));
-      setV(45, timeDiff(41, 42, 43, 44));
-      let lc = timeDiff(46, 47, 48, 49);
-      setV(50, lc); setV(52, lc); setV(53, lc);
-
-      let rSub = v(45); let lSub = v(50);
-      if (rSub > 0 || lSub > 0) setV(51, rSub + lSub);
-      else setV(51, '');
-    } finally {
-      isCalculating.current = false;
-      triggerAutosaveOEE(r, sheet);
-    }
+  const handleCellMouseDown = useCallback((e, rowIdx, colIdx, gridType) => {
+    if (e.button !== 0) return;
+    isDraggingRef.current[gridType] = true;
+    setTimeout(() => {
+      if (gridType === 'oee') {
+        setOeeSelection({ startRow: rowIdx, startCol: colIdx, endRow: rowIdx, endCol: colIdx });
+        setOeeEditingCell(null);
+        if (oeeGridRef.current) oeeGridRef.current.focus();
+      } else {
+        setDtSelection({ startRow: rowIdx, startCol: colIdx, endRow: rowIdx, endCol: colIdx });
+        setDtEditingCell(null);
+        if (dtGridRef.current) dtGridRef.current.focus();
+      }
+    }, 0);
   }, []);
 
-  const handleOEEChange = useCallback((worksheet, _cell, _cStr, rStr, _value) => {
-    if (isCalculating.current) return;
-    let r = parseInt(rStr);
-    if (calcTimers.current[r]) clearTimeout(calcTimers.current[r]);
-    calcTimers.current[r] = setTimeout(() => {
-      runRowCalculations(worksheet, r);
-    }, 30);
-  }, [runRowCalculations]);
-
-  const handleDTChange = useCallback((worksheet, _cell, cStr, rStr, _value) => {
-    let c = parseInt(cStr); let r = parseInt(rStr); let sheet = worksheet;
-    if (calcTimers.current['dt_' + r]) clearTimeout(calcTimers.current['dt_' + r]);
-    calcTimers.current['dt_' + r] = setTimeout(() => {
-      if (c >= 4 && c <= 7) {
-        let sh = parseFloat(sheet.getValueFromCoords(4, r)) || 0;
-        let sm = parseFloat(sheet.getValueFromCoords(5, r)) || 0;
-        let eh = parseFloat(sheet.getValueFromCoords(6, r)) || 0;
-        let em = parseFloat(sheet.getValueFromCoords(7, r)) || 0;
-        if (sheet.getValueFromCoords(4, r) !== "" && sheet.getValueFromCoords(6, r) !== "") {
-          let diff = (eh * 60 + em) - (sh * 60 + sm);
-          sheet.setValueFromCoords(8, r, diff < 0 ? diff + (24 * 60) : diff, true);
+  const handleCellMouseEnter = useCallback((rowIdx, colIdx, gridType) => {
+    if (fillDragRef.current.active && fillDragRef.current.gridType === gridType) {
+      fillDragRef.current.targetRow = rowIdx;
+      fillDragRef.current.targetCol = colIdx;
+      setTimeout(() => {
+        if (gridType === 'oee') {
+          setOeeSelection(prev => ({ ...prev, endRow: rowIdx, endCol: colIdx }));
+        } else {
+          setDtSelection(prev => ({ ...prev, endRow: rowIdx, endCol: colIdx }));
         }
+      }, 0);
+      return;
+    }
+    if (!isDraggingRef.current[gridType]) return;
+    setTimeout(() => {
+      if (gridType === 'oee') {
+        setOeeSelection(prev => ({ ...prev, endRow: rowIdx, endCol: colIdx }));
+      } else {
+        setDtSelection(prev => ({ ...prev, endRow: rowIdx, endCol: colIdx }));
       }
-      if (c === 11) {
-        sheet.setValueFromCoords(12, r, '', true);
-      }
-      triggerAutosaveDT(r, sheet);
-    }, 30);
+    }, 0);
   }, []);
+
+  const handleCellDoubleClick = useCallback((rowIdx, colIdx, gridType) => {
+    setTimeout(() => {
+      if (gridType === 'oee') {
+        setOeeEditingCell({ row: rowIdx, col: colIdx, mode: 'enter' });
+      } else {
+        setDtEditingCell({ row: rowIdx, col: colIdx, mode: 'enter' });
+      }
+    }, 0);
+  }, []);
+
+  const handleFinishEdit = useCallback((rowIdx, colIdx, value, gridType, moveKey) => {
+    setTimeout(() => {
+      if (gridType === 'oee') {
+        setOeeEditingCell(null);
+        setOeeData(prev => {
+          const next = [...prev];
+          const targetRow = [...next[rowIdx]];
+          if (targetRow[colIdx] !== value) {
+            pushHistory('oee', prev);
+            targetRow[colIdx] = value;
+            const calculatedRow = calculateOEERow(targetRow);
+            next[rowIdx] = calculatedRow;
+            triggerAutosaveOEE(rowIdx, calculatedRow);
+            setTimeout(() => localStorage.setItem('F_DATA_OEE', JSON.stringify(next)), 0);
+          }
+          return next;
+        });
+        let nextR = rowIdx;
+        let nextC = colIdx;
+        const maxR = oeeData.length - 1;
+        if (moveKey === 'Enter' || moveKey === 'ArrowDown') nextR = Math.min(maxR, rowIdx + 1);
+        else if (moveKey === 'ArrowUp') nextR = Math.max(0, rowIdx - 1);
+        else if (moveKey === 'Tab' || moveKey === 'ArrowRight') nextC = Math.min(51, colIdx + 1);
+        else if (moveKey === 'ArrowLeft') nextC = Math.max(0, colIdx - 1);
+
+        if (moveKey) {
+          setOeeSelection({ startRow: nextR, startCol: nextC, endRow: nextR, endCol: nextC });
+        }
+        if (oeeGridRef.current) oeeGridRef.current.focus();
+      } else {
+        setDtEditingCell(null);
+        setDtData(prev => {
+          const next = [...prev];
+          const targetRow = [...next[rowIdx]];
+          if (targetRow[colIdx] !== value) {
+            pushHistory('dt', prev);
+            targetRow[colIdx] = value;
+            if (colIdx === DC.PROSES) targetRow[DC.UNIT] = '';
+            const calculatedRow = calculateDTRow(targetRow);
+            next[rowIdx] = calculatedRow;
+            triggerAutosaveDT(rowIdx, calculatedRow);
+            setTimeout(() => localStorage.setItem('F_DATA_DT', JSON.stringify(next)), 0);
+          }
+          return next;
+        });
+        let nextR = rowIdx;
+        let nextC = colIdx;
+        const maxR = dtData.length - 1;
+        if (moveKey === 'Enter' || moveKey === 'ArrowDown') nextR = Math.min(maxR, rowIdx + 1);
+        else if (moveKey === 'ArrowUp') nextR = Math.max(0, rowIdx - 1);
+        else if (moveKey === 'Tab' || moveKey === 'ArrowRight') nextC = Math.min(13, colIdx + 1);
+        else if (moveKey === 'ArrowLeft') nextC = Math.max(0, colIdx - 1);
+
+        if (moveKey) {
+          setDtSelection({ startRow: nextR, startCol: nextC, endRow: nextR, endCol: nextC });
+        }
+        if (dtGridRef.current) dtGridRef.current.focus();
+      }
+    }, 0);
+  }, [oeeData.length, dtData.length, triggerAutosaveOEE, triggerAutosaveDT, pushHistory]);
+
+  const handleCancelEdit = useCallback(() => {
+    setOeeEditingCell(null);
+    setDtEditingCell(null);
+  }, []);
+
+  const handleGridKeyDown = useCallback((e, gridType) => {
+    const sel = gridType === 'oee' ? oeeSelection : dtSelection;
+    const editing = gridType === 'oee' ? oeeEditingCell : dtEditingCell;
+    const setSel = gridType === 'oee' ? setOeeSelection : setDtSelection;
+    const setEditing = gridType === 'oee' ? setOeeEditingCell : setDtEditingCell;
+    const colsMeta = gridType === 'oee' ? OEE_COLS_META : DT_COLS_META;
+    const maxCols = colsMeta.length - 1;
+    const maxR = (gridType === 'oee' ? oeeData : dtData).length - 1;
+
+    if (editing) return;
+
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')) {
+      e.preventDefault();
+      if (e.shiftKey) handleRedo(gridType);
+      else handleUndo(gridType);
+      return;
+    }
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || e.key === 'Y')) {
+      e.preventDefault();
+      handleRedo(gridType);
+      return;
+    }
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'a' || e.key === 'A')) {
+      e.preventDefault();
+      setSel({ startRow: 0, startCol: 0, endRow: maxR, endCol: maxCols });
+      return;
+    }
+
+    const { startRow, startCol, endRow, endCol } = sel;
+    const activeRow = endRow;
+    const activeCol = endCol;
+
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(e.key)) {
+      e.preventDefault();
+      let nextR = activeRow;
+      let nextC = activeCol;
+
+      if (e.ctrlKey || e.metaKey) {
+        const edge = findEdgeCell(gridType === 'oee' ? oeeData : dtData, activeRow, activeCol, e.key, maxR, maxCols);
+        nextR = edge.r;
+        nextC = edge.c;
+      } else {
+        if (e.key === 'ArrowUp') nextR = Math.max(0, activeRow - 1);
+        if (e.key === 'ArrowDown') nextR = Math.min(maxR, activeRow + 1);
+        if (e.key === 'ArrowLeft') nextC = Math.max(0, activeCol - 1);
+        if (e.key === 'ArrowRight' || e.key === 'Tab') nextC = Math.min(maxCols, activeCol + 1);
+      }
+
+      if (e.shiftKey && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+        setTimeout(() => setSel({ startRow, startCol, endRow: nextR, endCol: nextC }), 0);
+      } else {
+        setTimeout(() => setSel({ startRow: nextR, startCol: nextC, endRow: nextR, endCol: nextC }), 0);
+      }
+    } else if (e.key === 'Enter' || e.key === 'F2') {
+      e.preventDefault();
+      if (!colsMeta[activeCol].readOnly) {
+        setTimeout(() => setEditing({ row: activeRow, col: activeCol, mode: 'enter' }), 0);
+      }
+    } else if (e.key === 'Backspace' || e.key === 'Delete') {
+      e.preventDefault();
+      const minR = Math.min(startRow, endRow);
+      const maxR = Math.max(startRow, endRow);
+      const minC = Math.min(startCol, endCol);
+      const maxC = Math.max(startCol, endCol);
+
+      const setData = gridType === 'oee' ? setOeeData : setDtData;
+      const calcRow = gridType === 'oee' ? calculateOEERow : calculateDTRow;
+      const triggerSave = gridType === 'oee' ? triggerAutosaveOEE : triggerAutosaveDT;
+
+      setTimeout(() => {
+        setData(prev => {
+          const next = [...prev];
+          let changedAny = false;
+          for (let r = minR; r <= maxR; r++) {
+            const targetRow = [...next[r]];
+            let changed = false;
+            for (let c = minC; c <= maxC; c++) {
+              if (!colsMeta[c].readOnly && targetRow[c] !== '') {
+                targetRow[c] = '';
+                changed = true;
+                changedAny = true;
+              }
+            }
+            if (changed) {
+              const calculatedRow = calcRow(targetRow);
+              next[r] = calculatedRow;
+              triggerSave(r, calculatedRow);
+            }
+          }
+          if (changedAny) {
+            pushHistory(gridType, prev);
+            setTimeout(() => localStorage.setItem(gridType === 'oee' ? 'F_DATA_OEE' : 'F_DATA_DT', JSON.stringify(next)), 0);
+          }
+          return next;
+        });
+      }, 0);
+    } else if (e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey) {
+      if (!colsMeta[activeCol].readOnly) {
+        e.preventDefault();
+        const initialValue = e.key;
+        setTimeout(() => setEditing({ row: activeRow, col: activeCol, mode: 'direct', initialValue }), 0);
+      }
+    }
+  }, [oeeSelection, dtSelection, oeeEditingCell, dtEditingCell, oeeData, dtData, triggerAutosaveOEE, triggerAutosaveDT, handleUndo, handleRedo, pushHistory]);
+
+  const handleCopy = useCallback((e, gridType) => {
+    e.preventDefault();
+    const sel = gridType === 'oee' ? oeeSelection : dtSelection;
+    const data = gridType === 'oee' ? oeeData : dtData;
+    const minR = Math.min(sel.startRow, sel.endRow);
+    const maxR = Math.max(sel.startRow, sel.endRow);
+    const minC = Math.min(sel.startCol, sel.endCol);
+    const maxC = Math.max(sel.startCol, sel.endCol);
+
+    const rowsText = [];
+    for (let r = minR; r <= maxR; r++) {
+      const rowVals = [];
+      for (let c = minC; c <= maxC; c++) {
+        rowVals.push(data[r]?.[c] ?? '');
+      }
+      rowsText.push(rowVals.join('\t'));
+    }
+    e.clipboardData.setData('text/plain', rowsText.join('\n'));
+  }, [oeeSelection, dtSelection, oeeData, dtData]);
+
+  const handlePaste = useCallback((e, gridType) => {
+    e.preventDefault();
+    const pasteText = e.clipboardData.getData('text');
+    if (!pasteText) return;
+
+    const sel = gridType === 'oee' ? oeeSelection : dtSelection;
+    const startR = Math.min(sel.startRow, sel.endRow);
+    const startC = Math.min(sel.startCol, sel.endCol);
+
+    const rows = pasteText.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+    if (rows[rows.length - 1] === '') rows.pop();
+
+    const setData = gridType === 'oee' ? setOeeData : setDtData;
+    const calcRow = gridType === 'oee' ? calculateOEERow : calculateDTRow;
+    const triggerSave = gridType === 'oee' ? triggerAutosaveOEE : triggerAutosaveDT;
+    const colsMeta = gridType === 'oee' ? OEE_COLS_META : DT_COLS_META;
+    const maxCols = colsMeta.length;
+
+    setData(prevData => {
+      pushHistory(gridType, prevData);
+      const nextData = [...prevData];
+      rows.forEach((rowStr, rOffset) => {
+        const targetRowIdx = startR + rOffset;
+        if (targetRowIdx >= nextData.length) return;
+
+        const cells = rowStr.split('\t');
+        const targetRow = [...nextData[targetRowIdx]];
+
+        cells.forEach((cellVal, cOffset) => {
+          const targetColIdx = startC + cOffset;
+          if (targetColIdx >= maxCols || colsMeta[targetColIdx].readOnly) return;
+          targetRow[targetColIdx] = cellVal.trim();
+        });
+
+        const calculatedRow = calcRow(targetRow);
+        nextData[targetRowIdx] = calculatedRow;
+        triggerSave(targetRowIdx, calculatedRow);
+      });
+
+      setTimeout(() => localStorage.setItem(gridType === 'oee' ? 'F_DATA_OEE' : 'F_DATA_DT', JSON.stringify(nextData)), 0);
+      return nextData;
+    });
+  }, [oeeSelection, dtSelection, triggerAutosaveOEE, triggerAutosaveDT, pushHistory]);
+
+  useEffect(() => {
+    const handleMouseUp = (e) => {
+      isDraggingRef.current = { oee: false, dt: false };
+
+      if (fillDragRef.current.active) {
+        const { gridType, startRow, endRow, startCol, endCol, targetRow, targetCol } = fillDragRef.current;
+        const isCtrl = e.ctrlKey || e.metaKey || fillDragRef.current.isCtrl;
+        fillDragRef.current = { active: false };
+
+        if (targetRow === endRow && targetCol === endCol) return;
+
+        const setData = gridType === 'oee' ? setOeeData : setDtData;
+        const calcRow = gridType === 'oee' ? calculateOEERow : calculateDTRow;
+        const triggerSave = gridType === 'oee' ? triggerAutosaveOEE : triggerAutosaveDT;
+        const colsMeta = gridType === 'oee' ? OEE_COLS_META : DT_COLS_META;
+        const noBatchCol = gridType === 'oee' ? C.NO_BATCH : DC.NO_BATCH;
+
+        setData(prevData => {
+          pushHistory(gridType, prevData);
+          const nextData = [...prevData];
+          const H = endRow - startRow + 1;
+
+          if (targetRow > endRow) {
+            for (let r = endRow + 1; r <= targetRow; r++) {
+              if (r >= nextData.length) break;
+              const targetRowArr = [...nextData[r]];
+              const srcOffset = (r - startRow) % H;
+              const stepCount = Math.floor((r - startRow) / H);
+              const srcRowArr = prevData[startRow + srcOffset];
+
+              let rowChanged = false;
+              for (let c = startCol; c <= endCol; c++) {
+                if (colsMeta[c].readOnly) continue;
+                const srcVal = srcRowArr[c];
+                let nextVal = srcVal;
+
+                if (isCtrl && srcVal !== '' && srcVal !== null && srcVal !== undefined) {
+                  if (c === noBatchCol) {
+                    nextVal = incrementBatchNumber(srcVal, stepCount);
+                  } else if (!isNaN(parseFloat(srcVal))) {
+                    nextVal = String(parseFloat(srcVal) + stepCount);
+                  }
+                }
+                if (targetRowArr[c] !== nextVal) {
+                  targetRowArr[c] = nextVal;
+                  rowChanged = true;
+                }
+              }
+
+              if (rowChanged) {
+                const calculatedRow = calcRow(targetRowArr);
+                nextData[r] = calculatedRow;
+                triggerSave(r, calculatedRow);
+              }
+            }
+          } else if (targetRow < startRow) {
+            for (let r = startRow - 1; r >= targetRow; r--) {
+              if (r < 0) break;
+              const targetRowArr = [...nextData[r]];
+              const stepCount = startRow - r;
+              const srcRowArr = prevData[startRow];
+
+              let rowChanged = false;
+              for (let c = startCol; c <= endCol; c++) {
+                if (colsMeta[c].readOnly) continue;
+                const srcVal = srcRowArr[c];
+                let nextVal = srcVal;
+
+                if (isCtrl && srcVal !== '' && srcVal !== null && srcVal !== undefined) {
+                  if (c === noBatchCol) {
+                    nextVal = incrementBatchNumber(srcVal, -stepCount);
+                  } else if (!isNaN(parseFloat(srcVal))) {
+                    nextVal = String(parseFloat(srcVal) - stepCount);
+                  }
+                }
+                if (targetRowArr[c] !== nextVal) {
+                  targetRowArr[c] = nextVal;
+                  rowChanged = true;
+                }
+              }
+
+              if (rowChanged) {
+                const calculatedRow = calcRow(targetRowArr);
+                nextData[r] = calculatedRow;
+                triggerSave(r, calculatedRow);
+              }
+            }
+          }
+
+          setTimeout(() => localStorage.setItem(gridType === 'oee' ? 'F_DATA_OEE' : 'F_DATA_DT', JSON.stringify(nextData)), 0);
+          return nextData;
+        });
+      }
+    };
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => window.removeEventListener('mouseup', handleMouseUp);
+  }, [pushHistory, triggerAutosaveOEE, triggerAutosaveDT]);
+
+  // Auto scroll into view on navigation
+  useEffect(() => {
+    if (!oeeGridRef.current) return;
+    const tbody = oeeGridRef.current.querySelector('tbody');
+    const rowEl = tbody?.rows?.[oeeSelection.endRow];
+    const td = rowEl?.cells?.[oeeSelection.endCol];
+    if (td && typeof td.scrollIntoView === 'function') {
+      td.scrollIntoView({ behavior: 'auto', block: 'nearest', inline: 'nearest' });
+    }
+  }, [oeeSelection.endRow, oeeSelection.endCol]);
+
+  useEffect(() => {
+    if (!dtGridRef.current) return;
+    const tbody = dtGridRef.current.querySelector('tbody');
+    const rowEl = tbody?.rows?.[dtSelection.endRow];
+    const td = rowEl?.cells?.[dtSelection.endCol];
+    if (td && typeof td.scrollIntoView === 'function') {
+      td.scrollIntoView({ behavior: 'auto', block: 'nearest', inline: 'nearest' });
+    }
+  }, [dtSelection.endRow, dtSelection.endCol]);
 
   const loadDataServer = useCallback(async () => {
     if (!user) return;
     try {
       const [resOEE, resDT] = await Promise.all([
         fetchTodayRejectF(user),
-        fetchTodayDowntimeF(user)
+        fetchTodayDowntimeF(user),
       ]);
+
+      const now = new Date();
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(now.getDate() - 30);
+      thirtyDaysAgo.setHours(0, 0, 0, 0);
+
+      const filterLast30Days = (row) => {
+        if (!row || !row.tanggal) return true;
+        const ymd = parseToYMD(row.tanggal);
+        if (!ymd) return true;
+        const d = new Date(ymd);
+        if (isNaN(d.getTime())) return true;
+        return d >= thirtyDaysAgo;
+      };
 
       let mappedOEE = [];
       let mappedOEEIds = [];
       if (resOEE?.status === 'success' && Array.isArray(resOEE.data)) {
-        mappedOEE = [...resOEE.data].reverse().map((row) => {
+        mappedOEE = resOEE.data.filter(filterLast30Days).reverse().map((row) => {
           mappedOEEIds.push(row.id);
-
-          const arr = Array(55).fill('');
-          arr[0] = row.no_batch ?? '';
-          arr[1] = row.lot_no ?? '';
-          arr[2] = parseToYMD(row.tanggal);
-          arr[3] = row.shift ?? '';
-          arr[4] = row.group ?? '';
-          arr[5] = row.volume_botol ?? '';
-          arr[6] = row.steril_in ?? '';
-          arr[7] = row.steril_bocor ?? '';
-          arr[8] = row.steril_h_patah_ring ?? '';
-          arr[9] = row.steril_h_patah_lidah ?? '';
-          arr[10] = row.steril_h_patah_leleh ?? '';
-          arr[11] = row.steril_no_hanger ?? '';
-          arr[12] = row.steril_rej_total ?? '';
-          arr[13] = row.steril_sample ?? '';
-          arr[14] = row.steril_out ?? '';
-          arr[15] = row.vi_start ?? '';
-          arr[16] = row.vi_end ?? '';
-          arr[17] = row.vi_sub ?? '';
-          arr[19] = row.vi_partikel ?? '';
-          arr[20] = row.vi_kotik ?? '';
-          arr[21] = row.vi_rej_total ?? '';
-          arr[22] = row.vi_hasil_baik ?? '';
-          arr[24] = row.vi_tf_packing ?? '';
-          arr[25] = row.pack_reject ?? '';
-          arr[26] = row.pack_hasil_baik ?? '';
-          arr[27] = row.pack_s_qc ?? '';
-          arr[28] = row.pack_s_others ?? '';
-          arr[29] = row.pack_fg ?? '';
-          arr[30] = row.pack_utuh ?? 'Y';
-          arr[31] = row.pack_jml_batch ?? '';
-          arr[35] = row.av_sh ?? '';
-          arr[36] = row.av_sm ?? '';
-          arr[37] = row.av_eh ?? '';
-          arr[38] = row.av_em ?? '';
-          arr[39] = row.av_sub ?? '';
-          arr[40] = row.total_avail_shift ?? '';
-          arr[41] = row.run_sh ?? '';
-          arr[42] = row.run_sm ?? '';
-          arr[43] = row.run_eh ?? '';
-          arr[44] = row.run_em ?? '';
-          arr[45] = row.run_sub ?? '';
-          arr[46] = row.clear_sh ?? '';
-          arr[47] = row.clear_sm ?? '';
-          arr[48] = row.clear_eh ?? '';
-          arr[49] = row.clear_em ?? '';
-          arr[50] = row.clear_sub ?? '';
-          arr[51] = row.process_total ?? '';
-          return arr;
+          const r = [
+            row.no_batch ?? '', parseToYMD(row.tanggal), row.shift ?? '', row.group ?? '', row.reject_botol ?? '', row.reject_preform ?? '',
+            row.reject_blow ?? '', row.volume_botol ?? '', row.cnt_start ?? '', row.cnt_end ?? '', row.cnt_sub ?? '', row.utuh ?? 'Y',
+            row.jml_batch ?? '', '', row.r_washing ?? '', row.r_vk ?? '', row.r_vl ?? '', row.r_nocap ?? '',
+            row.r_sealnok ?? '', row.r_others ?? '', row.r_sub ?? '', row.s_ipc ?? '', row.s_others ?? '', row.s_sub ?? '',
+            row.trf_st ?? '', '', '', '', row.pre_in ?? '', row.pre_bocor ?? '',
+            row.pre_nocap ?? '', row.pre_vol ?? '', row.pre_thermo ?? '', row.pre_lain ?? '', row.pre_rej_total ?? '', row.pre_out ?? '',
+            row.av_sh ?? '', row.av_sm ?? '', row.av_eh ?? '', row.av_em ?? '', row.av_sub ?? '', row.total_avail_shift ?? '',
+            row.run_sh ?? '', row.run_sm ?? '', row.run_eh ?? '', row.run_em ?? '', row.run_sub ?? '', row.lc_sh ?? '',
+            row.lc_sm ?? '', row.lc_eh ?? '', row.lc_em ?? '', row.lc_sub ?? ''
+          ];
+          return calculateOEERow(r);
         });
       }
 
       let mappedDT = [];
       let mappedDTIds = [];
       if (resDT?.status === 'success' && Array.isArray(resDT.data)) {
-        mappedDT = [...resDT.data].reverse().map((row) => {
+        mappedDT = resDT.data.filter(filterLast30Days).reverse().map((row) => {
           mappedDTIds.push(row.id);
-          return [
+          const r = [
             parseToYMD(row.tanggal), row.shift ?? '', row.group ?? '', row.no_batch ?? '', row.start_h ?? '', row.start_m ?? '',
             row.end_h ?? '', row.end_m ?? '', row.duration ?? '', row.plan_unplan ?? 'Unplanned', row.root_cause ?? '', row.proses ?? '',
             row.unit ?? '', row.kasus ?? ''
           ];
+          return calculateDTRow(r);
         });
       }
 
-      const finalOEEData = [...mappedOEE, ...Array.from({ length: 100 }, () => getEmptyOEE_F())];
-      const finalDTData = [...mappedDT, ...Array.from({ length: 100 }, () => getEmptyDT())];
+      const EMPTY_ROWS = 50;
+      const finalOEE = [...mappedOEE, ...Array.from({ length: EMPTY_ROWS }, getEmptyOEE)];
+      const finalDT = [...mappedDT, ...Array.from({ length: EMPTY_ROWS }, getEmptyDT)];
 
-      if (oeeIds && oeeIds.current) oeeIds.current = [...mappedOEEIds, ...Array(100).fill(null)];
-      if (dtIds && dtIds.current) dtIds.current = [...mappedDTIds, ...Array(100).fill(null)];
+      oeeIds.current = [...mappedOEEIds, ...Array(EMPTY_ROWS).fill(null)];
+      dtIds.current = [...mappedDTIds, ...Array(EMPTY_ROWS).fill(null)];
 
-      if (oeeGrid.current && oeeGrid.current[0]) oeeGrid.current[0].setData(finalOEEData);
-      if (dtGrid.current && dtGrid.current[0]) dtGrid.current[0].setData(finalDTData);
+      setOeeData(finalOEE);
+      setDtData(finalDT);
 
-      // SIMPAN KE INGATAN LOKAL (CACHE)
-      localStorage.setItem('F_DATA_OEE', JSON.stringify(finalOEEData));
-      localStorage.setItem('F_DATA_DT', JSON.stringify(finalDTData));
+      localStorage.setItem('F_DATA_OEE', JSON.stringify(finalOEE));
+      localStorage.setItem('F_DATA_DT', JSON.stringify(finalDT));
       localStorage.setItem('F_IDS_OEE', JSON.stringify(oeeIds.current));
       localStorage.setItem('F_IDS_DT', JSON.stringify(dtIds.current));
 
     } catch (error) {
-      console.error(error);
+      console.error('[InputC] loadDataServer error:', error);
     }
   }, [user]);
 
   useEffect(() => {
-    const initialEmptyOEE = getCachedData('F_DATA_OEE', getEmptyOEE_F, 100);
-    const initialEmptyDT = getCachedData('F_DATA_DT', getEmptyDT, 100);
+    const timer = setTimeout(() => {
+      void loadDataServer();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [loadDataServer]);
 
-    if (oeeTableRef.current) {
-      oeeTableRef.current.innerHTML = '';
-      oeeGrid.current = jspreadsheet(oeeTableRef.current, {
-        worksheets: [{
-          data: initialEmptyOEE,
-          columns: [
-            { type: 'text', title: 'No. Batch', width: 90 },
-            { type: 'text', title: 'Lot No', width: 90 },
-            { type: 'calendar', title: 'Tanggal', width: 100, options: { format: 'YYYY-MM-DD' } },
-            { type: 'numeric', title: 'Shift', width: 60 },
-            { type: 'text', title: 'Grup', width: 60 },
-            { type: 'dropdown', title: 'Volume', width: 90, source: VOLUMES },
-            { type: 'numeric', title: 'Input (Botol chamber)', width: 100 },
-            { type: 'numeric', title: 'Reject Bocor', width: 90 },
-            { type: 'numeric', title: 'Reject Patah ring', width: 90 },
-            { type: 'numeric', title: 'Reject Patah Lidah', width: 90 },
-            { type: 'numeric', title: 'Reject Patah Lelehan', width: 90 },
-            { type: 'numeric', title: 'Reject Tanpa Hanger', width: 90 },
-            { type: 'numeric', title: 'TOTAL', width: 80, readOnly: true },
-            { type: 'numeric', title: 'Sampel QC', width: 80 },
-            { type: 'numeric', title: 'Output (TF to VI)', width: 120, readOnly: true },
-            { type: 'numeric', title: 'Start', width: 80, readOnly: true },
-            { type: 'numeric', title: 'End', width: 80 },
-            { type: 'numeric', title: 'Sub total', width: 90, readOnly: true },
-            { type: 'numeric', title: 'Total per Shift', width: 110, readOnly: true },
-            { type: 'numeric', title: 'Partikel', width: 80 },
-            { type: 'numeric', title: 'Kosmetik', width: 80 },
-            { type: 'numeric', title: 'TOTAL', width: 80, readOnly: true },
-            { type: 'numeric', title: 'Hasil Baik', width: 90, readOnly: true },
-            { type: 'numeric', title: 'QC', width: 80 },
-            { type: 'numeric', title: 'Transfer ke Packing', width: 130, readOnly: true },
+  const oeeMinR = Math.min(oeeSelection.startRow, oeeSelection.endRow);
+  const oeeMaxR = Math.max(oeeSelection.startRow, oeeSelection.endRow);
+  const oeeMinC = Math.min(oeeSelection.startCol, oeeSelection.endCol);
+  const oeeMaxC = Math.max(oeeSelection.startCol, oeeSelection.endCol);
 
-            { type: 'numeric', title: 'Reject', width: 80 },
-            { type: 'numeric', title: 'Hasil Baik', width: 90, readOnly: true },
-            { type: 'numeric', title: 'QC', width: 70 },
-            { type: 'numeric', title: 'Others', width: 70 },
-            { type: 'numeric', title: 'Finished Goods', width: 110, readOnly: true },
-            { type: 'text', title: 'Utuh ?', width: 70 },
-            { type: 'numeric', title: 'Jumlah Batch', width: 100, readOnly: true },
-            { type: 'numeric', title: 'Total per shift', width: 110, readOnly: true },
-
-            { type: 'percent', title: 'per Batch', width: 90, readOnly: true },
-            { type: 'percent', title: 'AVERAGE per shift', width: 120, readOnly: true },
-
-            { type: 'numeric', title: 'Start (Jam)', width: 80 },
-            { type: 'numeric', title: 'Start (Menit)', width: 90 },
-            { type: 'numeric', title: 'End (Jam)', width: 80 },
-            { type: 'numeric', title: 'End (Menit)', width: 90 },
-            { type: 'numeric', title: 'Sub Total', width: 90, readOnly: true },
-            { type: 'numeric', title: 'TOTAL', width: 80, readOnly: true },
-
-            { type: 'numeric', title: 'Start (Jam)', width: 80 },
-            { type: 'numeric', title: 'Start (Menit)', width: 90 },
-            { type: 'numeric', title: 'End (Jam)', width: 80 },
-            { type: 'numeric', title: 'End (Menit)', width: 90 },
-            { type: 'numeric', title: 'Sub Total', width: 90, readOnly: true },
-            { type: 'numeric', title: 'Start (Jam)', width: 80 },
-            { type: 'numeric', title: 'Start (Menit)', width: 90 },
-            { type: 'numeric', title: 'End (Jam)', width: 80 },
-            { type: 'numeric', title: 'End (Menit)', width: 90 },
-            { type: 'numeric', title: 'Sub Total', width: 90, readOnly: true },
-            { type: 'numeric', title: 'TOTAL', width: 80, readOnly: true },
-          ],
-          nestedHeaders: [
-            [
-              { title: '', colspan: 6 },
-              { title: 'Output After Steril', colspan: 9 },
-              { title: 'Output Visual Inspeksi', colspan: 10 },
-              { title: 'Output Packaging', colspan: 8 },
-              { title: '% Yield', colspan: 2 },
-              { title: 'Available Time', colspan: 5 },
-              { title: 'TOTAL per Shift', colspan: 1 },
-              { title: 'Process Details', colspan: 11 },
-            ],
-            [
-              { title: '', colspan: 6 },
-              { title: 'Input (Botol dari chamber)', colspan: 1 },
-              { title: 'Reject After Steril', colspan: 6 },
-              { title: 'Sampel QC', colspan: 1 },
-              { title: 'Output (TF to VI)', colspan: 1 },
-              { title: 'Input', colspan: 4 },
-              { title: 'Reject VI', colspan: 3 },
-              { title: 'Hasil Baik', colspan: 1 },
-              { title: 'Sample QC', colspan: 1 },
-              { title: 'Transfer ke Packing', colspan: 1 },
-              { title: 'Reject', colspan: 1 },
-              { title: 'Hasil Baik', colspan: 1 },
-              { title: 'Samples', colspan: 2 },
-              { title: 'Finished Goods', colspan: 1 },
-              { title: 'Utuh ?', colspan: 1 },
-              { title: 'Jumlah Batch', colspan: 1 },
-              { title: 'Total per shift', colspan: 1 },
-              { title: '', colspan: 2 },
-              { title: '(waktu per shift)', colspan: 5 },
-              { title: '', colspan: 1 },
-              { title: 'Machine Run', colspan: 5 },
-              { title: 'Line Clearance', colspan: 5 },
-              { title: 'TOTAL', colspan: 1 },
-              { title: '', colspan: 1 },
-              { title: '', colspan: 2 }
-            ]
-          ],
-          freezeColumns: 5,
-          tableOverflow: true,
-          tableWidth: "100%",
-          tableHeight: "700px",
-          minDimensions: [52, 20]
-        }],
-        onchange: handleOEEChange,
-      });
-    }
-
-    if (dtTableRef.current) {
-      dtTableRef.current.innerHTML = '';
-      const UNIT_MAP = {
-        'All Team Packaging': ['Conveyor Inspeksi', 'IDDLE', 'Others', 'Robotic', 'Wait Produk', 'Line Clearance', 'Break'],
-        'Cartoning': ['Carton sealer', 'Carton Unpacker', 'Case Packer - Others', 'Collecting Conveyor', 'Conveyor', 'Floating conveyor', 'Ganti Label', 'IDDLE', 'Inkjet Printer', 'Labelling', 'Labelling - Others', 'Robot', 'Vacuum Case Packer', 'Weigher', 'Weighing Checker'],
-        'Conveyor': ['Carton sealer', 'Conveyor', 'Conveyor Hitam', 'Conveyor Inspek', 'Others'],
-        'Visual Inspeksi': ['Conveyor Inspeksi', 'Mesin Visual Inspeksi', 'Others'],
-        'Labelling': ['Carton sealer', 'Conveyor', 'Floating Conveyor', 'Ganti Label', 'Inkjet Printer', 'Labelling', 'Sensor Inkjet', 'Sensor label', 'Wait Produk'],
-        'Robot': ['Collecting conveyor', 'Conveyor', 'Floating conveyor', 'Meja Collecting', 'Others', 'Robot'],
-        'Unpacker': ['Carton Unpacker']
-      };
-      const ALL_UNITS = [...new Set(Object.values(UNIT_MAP).flat())];
-      dtGrid.current = jspreadsheet(dtTableRef.current, {
-        worksheets: [{
-          data: initialEmptyDT,
-          columns: [
-            { type: 'calendar', title: 'Tanggal', width: 100, options: { format: 'YYYY-MM-DD' } },
-            { type: 'numeric', title: 'Shift', width: 60 },
-            { type: 'text', title: 'Grup', width: 60 },
-            { type: 'text', title: 'No. Batch', width: 120 },
-            { type: 'numeric', title: 'Start (jam)', width: 80 },
-            { type: 'numeric', title: 'Start (menit)', width: 90 },
-            { type: 'numeric', title: 'End (jam)', width: 80 },
-            { type: 'numeric', title: 'End (menit)', width: 90 },
-            { type: 'numeric', title: 'Durasi (m)', width: 100, readOnly: true },
-            { type: 'text', title: 'Planned / Unplanned', width: 150 },
-            { type: 'dropdown', title: 'Root Cause', source: ['Production', 'Mechanical', 'Electrical', 'Utility', 'QA', 'QC', 'Warehouse', 'PPIC', 'R&D'], width: 150 },
-            { type: 'dropdown', title: 'Proses', source: ['All Team Packaging', 'Cartoning', 'Conveyor', 'Visual Inspeksi', 'Labelling', 'Robot', 'Unpacker'], width: 120 },
-            {
-              type: 'dropdown',
-              title: 'Unit',
-              width: 120,
-              source: ALL_UNITS,
-              filter: function (instance, cell, c, r, source) {
-                let sheet = dtGrid.current[0];
-                let prosesValue = sheet.getValueFromCoords(11, r);
-                return UNIT_MAP[prosesValue] || [];
-              }
-            },
-            { type: 'text', title: 'Kasus', align: 'left', width: 700 }
-          ],
-          freezeColumns: 1,
-          tableOverflow: true,
-          tableWidth: "100%",
-          tableHeight: "700px",
-          minDimensions: [14, 20]
-        }],
-        onchange: handleDTChange,
-      });
-    }
-
-    loadDataServer();
-
-    return () => {
-      if (oeeGrid.current && oeeGrid.current[0] && typeof oeeGrid.current[0].destroy === 'function') {
-        oeeGrid.current[0].destroy();
-      }
-      if (dtGrid.current && dtGrid.current[0] && typeof dtGrid.current[0].destroy === 'function') {
-        dtGrid.current[0].destroy();
-      }
-      if (oeeTableRef.current) oeeTableRef.current.innerHTML = '';
-      if (dtTableRef.current) dtTableRef.current.innerHTML = '';
-
-      oeeGrid.current = null; dtGrid.current = null;
-    };
-  }, [user, handleOEEChange, handleDTChange, loadDataServer]);
+  const dtMinR = Math.min(dtSelection.startRow, dtSelection.endRow);
+  const dtMaxR = Math.max(dtSelection.startRow, dtSelection.endRow);
+  const dtMinC = Math.min(dtSelection.startCol, dtSelection.endCol);
+  const dtMaxC = Math.max(dtSelection.startCol, dtSelection.endCol);
 
   return (
-    <div className="min-h-screen bg-slate-50 p-8 text-slate-800 font-sans">
+    <div className="min-h-screen bg-slate-50 p-6 text-slate-800 font-sans">
       <Toaster position="bottom-right" />
       <div className="max-w-full mx-auto">
 
-        <div className="mb-4">
-          <h1 className="text-2xl font-black tracking-wider uppercase text-emerald-800">
-            OEE Line 4 - Zone F
-          </h1>
+        <div className="mb-4 flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-black tracking-wider uppercase text-emerald-800 inline-block mr-3">
+              OEE Line 4 — Zone C
+            </h1>
+          </div>
         </div>
 
-        <div className="bg-white border-2 border-slate-300 shadow-xl mb-12 rounded overflow-hidden p-1">
-          <div ref={oeeTableRef} />
+        <div
+          ref={oeeGridRef}
+          tabIndex={0}
+          onKeyDown={(e) => handleGridKeyDown(e, 'oee')}
+          onCopy={(e) => handleCopy(e, 'oee')}
+          onPaste={(e) => handlePaste(e, 'oee')}
+          className="bg-white border border-slate-300 shadow-lg mb-10 rounded overflow-hidden focus:outline-none focus:ring-2 focus:ring-emerald-500"
+        >
+          <div className="overflow-x-auto max-h-[680px]">
+            <table className="border-collapse w-max min-w-full text-left">
+              <thead className="bg-slate-800 text-white text-[11px] uppercase tracking-wider font-bold sticky top-0 z-20">
+                <tr className="border-b border-slate-700 text-center divide-x divide-slate-700">
+                  <th colSpan="4" className="py-2 bg-slate-800 sticky left-0 z-30 shadow-[1px_0_0_0_#334155]">General Info</th>
+                  <th colSpan="4" className="py-2 bg-slate-800">Reject Botol & Volume</th>
+                  <th colSpan="6" className="py-2 bg-emerald-900">Counter Filling</th>
+                  <th colSpan="7" className="py-2 bg-slate-800">Rejection Filling</th>
+                  <th colSpan="3" className="py-2 bg-slate-800">Samples</th>
+                  <th colSpan="2" className="py-2 bg-emerald-900">Hasil Baik</th>
+                  <th colSpan="2" className="py-2 bg-slate-800">% Yield</th>
+                  <th colSpan="8" className="py-2 bg-red-950">Reject Before Steril</th>
+                  <th colSpan="6" className="py-2 bg-blue-950">Available Time</th>
+                  <th colSpan="5" className="py-2 bg-indigo-950">Run Time</th>
+                  <th colSpan="5" className="py-2 bg-purple-950">Line Clearance</th>
+                </tr>
+                <tr className="border-b border-slate-700 text-center divide-x divide-slate-700 bg-slate-700/80">
+                  <th colSpan="4" className="py-1 bg-slate-800 sticky left-0 z-30 shadow-[1px_0_0_0_#334155]"></th>
+                  <th colSpan="4" className="py-1"></th>
+                  <th colSpan="3" className="py-1">Per Cycle Batch</th>
+                  <th colSpan="3" className="py-1"></th>
+                  <th colSpan="1" className="py-1">Washing</th>
+                  <th colSpan="2" className="py-1">Filling</th>
+                  <th colSpan="2" className="py-1">Sealing</th>
+                  <th colSpan="2" className="py-1"></th>
+                  <th colSpan="2" className="py-1">Botol</th>
+                  <th colSpan="1" className="py-1"></th>
+                  <th colSpan="2" className="py-1">Transfer to ST</th>
+                  <th colSpan="2" className="py-1"></th>
+                  <th colSpan="1" className="py-1"></th>
+                  <th colSpan="6" className="py-1">Reject Before Steril</th>
+                  <th colSpan="1" className="py-1"></th>
+                  <th colSpan="6" className="py-1"></th>
+                  <th colSpan="5" className="py-1">Filling</th>
+                  <th colSpan="5" className="py-1">CIP Minor</th>
+                </tr>
+                <tr className="border-b border-slate-700 text-center divide-x divide-slate-700 bg-slate-900">
+                  {OEE_COLS_META.map((col, idx) => {
+                    const isSticky = col.stickyLeft !== undefined;
+                    const stickyStyle = isSticky ? { position: 'sticky', left: col.stickyLeft, zIndex: 30 } : {};
+                    return (
+                      <th
+                        key={idx}
+                        style={{ width: col.width, minWidth: col.width, maxWidth: col.width, ...stickyStyle }}
+                        className={`py-2 px-1.5 text-center leading-tight whitespace-normal break-words ${isSticky ? 'bg-slate-900' : ''} ${isSticky && idx === 3 ? 'shadow-[1px_0_0_0_#334155]' : ''}`}
+                      >
+                        {col.title}
+                      </th>
+                    );
+                  })}
+                </tr>
+              </thead>
+              <tbody>
+                {oeeData.map((row, rowIdx) => {
+                  const isSelRow = rowIdx >= oeeMinR && rowIdx <= oeeMaxR;
+                  const edCol = (oeeEditingCell && oeeEditingCell.row === rowIdx) ? oeeEditingCell.col : -1;
+                  const edMode = (oeeEditingCell && oeeEditingCell.row === rowIdx) ? oeeEditingCell.mode : null;
+                  const edInit = (oeeEditingCell && oeeEditingCell.row === rowIdx) ? oeeEditingCell.initialValue : undefined;
+                  return (
+                    <SpreadsheetRow
+                      key={rowIdx}
+                      rowData={row}
+                      rowIdx={rowIdx}
+                      colsMeta={OEE_COLS_META}
+                      gridType="oee"
+                      isSelectedRow={isSelRow}
+                      selectionMinCol={oeeMinC}
+                      selectionMaxCol={oeeMaxC}
+                      selectionMaxRow={oeeMaxR}
+                      editingColIdx={edCol}
+                      editMode={edMode}
+                      editingInitialValue={edInit}
+                      onCellMouseDown={handleCellMouseDown}
+                      onCellMouseEnter={handleCellMouseEnter}
+                      onCellDoubleClick={handleCellDoubleClick}
+                      onFillHandleMouseDown={handleFillHandleMouseDown}
+                      onFinishEdit={handleFinishEdit}
+                      onCancelEdit={handleCancelEdit}
+                    />
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
 
-        <div className="mb-4">
-          <h2 className="text-2xl font-black tracking-wider uppercase text-indigo-800">
-            Downtime Line 4 - Zone F
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-xl font-black tracking-wider uppercase text-indigo-800">
+            Downtime Line 4 — Zone C
           </h2>
         </div>
 
-        <div className="bg-white border-2 border-slate-300 shadow-xl rounded overflow-hidden p-1 mb-10">
-          <div ref={dtTableRef} />
+        <div
+          ref={dtGridRef}
+          tabIndex={0}
+          onKeyDown={(e) => handleGridKeyDown(e, 'dt')}
+          onCopy={(e) => handleCopy(e, 'dt')}
+          onPaste={(e) => handlePaste(e, 'dt')}
+          className="bg-white border border-slate-300 shadow-lg rounded overflow-hidden mb-12 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        >
+          <div className="overflow-x-auto max-h-[500px]">
+            <table className="border-collapse w-max min-w-full text-left">
+              <thead className="bg-indigo-950 text-white text-[11px] uppercase tracking-wider font-bold sticky top-0 z-20">
+                <tr className="border-b border-indigo-900 text-center divide-x divide-indigo-900">
+                  {DT_COLS_META.map((col, idx) => {
+                    const isSticky = col.stickyLeft !== undefined;
+                    const stickyStyle = isSticky ? { position: 'sticky', left: col.stickyLeft, zIndex: 30 } : {};
+                    return (
+                      <th
+                        key={idx}
+                        style={{ width: col.width, minWidth: col.width, maxWidth: col.width, ...stickyStyle }}
+                        className={`py-2.5 px-2 text-center leading-tight whitespace-normal break-words ${isSticky ? 'bg-indigo-950 shadow-[1px_0_0_0_#312e81]' : ''}`}
+                      >
+                        {col.title}
+                      </th>
+                    );
+                  })}
+                </tr>
+              </thead>
+              <tbody>
+                {dtData.map((row, rowIdx) => {
+                  const isSelRow = rowIdx >= dtMinR && rowIdx <= dtMaxR;
+                  const edCol = (dtEditingCell && dtEditingCell.row === rowIdx) ? dtEditingCell.col : -1;
+                  const edMode = (dtEditingCell && dtEditingCell.row === rowIdx) ? dtEditingCell.mode : null;
+                  const edInit = (dtEditingCell && dtEditingCell.row === rowIdx) ? dtEditingCell.initialValue : undefined;
+                  return (
+                    <SpreadsheetRow
+                      key={rowIdx}
+                      rowData={row}
+                      rowIdx={rowIdx}
+                      colsMeta={DT_COLS_META}
+                      gridType="dt"
+                      isSelectedRow={isSelRow}
+                      selectionMinCol={dtMinC}
+                      selectionMaxCol={dtMaxC}
+                      selectionMaxRow={dtMaxR}
+                      editingColIdx={edCol}
+                      editMode={edMode}
+                      editingInitialValue={edInit}
+                      onCellMouseDown={handleCellMouseDown}
+                      onCellMouseEnter={handleCellMouseEnter}
+                      onCellDoubleClick={handleCellDoubleClick}
+                      onFillHandleMouseDown={handleFillHandleMouseDown}
+                      onFinishEdit={handleFinishEdit}
+                      onCancelEdit={handleCancelEdit}
+                    />
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
 
       </div>
