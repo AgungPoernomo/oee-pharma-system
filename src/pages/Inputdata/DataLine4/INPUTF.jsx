@@ -261,9 +261,9 @@ const OEE_COLS_META = [
 
 const DT_COLS_META = [
   { title: 'Tanggal', width: 120, type: 'date', stickyLeft: 0 },
-  { title: 'Shift', width: 60, type: 'number' },
-  { title: 'Grup', width: 60, type: 'text' },
-  { title: 'No. Batch', width: 115, type: 'text' },
+  { title: 'Shift', width: 60, type: 'number', stickyLeft: 120 },
+  { title: 'Grup', width: 60, type: 'text', stickyLeft: 180 },
+  { title: 'No. Batch', width: 115, type: 'text', stickyLeft: 240 },
   { title: 'Start (Jam)', width: 80, type: 'number' },
   { title: 'Start (Menit)', width: 85, type: 'number' },
   { title: 'End (Jam)', width: 80, type: 'number' },
@@ -488,7 +488,7 @@ const SpreadsheetRow = React.memo(({
           bgClass = col.readOnly ? 'bg-slate-100' : 'bg-white';
         }
 
-        const borderSticky = isSticky && colIdx === (gridType === 'oee' ? 4 : 0) ? 'shadow-[1px_0_0_0_#cbd5e1]' : '';
+        const borderSticky = isSticky && colIdx === (gridType === 'oee' ? 4 : 3) ? 'shadow-[1px_0_0_0_#cbd5e1]' : '';
         const selectionRing = isSelected && !isEditing ? (gridType === 'oee' ? 'ring-1 ring-emerald-500 ring-inset' : 'ring-1 ring-indigo-500 ring-inset') : '';
 
         const initVal = (isEditing && editingInitialValue !== undefined) ? editingInitialValue : val;
@@ -1429,7 +1429,7 @@ export default function InputF() {
                         left: col.stickyLeft !== undefined ? col.stickyLeft : 'auto',
                         zIndex: col.stickyLeft !== undefined ? 41 : 40,
                       }}
-                      className={`border-r border-b border-slate-300 px-1 py-2 text-center text-[10px] uppercase tracking-wide ${col.stickyLeft !== undefined ? 'bg-slate-200' : 'bg-slate-100'} ${col.stickyLeft !== undefined && idx === 0 ? 'shadow-[1px_0_0_0_#cbd5e1]' : ''}`}
+                      className={`border-r border-b border-slate-300 px-1 py-2 text-center text-[10px] uppercase tracking-wide ${col.stickyLeft !== undefined ? 'bg-slate-200' : 'bg-slate-100'} ${col.stickyLeft !== undefined && idx === 3 ? 'shadow-[1px_0_0_0_#cbd5e1]' : ''}`}
                     >
                       {col.title}
                     </th>
