@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useCallback, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuth } from '../../../context/AuthContext';
 import { fetchTodayRejectC, fetchTodayDowntimeC } from '../../../services/api';
+import { scrollCellIntoView } from '../../../lib/utils';
 import { Toaster } from 'react-hot-toast';
 
 const TEORI_BATCH = {
@@ -1246,9 +1247,7 @@ export default function InputC() {
     const tbody = oeeGridRef.current.querySelector('tbody');
     const rowEl = tbody?.rows?.[oeeSelection.endRow];
     const td = rowEl?.cells?.[oeeSelection.endCol];
-    if (td && typeof td.scrollIntoView === 'function') {
-      td.scrollIntoView({ behavior: 'auto', block: 'nearest', inline: 'nearest' });
-    }
+    scrollCellIntoView(td, oeeGridRef.current);
   }, [oeeSelection.endRow, oeeSelection.endCol]);
 
   useEffect(() => {
@@ -1256,9 +1255,7 @@ export default function InputC() {
     const tbody = dtGridRef.current.querySelector('tbody');
     const rowEl = tbody?.rows?.[dtSelection.endRow];
     const td = rowEl?.cells?.[dtSelection.endCol];
-    if (td && typeof td.scrollIntoView === 'function') {
-      td.scrollIntoView({ behavior: 'auto', block: 'nearest', inline: 'nearest' });
-    }
+    scrollCellIntoView(td, dtGridRef.current);
   }, [dtSelection.endRow, dtSelection.endCol]);
 
   const loadDataServer = useCallback(async () => {

@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useCallback, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuth } from '../../../context/AuthContext';
 import { fetchTodayRejectF, fetchTodayDowntimeF } from '../../../services/api';
+import { scrollCellIntoView } from '../../../lib/utils';
 import { Toaster } from 'react-hot-toast';
 
 const TEORI_BATCH = { "100 ML": 56880, "250 ML": 21509, "500 ML": 11538, "1000 ML": 11538, "100 ML PAR": 27522 };
@@ -1171,9 +1172,7 @@ export default function InputF() {
     const tbody = oeeGridRef.current.querySelector('tbody');
     const rowEl = tbody?.rows?.[oeeSelection.endRow];
     const td = rowEl?.cells?.[oeeSelection.endCol];
-    if (td && typeof td.scrollIntoView === 'function') {
-      td.scrollIntoView({ behavior: 'auto', block: 'nearest', inline: 'nearest' });
-    }
+    scrollCellIntoView(td, oeeGridRef.current);
   }, [oeeSelection.endRow, oeeSelection.endCol]);
 
   useEffect(() => {
@@ -1181,9 +1180,7 @@ export default function InputF() {
     const tbody = dtGridRef.current.querySelector('tbody');
     const rowEl = tbody?.rows?.[dtSelection.endRow];
     const td = rowEl?.cells?.[dtSelection.endCol];
-    if (td && typeof td.scrollIntoView === 'function') {
-      td.scrollIntoView({ behavior: 'auto', block: 'nearest', inline: 'nearest' });
-    }
+    scrollCellIntoView(td, dtGridRef.current);
   }, [dtSelection.endRow, dtSelection.endCol]);
 
   const loadDataServer = useCallback(async () => {
