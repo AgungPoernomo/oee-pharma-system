@@ -163,28 +163,49 @@ const SessionGuard = () => {
 const JSpreadsheetScrollFix = () => {
   useEffect(() => {
     const handleJSpreadsheetScrollBug = (e) => {
-      if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Tab'].includes(e.key)) {
-        setTimeout(() => {
-          const activeCell = document.querySelector('.jss_worksheet tbody td.highlight');
-          if (activeCell) {
-            const container = activeCell.closest('.jss_content');
-            if (container) {
-              const freezeCols = container.querySelectorAll('tbody tr:first-child .jss_freezed');
-              if (freezeCols.length > 0) {
-                let frozenWidth = 0;
-                freezeCols.forEach(col => { frozenWidth += col.offsetWidth; });
-                const cellLeft = activeCell.offsetLeft;
-                if (container.scrollLeft > 0 && cellLeft - container.scrollLeft < frozenWidth) {
-                  container.scrollLeft = Math.max(0, cellLeft - frozenWidth);
-                }
+      const isKey = e.type === 'keydown';
+      if (isKey && !['ArrowLeft', 'ArrowRight', 'Tab', 'Enter', 'ArrowUp', 'ArrowDown'].includes(e.key)) return;
+
+      let attempts = 0;
+      const interval = setInterval(() => {
+        attempts++;
+        if (attempts > 5) {
+          clearInterval(interval);
+          return;
+        }
+        
+        // Find the currently active (highlighted) cell
+        const activeCell = document.querySelector('.jss_worksheet tbody td.highlight, .jexcel tbody td.highlight');
+        
+        // If there's an active cell and it's NOT one of the frozen columns itself
+        if (activeCell && !activeCell.classList.contains('jss_freezed')) {
+          const container = activeCell.closest('.jss_content, .jexcel_content');
+          if (container) {
+            // Find the frozen columns
+            const freezeCols = container.querySelectorAll('tbody tr:first-child .jss_freezed');
+            if (freezeCols.length > 0) {
+              const lastFrozenCol = freezeCols[freezeCols.length - 1];
+              const frozenRect = lastFrozenCol.getBoundingClientRect();
+              const cellRect = activeCell.getBoundingClientRect();
+              
+              // If the left edge of the active cell is hidden behind the frozen columns
+              if (cellRect.left < (frozenRect.right - 1)) {
+                 const overlap = frozenRect.right - cellRect.left;
+                 // Push the scrollbar left by the overlap amount so it becomes visible
+                 container.scrollLeft = Math.max(0, container.scrollLeft - overlap);
               }
             }
           }
-        }, 50);
-      }
+        }
+      }, 15);
     };
-    window.addEventListener('keydown', handleJSpreadsheetScrollBug);
-    return () => window.removeEventListener('keydown', handleJSpreadsheetScrollBug);
+
+    window.addEventListener('keydown', handleJSpreadsheetScrollBug, true);
+    window.addEventListener('mousedown', handleJSpreadsheetScrollBug, true);
+    return () => {
+      window.removeEventListener('keydown', handleJSpreadsheetScrollBug, true);
+      window.removeEventListener('mousedown', handleJSpreadsheetScrollBug, true);
+    };
   }, []);
   return null;
 };
