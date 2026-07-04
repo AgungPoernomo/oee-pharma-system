@@ -132,8 +132,7 @@ const calculateOEERow = (row) => {
     setV(C.TRF_TO_ST, trf > 0 ? trf : 0);
     setV(C.TOTAL_KESEL, cntSub);
     setV(C.YIELD_BATCH, ((trf / cntSub) * 100).toFixed(2));
-    const inputSteril = trf - v(C.REJ_BLOW);
-    setV(C.INPUT_STERIL, inputSteril > 0 ? inputSteril : 0);
+    setV(C.INPUT_STERIL, trf > 0 ? trf : 0);
   } else {
     setV(C.TRF_TO_ST, ''); setV(C.TOTAL_KESEL, ''); setV(C.YIELD_BATCH, ''); setV(C.INPUT_STERIL, '');
   }
@@ -161,6 +160,72 @@ const calculateDTRow = (row) => {
     next[DC.DURASI] = '';
   }
   return next;
+};
+
+const recalculateAllOEE = (data) => {
+  const shiftData = {};
+  
+  data.forEach((row, index) => {
+    const tanggal = row[C.TANGGAL];
+    const shift = row[C.SHIFT];
+    
+    if (tanggal && shift) {
+      const key = `${tanggal}_${shift}`;
+      if (!shiftData[key]) {
+        shiftData[key] = {
+          atSubSum: 0,
+          cntSubSum: 0,
+          yieldBatchSum: 0,
+          yieldBatchCount: 0,
+          lastRowIdx: -1
+        };
+      }
+      
+      const atSub = parseFloat(row[C.AT_SUB]);
+      if (!isNaN(atSub)) shiftData[key].atSubSum += atSub;
+      
+      const cntSub = parseFloat(row[C.CNT_SUB]);
+      if (!isNaN(cntSub)) shiftData[key].cntSubSum += cntSub;
+      
+      const yieldBatch = parseFloat(row[C.YIELD_BATCH]);
+      if (!isNaN(yieldBatch)) {
+        shiftData[key].yieldBatchSum += yieldBatch;
+        shiftData[key].yieldBatchCount += 1;
+      }
+      
+      shiftData[key].lastRowIdx = index;
+    }
+  });
+
+  return data.map((row, index) => {
+    const tanggal = row[C.TANGGAL];
+    const shift = row[C.SHIFT];
+    
+    let newAtTotal = '';
+    let newTotalCnt = '';
+    let newAvgShift = '';
+    
+    if (tanggal && shift) {
+      const key = `${tanggal}_${shift}`;
+      if (shiftData[key] && shiftData[key].lastRowIdx === index) {
+        newAtTotal = shiftData[key].atSubSum;
+        newTotalCnt = shiftData[key].cntSubSum;
+        if (shiftData[key].yieldBatchCount > 0) {
+          newAvgShift = (shiftData[key].yieldBatchSum / shiftData[key].yieldBatchCount).toFixed(2);
+        }
+      }
+    }
+    
+    if (row[C.AT_TOTAL] !== newAtTotal || row[C.TOTAL_CNT] !== newTotalCnt || row[C.AVG_SHIFT] !== newAvgShift) {
+      const newRow = [...row];
+      newRow[C.AT_TOTAL] = newAtTotal;
+      newRow[C.TOTAL_CNT] = newTotalCnt;
+      newRow[C.AVG_SHIFT] = newAvgShift;
+      return newRow;
+    }
+    
+    return row;
+  });
 };
 
 const findEdgeCell = (data, r, c, key, maxR, maxC) => {
@@ -229,7 +294,7 @@ const OEE_COLS_META = [
   { title: 'Others', width: 65, type: 'number' },
   { title: 'Sub Total Samples', width: 125, type: 'number', readOnly: true },
   { title: 'Transfer to ST', width: 105, type: 'number', readOnly: true },
-  { title: 'Total Keseluruhan', width: 125, type: 'number', readOnly: true },
+  { title: 'Total Per Shift', width: 125, type: 'number', readOnly: true },
   { title: 'Yield / Batch (%)', width: 105, type: 'number', readOnly: true },
   { title: 'AVG / Shift (%)', width: 105, type: 'number', readOnly: true },
   { title: 'Input Before Steril', width: 125, type: 'number', readOnly: true },
@@ -445,7 +510,6 @@ const AutocompleteCombobox = ({
   );
 };
 
-// Highly optimized memoized row component (only re-renders when rowData or this row's selection/editing changes!)
 const SpreadsheetRow = React.memo(({
   rowData,
   rowIdx,
@@ -579,8 +643,6 @@ const SpreadsheetRow = React.memo(({
   if (prev.editMode !== next.editMode) return false;
   if (prev.editingInitialValue !== next.editingInitialValue) return false;
 
-  // Only check selection columns if THIS row is currently selected or was previously selected!
-  // If it's not selected in either render, we don't care about the selection boundaries changing.
   if (prev.isSelectedRow || next.isSelectedRow) {
     if (prev.selectionMinCol !== next.selectionMinCol) return false;
     if (prev.selectionMaxCol !== next.selectionMaxCol) return false;
@@ -723,6 +785,21 @@ export default function InputC() {
       }
     }, 1000);
   }, [user]);
+
+  useEffect(() => {
+    const nextData = recalculateAllOEE(oeeData);
+    let changed = false;
+    for (let i = 0; i < oeeData.length; i++) {
+      if (nextData[i] !== oeeData[i]) {
+        changed = true;
+        triggerAutosaveOEE(i, nextData[i]);
+      }
+    }
+    if (changed) {
+      setOeeData(nextData);
+      setTimeout(() => localStorage.setItem('C_DATA_OEE', JSON.stringify(nextData)), 0);
+    }
+  }, [oeeData, triggerAutosaveOEE]);
 
   const handleUndo = useCallback((gridType) => {
     const histRef = gridType === 'oee' ? oeeHistory : dtHistory;

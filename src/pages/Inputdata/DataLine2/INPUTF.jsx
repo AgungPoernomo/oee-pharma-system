@@ -4,9 +4,9 @@ import { useAuth } from '../../../context/AuthContext';
 import { fetchTodayRejectF, fetchTodayDowntimeF } from '../../../services/api';
 import { Toaster } from 'react-hot-toast';
 
-const TEORI_BATCH = { "25 ML": 29412, "100 ML": 56880, "250 ML": 21509, "500 ML": 23076, "1000 ML": 60194 };
-const TEORI_YIELD = 21923;
-const VOLUMES = ["25 ML", "100 ML", "250 ML", "500 ML", "1000 ML"];
+const TEORI_BATCH = { "100 ML": 56880, "250 ML": 21509, "500 ML": 23076, "1000 ML": 60194 };
+const TEORI_YIELD = 23076;
+const VOLUMES = ["100 ML", "250 ML", "500 ML", "1000 ML"];
 
 const parseToYMD = (val) => {
   if (!val) return '';
@@ -102,8 +102,14 @@ const calculateOEERow = (row) => {
   setV(12, v(7) + v(8) + v(9) + v(10) + v(11));
 
   let sIn = v(6);
-  if (sIn > 0) setV(14, sIn - v(12) - v(13));
-  else setV(14, '');
+  if (sIn > 0) {
+    let sOut = sIn - v(12) - v(13);
+    setV(14, sOut);
+    setV(16, sOut);
+  } else {
+    setV(14, '');
+    setV(16, '');
+  }
 
   let sub = v(16) - v(15); setV(17, sub > 0 ? sub : '');
 
