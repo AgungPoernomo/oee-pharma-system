@@ -8,22 +8,25 @@ export function cn(...inputs) {
 export function scrollCellIntoView(td, container) {
   if (!td || !container) return;
 
+  // Find the actual scrollable container (in case container is an outer wrapper without overflow)
+  const scrollContainer = td.closest('.overflow-x-auto, .overflow-auto, [style*="overflow"]') || container;
+
   // Use getBoundingClientRect for exact viewport pixel math.
   // We DO NOT call td.scrollIntoView() because browsers execute it asynchronously
   // and will overwrite our custom scrollLeft adjustments!
-  const cRect = container.getBoundingClientRect();
+  const cRect = scrollContainer.getBoundingClientRect();
   const tdRect = td.getBoundingClientRect();
 
   // 1. VERTICAL SCROLLING (scrollTop)
-  const thead = container.querySelector('thead');
+  const thead = scrollContainer.querySelector('thead');
   const headerHeight = thead ? thead.getBoundingClientRect().height : 0;
   const visibleTop = cRect.top + headerHeight;
   const visibleBottom = cRect.bottom;
 
   if (tdRect.top < visibleTop) {
-    container.scrollTop = Math.max(0, container.scrollTop - (visibleTop - tdRect.top));
+    scrollContainer.scrollTop = Math.max(0, scrollContainer.scrollTop - (visibleTop - tdRect.top));
   } else if (tdRect.bottom > visibleBottom) {
-    container.scrollTop += (tdRect.bottom - visibleBottom);
+    scrollContainer.scrollTop += (tdRect.bottom - visibleBottom);
   }
 
   // 2. HORIZONTAL SCROLLING (scrollLeft)
@@ -55,14 +58,14 @@ export function scrollCellIntoView(td, container) {
   const tdLeft = td.getBoundingClientRect().left;
   const tdRight = td.getBoundingClientRect().right;
 
-  // Check if hidden behind sticky columns on the left
-  if (tdLeft < stickyRight - 1) {
-    const leftOverlap = stickyRight - tdLeft;
-    container.scrollLeft = Math.max(0, container.scrollLeft - leftOverlap);
+  // Check if hidden behind sticky columns on the left (with a safety margin of 5px)
+  if (tdLeft < stickyRight + 5) {
+    const leftOverlap = (stickyRight + 5) - tdLeft;
+    scrollContainer.scrollLeft = Math.max(0, scrollContainer.scrollLeft - leftOverlap);
   } 
-  // Check if hidden beyond the right edge of the container
-  else if (tdRight > cRect.right + 1) {
-    const rightOverlap = tdRight - cRect.right;
-    container.scrollLeft += rightOverlap;
+  // Check if hidden beyond the right edge of the container (with a safety margin of 5px)
+  else if (tdRight > cRect.right - 5) {
+    const rightOverlap = tdRight - (cRect.right - 5);
+    scrollContainer.scrollLeft += rightOverlap;
   }
 }
