@@ -116,9 +116,19 @@ export const checkApprovalStatus = async (id_karyawan) => {
 
 export const fetchOnesheetData = async (tanggal, explicitUser = null) => {
   const userData = getCurrentUser(explicitUser);
-  return await sendRequest({ 
-    action: "get_onesheet_data", 
-    data: { tanggal: tanggal },
-    user: userData 
-  });
+  try {
+    const response = await fetch('/api/fetch-data', {
+      method: 'POST', 
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        action: "get_onesheet_data", 
+        data: { tanggal: tanggal }, 
+        user: userData 
+      })
+    });
+    return await response.json();
+  } catch (error) {
+    console.error("Fetch Onesheet Error:", error);
+    return { status: "error", message: "Gagal terhubung ke server (Network Error)." };
+  }
 };

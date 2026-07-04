@@ -46,27 +46,27 @@ const useZoneCProcessor = (rawReject, rawDowntime, date, volume, headerMetrics) 
     const plannedSet = new Set();
     const unplannedSet = new Set();
 
-    const filteredReject = rawReject.filter(r => String(r[7]).trim().toUpperCase() === String(volume).trim().toUpperCase());
+    const filteredReject = rawReject.filter(r => String(r.volume_botol).trim().toUpperCase() === String(volume).trim().toUpperCase());
     const filteredDowntime = rawDowntime;
 
     filteredReject.forEach(r => {
-      const g = String(r[5]).trim().toUpperCase();
+      const g = String(r.group).trim().toUpperCase();
       if (!groups.includes(g)) return;
-      data[g].pot += (parseFloat(r[41]) || 0) / 60; 
-      data[g].out_counter += parseFloat(r[10]) || 0; 
-      data[g].out_reject_blow += parseFloat(r[6]) || 0; 
-      data[g].q_wash += parseFloat(r[14]) || 0; data[g].q_vk += parseFloat(r[15]) || 0; data[g].q_vl += parseFloat(r[16]) || 0;
-      data[g].q_nocap += parseFloat(r[17]) || 0; data[g].q_seal += parseFloat(r[18]) || 0; data[g].q_bocor += parseFloat(r[19]) || 0;
-      data[g].q_samp += parseFloat(r[23]) || 0;
+      data[g].pot += (parseFloat(r.av_sub) || 0) / 60; 
+      data[g].out_counter += parseFloat(r.cnt_sub) || 0; 
+      data[g].out_reject_blow += parseFloat(r.reject_blow) || 0; 
+      data[g].q_wash += parseFloat(r.r_washing) || 0; data[g].q_vk += parseFloat(r.r_vk) || 0; data[g].q_vl += parseFloat(r.r_vl) || 0;
+      data[g].q_nocap += parseFloat(r.r_nocap) || 0; data[g].q_seal += parseFloat(r.r_sealnok) || 0; data[g].q_bocor += parseFloat(r.r_others) || 0;
+      data[g].q_samp += parseFloat(r.s_sub) || 0;
     });
 
     filteredDowntime.forEach(r => {
-      const g = String(r[4]).trim().toUpperCase();
+      const g = String(r.group).trim().toUpperCase();
       if (!groups.includes(g)) return;
-      const durasi = parseFloat(r[10]) || 0;
-      const type = String(r[11]).trim().toUpperCase();
-      const category = String(r[12]).trim().toUpperCase();
-      const kasus = String(r[15]).trim().toUpperCase();
+      const durasi = parseFloat(r.duration) || 0;
+      const type = String(r.plan_unplan).trim().toUpperCase();
+      const category = String(r.proses).trim().toUpperCase();
+      const kasus = String(r.kasus).trim().toUpperCase();
 
       if (type === 'PLANNED') { plannedSet.add(kasus); data[g].ps[kasus] = (data[g].ps[kasus] || 0) + (durasi / 60); } 
       else if (type === 'UNPLANNED') { unplannedSet.add(kasus); data[g].dt[kasus] = (data[g].dt[kasus] || 0) + durasi; }
@@ -136,29 +136,29 @@ const useZoneFProcessor = (rawReject, rawDowntime, date, volume, headerMetrics) 
     const plannedSet = new Set();
     const unplannedSet = new Set();
     
-    const filteredReject = rawReject.filter(r => String(r[7]).trim().toUpperCase() === String(volume).trim().toUpperCase()); 
+    const filteredReject = rawReject.filter(r => String(r.volume_botol).trim().toUpperCase() === String(volume).trim().toUpperCase()); 
     const filteredDowntime = rawDowntime;
 
     filteredReject.forEach(r => {
-      const g = String(r[6]).trim().toUpperCase();
+      const g = String(r.group).trim().toUpperCase();
       if (!groups.includes(g)) return;
       
-      data[g].pot += (parseFloat(r[41]) || 0) / 60; 
-      data[g].out_counter += parseFloat(r[19]) || 0; 
-      data[g].q_samp_as += parseFloat(r[25]) || 0;  
-      data[g].q_samp_ret += parseFloat(r[29]) || 0; 
-      data[g].rej_partikel += (parseFloat(r[21]) || 0); 
-      data[g].rej_kosmetik += (parseFloat(r[22]) || 0); 
+      data[g].pot += (parseFloat(r.av_sub) || 0) / 60; 
+      data[g].out_counter += parseFloat(r.vi_sub) || 0; 
+      data[g].q_samp_as += parseFloat(r.pack_reject) || 0;  
+      data[g].q_samp_ret += parseFloat(r.pack_fg) || 0; 
+      data[g].rej_partikel += (parseFloat(r.vi_partikel) || 0); 
+      data[g].rej_kosmetik += (parseFloat(r.vi_kotik) || 0); 
     });
 
     filteredDowntime.forEach(r => {
-      const g = String(r[4]).trim().toUpperCase();
+      const g = String(r.group).trim().toUpperCase();
       if (!groups.includes(g)) return;
       
-      const durasi = parseFloat(r[11]) || 0; 
-      const type = String(r[12]).trim().toUpperCase(); 
-      const category = String(r[13]).trim().toUpperCase(); 
-      const kasus = String(r[16]).trim().toUpperCase(); 
+      const durasi = parseFloat(r.duration) || 0; 
+      const type = String(r.plan_unplan).trim().toUpperCase(); 
+      const category = String(r.proses).trim().toUpperCase(); 
+      const kasus = String(r.kasus).trim().toUpperCase(); 
 
       if (type === 'PLANNED') { 
         plannedSet.add(kasus); 
