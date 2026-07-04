@@ -160,6 +160,35 @@ const SessionGuard = () => {
   return null;
 };
 
+const JSpreadsheetScrollFix = () => {
+  useEffect(() => {
+    const handleJSpreadsheetScrollBug = (e) => {
+      if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Tab'].includes(e.key)) {
+        setTimeout(() => {
+          const activeCell = document.querySelector('.jss_worksheet tbody td.highlight');
+          if (activeCell) {
+            const container = activeCell.closest('.jss_content');
+            if (container) {
+              const freezeCols = container.querySelectorAll('tbody tr:first-child .jss_freezed');
+              if (freezeCols.length > 0) {
+                let frozenWidth = 0;
+                freezeCols.forEach(col => { frozenWidth += col.offsetWidth; });
+                const cellLeft = activeCell.offsetLeft;
+                if (container.scrollLeft > 0 && cellLeft - container.scrollLeft < frozenWidth) {
+                  container.scrollLeft = Math.max(0, cellLeft - frozenWidth);
+                }
+              }
+            }
+          }
+        }, 50);
+      }
+    };
+    window.addEventListener('keydown', handleJSpreadsheetScrollBug);
+    return () => window.removeEventListener('keydown', handleJSpreadsheetScrollBug);
+  }, []);
+  return null;
+};
+
 const App = () => {
   const { user } = useAuth();
 
@@ -173,6 +202,7 @@ const App = () => {
 
   return (
     <Router>
+      <JSpreadsheetScrollFix />
       <SessionGuard /> 
       <Routes>
         
