@@ -1,4 +1,5 @@
 import db from './db.js';
+import { queueGasBackup } from './gas-backup-queue.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ message: 'Method Not Allowed' });
@@ -41,15 +42,10 @@ export default async function handler(req, res) {
       }
     } 
 
-    // Backup ke Google App Script menggunakan Native Fetch (Tanpa Axios)
+    // Backup ke Google App Script menggunakan antrean timer (setiap 1 menit)
+    const gasUser = { ...(user || {}), line: lineNum };
     const backupData = { ...data, original_id: insertId };
-    if (process.env.GAS_URL) {
-      fetch(process.env.GAS_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: action, data: backupData, user: user, tableName: tableName })
-      }).catch(err => console.error(`[Backup GAS Gagal]`, err.message));
-    }
+    queueGasBackup({ action: action, data: backupData, user: gasUser, tableName: tableName });
 
     return res.status(200).json({ status: 'success', original_id: insertId });
   } catch (error) {

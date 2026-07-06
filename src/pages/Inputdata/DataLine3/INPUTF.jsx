@@ -873,8 +873,9 @@ export default function InputF() {
 
       const actionType = payloadData.original_id ? 'update_reject_f' : 'submit_reject_f';
       const res = await sendAutoSave({ action: actionType, data: payloadData, user });
-      if (res?.status === 'success' && res.data?.id) {
-        oeeIds.current[rIdx] = res.data.id;
+      const newId = res?.original_id || res?.data?.id;
+      if (res?.status === 'success' && newId) {
+        oeeIds.current[rIdx] = newId;
         localStorage.setItem('F_IDS_OEE', JSON.stringify(oeeIds.current));
       }
     } catch (err) {
@@ -903,8 +904,9 @@ export default function InputF() {
 
       const actionType = payloadData.original_id ? 'update_downtime_f' : 'submit_downtime_f';
       const res = await sendAutoSave({ action: actionType, data: payloadData, user });
-      if (res?.status === 'success' && res.data?.id) {
-        dtIds.current[rIdx] = res.data.id;
+      const newId = res?.original_id || res?.data?.id;
+      if (res?.status === 'success' && newId) {
+        dtIds.current[rIdx] = newId;
         localStorage.setItem('F_IDS_DT', JSON.stringify(dtIds.current));
       }
     } catch (err) {

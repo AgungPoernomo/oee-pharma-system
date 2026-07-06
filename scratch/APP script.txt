@@ -66,6 +66,26 @@ function formatTglIndo(dateStr) {
   return "'" + day + "/" + month + "/" + year; 
 }
 
+/**
+ * Mencari baris paling akhir yang berisi data nyata (menghindari lompat ke bawah akibat format/border kosong).
+ */
+function getRealLastDataRow(sheet, minRow) {
+  if (!sheet) return minRow;
+  var lastRow = sheet.getLastRow();
+  if (lastRow < minRow) return minRow;
+  
+  var values = sheet.getRange(1, 1, lastRow, 3).getValues();
+  for (var i = values.length - 1; i >= minRow - 1; i--) {
+    var colA = String(values[i][0] || "").trim();
+    var colB = String(values[i][1] || "").trim();
+    var colC = String(values[i][2] || "").trim();
+    if (colA !== "" || colB !== "" || colC !== "") {
+      return i + 2;
+    }
+  }
+  return minRow;
+}
+
 // ==================== FUNGSI BARU UNTUK DYNAMIC SYNC TABLE ====================
 function handleDynamicSync(payload) {
   var action = payload.action || '';
@@ -73,14 +93,29 @@ function handleDynamicSync(payload) {
   var user = payload.user || {};
   var tableName = payload.tableName || 'OEE_Backup';
   
-  // Gunakan spreadsheet aktif sesuai script baru Anda
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sheet = ss.getSheetByName(tableName);
+  // Tentukan Spreadsheet ID berdasarkan userLine atau tableName
+  var userLine = (user && (user.line || user.plant)) || "2";
+  var tblLower = String(tableName).toLowerCase();
+  if (tblLower.indexOf('line1') !== -1) userLine = "1";
+  else if (tblLower.indexOf('line2') !== -1) userLine = "2";
+  else if (tblLower.indexOf('line3') !== -1) userLine = "3";
+  else if (tblLower.indexOf('line4') !== -1) userLine = "4";
+
+  var ss = SpreadsheetApp.openById(getDbIdByLine(userLine));
+  
+  // Map nama tabel ke nama sheet standar Google Spreadsheet
+  var targetSheetName = tableName;
+  var actLower = String(action).toLowerCase();
+  if (actLower.indexOf('reject_c') !== -1 || (tblLower.indexOf('oee') !== -1 && tblLower.indexOf('zonec') !== -1)) targetSheetName = SHEET_DL_REJECT_C;
+  else if (actLower.indexOf('reject_f') !== -1 || (tblLower.indexOf('oee') !== -1 && tblLower.indexOf('zonef') !== -1)) targetSheetName = SHEET_DL_REJECT_F;
+  else if (actLower.indexOf('downtime_c') !== -1 || (tblLower.indexOf('downtime') !== -1 && tblLower.indexOf('zonec') !== -1)) targetSheetName = SHEET_DL_DOWNTIME_C;
+  else if (actLower.indexOf('downtime_f') !== -1 || (tblLower.indexOf('downtime') !== -1 && tblLower.indexOf('zonef') !== -1)) targetSheetName = SHEET_DL_DOWNTIME_F;
+
+  var sheet = ss.getSheetByName(targetSheetName) || ss.getSheetByName(tableName);
   
   // Jika sheet belum ada, buat sheet baru
   if (!sheet) {
     sheet = ss.insertSheet(tableName);
-    // Buat header default jika ada data
     var headers = ['original_id', 'last_updated', 'user_nama'];
     for (var key in data) {
       if (headers.indexOf(key) === -1) headers.push(key);
@@ -94,18 +129,17 @@ function handleDynamicSync(payload) {
   var values = dataRange.getValues();
   var headerRow = values[0] || [];
   
-  // Cari baris berdasarkan original_id di kolom pertama (indeks 0)
+  // Cari baris berdasarkan original_id (kolom A atau kolom CV/100)
   var rowIndex = -1;
   if (originalId) {
     for (var i = 1; i < values.length; i++) {
-      if (String(values[i][0]) === String(originalId)) {
-        rowIndex = i + 1; // 1-indexed di Apps Script
+      if (String(values[i][0]) === String(originalId) || (values[i][99] && String(values[i][99]) === String(originalId))) {
+        rowIndex = i + 1;
         break;
       }
     }
   }
   
-  // Penanganan DELETE ACTION
   if (action.indexOf('delete_') === 0) {
     if (rowIndex !== -1) {
       sheet.deleteRow(rowIndex);
@@ -115,8 +149,6 @@ function handleDynamicSync(payload) {
     }
   }
   
-  // Penanganan SUBMIT & UPDATE ACTION
-  // Pastikan semua key di data ada di headerRow
   for (var key in data) {
     if (headerRow.indexOf(key) === -1) {
       headerRow.push(key);
@@ -132,7 +164,6 @@ function handleDynamicSync(payload) {
     sheet.getRange(1, headerRow.length).setValue('user_nama').setFontWeight('bold').setBackground('#f1f5f9');
   }
   
-  // Susun array nilai sesuai urutan headerRow
   var rowToInsert = [];
   for (var j = 0; j < headerRow.length; j++) {
     var colName = headerRow[j];
@@ -146,14 +177,13 @@ function handleDynamicSync(payload) {
   }
   
   if (rowIndex !== -1) {
-    // Update baris yang sudah ada
     sheet.getRange(rowIndex, 1, 1, rowToInsert.length).setValues([rowToInsert]);
   } else {
-    // Tambahkan baris baru di bawah
-    sheet.appendRow(rowToInsert);
+    var targetRow = getRealLastDataRow(sheet, 2);
+    sheet.getRange(targetRow, 1, 1, rowToInsert.length).setValues([rowToInsert]);
   }
   
-  return { status: 'success', message: 'GAS backup synced' };
+  return { status: 'success', message: 'GAS backup synced to line ' + userLine };
 }
 // ============================================================================
 
@@ -166,8 +196,8 @@ function doPost(e) {
     const userLine = params.user ? (params.user.line || params.user.plant || "2") : "2"; 
     let result = {};
 
-    // MENDETEKSI SCRIPT BARU: Jika payload mengirim parameter 'tableName' atau action-nya adalah 'dynamic_sync'
-    if (params.tableName || action === 'dynamic_sync') {
+    // MENDETEKSI SCRIPT BARU: Jika action adalah 'dynamic_sync'
+    if (action === 'dynamic_sync') {
       result = handleDynamicSync(params);
       return responseJSON(result);
     }
@@ -181,18 +211,15 @@ function doPost(e) {
       case "update_foto": result = handleUpdateFoto(params.data); break;
       case "send_feedback": result = handleSendFeedback(params.data, params.user); break;
 
-      case "get_pending_approvals": result = getPendingApprovals(); break;
-      case "approve_user": result = approveUser(params.data); break;
-      case "check_approval_status": result = checkApprovalStatus(params.data); break;
-
+      case "get_pending_approvals": result = handleGetPendingApprovals(); break;
+      case "approve_user": result = handleApproveUser(params.data); break;
+      case "check_approval_status": result = handleCheckApprovalStatus(params.data); break;
+      case "get_onesheet_data": result = getOnesheetData(params.data, params.user, userLine); break;
+      
       case "submit_reject_c": result = saveRejectZoneC(params.data, params.user, userLine); break; 
       case "submit_reject_f": result = saveRejectZoneF(params.data, params.user, userLine); break; 
       case "submit_downtime_c": result = saveDowntimeZoneC(params.data, params.user, userLine); break;
       case "submit_downtime_f": result = saveDowntimeZoneF(params.data, params.user, userLine); break;
-      case "submit_bulk_downtime_c": result = saveBulkDowntimeZoneC(params.data, params.user, userLine); break;
-      case "submit_bulk_downtime_f": result = saveBulkDowntimeZoneF(params.data, params.user, userLine); break;
-      case "get_onesheet_data": result = getOnesheetData(params.user, params.data); break;
-
       case "update_reject_c": result = updateRejectZoneC(params.data, params.user, userLine); break;
       case "delete_reject_c": result = deleteRejectZoneC(params.data, params.user, userLine); break;
       case "update_reject_f": result = updateRejectZoneF(params.data, params.user, userLine); break;
@@ -210,7 +237,12 @@ function doPost(e) {
       case "submit_oee": result = handleSubmitData(params.data, params.user); break;
       case "streamRealTimeData": result = streamRealTimeData(params.payload, params.user, userLine); break;
 
-      default: result = { status: "error", message: "Action tidak dikenal: " + action };
+      default:
+        if (params.tableName) {
+          result = handleDynamicSync(params);
+        } else {
+          result = { status: "error", message: "Action tidak dikenal: " + action };
+        }
     }
     return responseJSON(result);
   } catch (error) {
@@ -264,7 +296,11 @@ function saveRejectZoneC(data, user, userLine) {
   const ss = SpreadsheetApp.openById(getDbIdByLine(userLine));
   const sheet = ss.getSheetByName(SHEET_DL_REJECT_C);
   if (!sheet) return { status: 'error', message: `Sheet Missing!` };
-  var startRow = sheet.getLastRow() < 3 ? 4 : sheet.getLastRow() + 1;
+  if (data.original_id) {
+    var existingRow = getRowByTidbId(sheet, data.original_id);
+    if (existingRow !== -1) return updateRejectZoneC(data, user, userLine);
+  }
+  var startRow = getRealLastDataRow(sheet, 4);
   
   var rowData = constructRejectCArray(data, user, data.is_closing, startRow);
   sheet.getRange(startRow, 1, 1, rowData.length).setValues([rowData]);
@@ -352,8 +388,12 @@ function saveRejectZoneF(data, user, userLine) {
   const ss = SpreadsheetApp.openById(getDbIdByLine(userLine));
   const sheet = ss.getSheetByName(SHEET_DL_REJECT_F);
   if (!sheet) return { status: 'error', message: `Sheet Missing!` };
+  if (data.original_id) {
+    var existingRow = getRowByTidbId(sheet, data.original_id);
+    if (existingRow !== -1) return updateRejectZoneF(data, user, userLine);
+  }
   
-  var startRow = sheet.getLastRow() < 4 ? 4 : sheet.getLastRow() + 1;
+  var startRow = getRealLastDataRow(sheet, 4);
   var rowData = constructRejectFArray(data, user, data.is_closing, startRow);
   
   sheet.getRange(startRow, 1, 1, rowData.length).setValues([rowData]);
@@ -416,13 +456,17 @@ function saveDT(data, user, userLine, sheetName, hasLot) {
   const ss = SpreadsheetApp.openById(getDbIdByLine(userLine));
   const sheet = ss.getSheetByName(sheetName);
   if (!sheet) return { status: 'error', message: `${sheetName} Missing!` };
+  if (data.original_id) {
+    var existingRow = getRowByTidbId(sheet, data.original_id);
+    if (existingRow !== -1) return updateDT(data, user, userLine, sheetName, hasLot);
+  }
   
   var rowData = constructDowntimeArray(data, user, hasLot);
-  sheet.appendRow(rowData);
+  var targetRow = getRealLastDataRow(sheet, 2);
+  sheet.getRange(targetRow, 1, 1, rowData.length).setValues([rowData]);
   
-  var lastRow = sheet.getLastRow();
-  sheet.getRange(lastRow, TIDB_ID_COL).setValue(data.original_id || "");
-  sheet.getRange(lastRow, TIDB_JSON_COL).setValue(JSON.stringify(data));
+  sheet.getRange(targetRow, TIDB_ID_COL).setValue(data.original_id || "");
+  sheet.getRange(targetRow, TIDB_JSON_COL).setValue(JSON.stringify(data));
   return { status: 'success', message: 'Downtime Saved!' };
 }
 
@@ -760,7 +804,8 @@ function streamRealTimeData(payload, user, userLine) {
     
     var fullRow = [timestamp, sourceName].concat(rowData);
     
-    sheet.appendRow(fullRow);
+    var targetRow = getRealLastDataRow(sheet, 2);
+    sheet.getRange(targetRow, 1, 1, fullRow.length).setValues([fullRow]);
     
     return { status: "success", message: "Data berhasil dialirkan ke " + sheetName };
     
