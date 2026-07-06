@@ -10,11 +10,13 @@ export default async function handler(req, res) {
 
   try {
     let insertId = data?.original_id; 
+    let tableName = action.includes('reject') ? `oee_line${lineNum}_zonec` : `downtime_line${lineNum}_zonec`;
 
-    if (action === 'submit_reject_c' || action === 'update_reject_c' || action === 'submit_downtime_c' || action === 'update_downtime_c') {
-      
-      let tableName = action.includes('reject') ? `oee_line${lineNum}_zonec` : `downtime_line${lineNum}_zonec`;
-
+    if (action === 'delete_reject_c' || action === 'delete_downtime_c') {
+      if (insertId) {
+        await db.query(`DELETE FROM ${tableName} WHERE id = ?`, [insertId]);
+      }
+    } else if (action === 'submit_reject_c' || action === 'update_reject_c' || action === 'submit_downtime_c' || action === 'update_downtime_c') {
       const dbPayload = { ...data };
       delete dbPayload.original_id;
       delete dbPayload.is_closing;
@@ -42,7 +44,7 @@ export default async function handler(req, res) {
       fetch(process.env.GAS_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: action, data: backupData, user: user })
+        body: JSON.stringify({ action: action, data: backupData, user: user, tableName: tableName })
       }).catch(err => console.error(`[Backup GAS Gagal]`, err.message));
     }
 

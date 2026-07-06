@@ -1,13 +1,13 @@
-import React, { useEffect, useRef, useCallback, useState } from 'react';
+import React, { useEffect, useRef, useCallback, useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuth } from '../../../context/AuthContext';
 import { fetchTodayRejectF, fetchTodayDowntimeF } from '../../../services/api';
 import { scrollCellIntoView } from '../../../lib/utils';
 import { Toaster } from 'react-hot-toast';
 
-const TEORI_BATCH = { "25 ML": 29412, "100 ML": 56880, "250 ML": 21509, "500 ML": 23076, "1000 ML": 60194 };
-const TEORI_YIELD = 21923;
-const VOLUMES = ["25 ML", "100 ML", "250 ML", "500 ML", "1000 ML"];
+const TEORI_BATCH = { "25 ML": 29412 };
+const TEORI_YIELD = 29412;
+const VOLUMES = ["25 ML"];
 const SHIFTS = ["1", "2", "3"];
 const GROUPS = ["A", "B", "C", "D"];
 
@@ -43,13 +43,13 @@ const incrementBatchNumber = (str, step) => {
 const getEmptyOEE = () => {
   const arr = Array(47).fill('');
   arr[4] = ''; // Volume
-  arr[28] = 'Y'; // Utuh ?
+  arr[28] = ''; // Utuh ?
   return arr;
 };
 
 const getEmptyDT = () => {
   const arr = Array(14).fill('');
-  arr[9] = 'Unplanned';
+  arr[9] = ' ';
   return arr;
 };
 
@@ -102,11 +102,8 @@ const calculateOEERow = (row) => {
   };
   const setV = (col, val) => { next[col] = val; };
 
-  // Output After Steril
-  // col 8: TOTAL Reject Steril = Reject Bocor (col 6) + Reject Lain (col 7)
   setV(8, v(6) + v(7));
 
-  // col 9: Output (TF to VI) = Input chamber (col 5) - TOTAL Reject (col 8)
   let sIn = v(5);
   if (sIn > 0) {
     let sOut = sIn - v(8);
@@ -115,8 +112,6 @@ const calculateOEERow = (row) => {
     setV(9, '');
   }
 
-  // Output Visual Inspection Input
-  // col 12: Sub Total = End (col 11) - Start (col 10)
   let viEnd = v(11);
   let viStart = v(10);
   if (viEnd > 0 || viStart > 0) {
@@ -126,27 +121,21 @@ const calculateOEERow = (row) => {
     setV(12, '');
   }
 
-  // REJECT AVI TOTAL (col 22) = sum of cols 14..21
   setV(22, v(14) + v(15) + v(16) + v(17) + v(18) + v(19) + v(20) + v(21));
 
-  // Hasil Baik VI (col 23) = Sub Total VI Input (col 12) - TOTAL Reject AVI (col 22)
   let viSub = v(12);
   if (viSub > 0) {
     let vBaik = viSub - v(22);
     setV(23, vBaik > 0 ? vBaik : 0);
-    // Transfer ke Packing (col 24) = Hasil Baik VI
     setV(24, vBaik > 0 ? vBaik : 0);
   } else {
     setV(23, '');
     setV(24, '');
   }
 
-  // Output Packaging
-  // Hasil Baik Packaging (col 25) = Transfer ke Packing (col 24)
   let pTrf = v(24);
   if (pTrf > 0) {
     setV(25, pTrf);
-    // Finished Goods (col 27) = Hasil Baik Packaging (col 25) - QC (col 26)
     let pFg = pTrf - v(26);
     setV(27, pFg > 0 ? pFg : 0);
   } else {
@@ -154,7 +143,6 @@ const calculateOEERow = (row) => {
     setV(27, '');
   }
 
-  // Jumlah Batch (col 29) = Finished Goods (col 27) / TEORI_BATCH[volKey]
   let volKey = next[4] || "25 ML";
   let pFgVal = v(27);
   if (pFgVal > 0) {
@@ -163,28 +151,22 @@ const calculateOEERow = (row) => {
     setV(29, '');
   }
 
-  // Time diff helper
   const timeDiff = (sh, sm, eh, em) => {
     if (v(sh) === 0 && v(sm) === 0 && v(eh) === 0 && v(em) === 0 && next[sh] === "") return '';
     let diff = (v(eh) * 60 + v(em)) - (v(sh) * 60 + v(sm));
     return diff < 0 ? diff + (24 * 60) : diff;
   };
 
-  // Available Time Sub Total (col 34) and TOTAL (col 35)
   let avSub = timeDiff(30, 31, 32, 33);
   setV(34, avSub);
   setV(35, avSub);
 
-  // Process Details
-  // Machine Run Sub Total (col 40)
   let runSub = timeDiff(36, 37, 38, 39);
   setV(40, runSub);
 
-  // Line Clearance Sub Total (col 45)
   let clearSub = timeDiff(41, 42, 43, 44);
   setV(45, clearSub);
 
-  // Process TOTAL (col 46) = Machine Run Sub Total (col 40) + Line Clearance Sub Total (col 45)
   let rVal = v(40);
   let cVal = v(45);
   if (rVal > 0 || cVal > 0) {
@@ -253,27 +235,23 @@ const findEdgeCell = (data, r, c, key, maxR, maxC) => {
 };
 
 const OEE_COLS_META = [
-  // 1. Informasi Batch (0..4)
-  { title: 'NO BATCH', width: 110, type: 'text', stickyLeft: 0 },
-  { title: 'Tanggal', width: 100, type: 'date', stickyLeft: 110 },
-  { title: 'Shift', width: 60, type: 'select', options: SHIFTS, stickyLeft: 210 },
-  { title: 'Grup', width: 60, type: 'select', options: GROUPS, stickyLeft: 270 },
+  { title: 'NO BATCH', width: 110, type: 'text', stickyLeft: 60 },
+  { title: 'Tanggal', width: 100, type: 'date', stickyLeft: 170 },
+  { title: 'Shift', width: 60, type: 'select', options: SHIFTS, stickyLeft: 270 },
+  { title: 'Grup', width: 60, type: 'select', options: GROUPS, stickyLeft: 330 },
   { title: 'Volume', width: 90, type: 'select', options: VOLUMES },
 
-  // 2. Output After Steril (5..9)
   { title: 'Input (Botol chamber)', width: 130, type: 'number' },
   { title: 'Reject Bocor', width: 90, type: 'number' },
   { title: 'Reject Lain', width: 90, type: 'number' },
   { title: 'TOTAL', width: 80, type: 'number', readOnly: true },
   { title: 'Output (TF to VI)', width: 120, type: 'number', readOnly: true },
 
-  // 3. Output Visual Inspection - Input (10..13)
   { title: 'Start', width: 80, type: 'number' },
   { title: 'End', width: 80, type: 'number' },
   { title: 'Sub Total', width: 90, type: 'number', readOnly: true },
   { title: 'Total per Shift', width: 110, type: 'number' },
 
-  // 3. Output Visual Inspection - REJECT AVI (14..22)
   { title: 'Partikel Menempel', width: 120, type: 'number' },
   { title: 'Lelehan', width: 80, type: 'number' },
   { title: 'Rilent', width: 80, type: 'number' },
@@ -284,20 +262,16 @@ const OEE_COLS_META = [
   { title: 'others', width: 80, type: 'number' },
   { title: 'TOTAL', width: 80, type: 'number', readOnly: true },
 
-  // 3. Output Visual Inspection - Hasil Baik & Transfer (23..24)
   { title: 'Hasil Baik', width: 90, type: 'number', readOnly: true },
   { title: 'Transfer ke Packing', width: 130, type: 'number', readOnly: true },
 
-  // 4. Output Packaging & Samples (25..26)
   { title: 'Hasil Baik', width: 90, type: 'number', readOnly: true },
   { title: 'QC', width: 70, type: 'number' },
 
-  // 5. Finished Goods & Status (27..29)
   { title: 'Finished Goods', width: 110, type: 'number', readOnly: true },
   { title: 'Utuh ?', width: 70, type: 'select', options: ['Y', 'N'] },
   { title: 'Jumlah Batch', width: 100, type: 'number', readOnly: true },
 
-  // 6. Available Time (30..35)
   { title: 'Start (Jam)', width: 80, type: 'number' },
   { title: 'Start (Menit)', width: 90, type: 'number' },
   { title: 'End (Jam)', width: 80, type: 'number' },
@@ -305,14 +279,12 @@ const OEE_COLS_META = [
   { title: 'Sub Total', width: 90, type: 'number', readOnly: true },
   { title: 'TOTAL', width: 80, type: 'number', readOnly: true },
 
-  // 8. Process Details - Machine Run (36..40)
   { title: 'Start (Jam)', width: 80, type: 'number' },
   { title: 'Start (Menit)', width: 90, type: 'number' },
   { title: 'End (Jam)', width: 80, type: 'number' },
   { title: 'End (Menit)', width: 90, type: 'number' },
   { title: 'Sub Total', width: 90, type: 'number', readOnly: true },
 
-  // 8. Process Details - Line Clearance (41..45)
   { title: 'Start (Jam)', width: 80, type: 'number' },
   { title: 'Start (Menit)', width: 90, type: 'number' },
   { title: 'End (Jam)', width: 80, type: 'number' },
@@ -324,10 +296,10 @@ const OEE_COLS_META = [
 ];
 
 const DT_COLS_META = [
-  { title: 'Tanggal', width: 120, type: 'date', stickyLeft: 0 },
-  { title: 'Shift', width: 60, type: 'number', stickyLeft: 120 },
-  { title: 'Grup', width: 60, type: 'text', stickyLeft: 180 },
-  { title: 'No. Batch', width: 115, type: 'text', stickyLeft: 240 },
+  { title: 'Tanggal', width: 120, type: 'date', stickyLeft: 60 },
+  { title: 'Shift', width: 60, type: 'number', stickyLeft: 180 },
+  { title: 'Grup', width: 60, type: 'text', stickyLeft: 240 },
+  { title: 'No. Batch', width: 115, type: 'text', stickyLeft: 300 },
   { title: 'Start (Jam)', width: 80, type: 'number' },
   { title: 'Start (Menit)', width: 85, type: 'number' },
   { title: 'End (Jam)', width: 80, type: 'number' },
@@ -522,18 +494,32 @@ const SpreadsheetRow = React.memo(({
   editingColIdx,
   editMode,
   editingInitialValue,
+  rowId,
+  onSelectRow,
   onCellMouseDown,
   onCellMouseEnter,
   onCellDoubleClick,
   onFillHandleMouseDown,
   onFinishEdit,
-  onCancelEdit
+  onCancelEdit,
+  onRowContextMenu
 }) => {
   const prosesValue = gridType === 'dt' ? rowData[11] : '';
   const unitOptions = gridType === 'dt' ? (UNIT_MAP_F[prosesValue] || ALL_UNITS_F) : [];
 
   return (
-    <tr className="border-b border-slate-200 text-xs hover:bg-slate-50/60">
+    <tr
+      className="border-b border-slate-200 text-xs hover:bg-slate-50/60"
+      onContextMenu={(e) => onRowContextMenu && onRowContextMenu(e, rowIdx, gridType)}
+    >
+      <td
+        className="p-1 bg-slate-200 text-slate-700 font-mono text-center text-xs sticky left-0 z-30 cursor-pointer hover:bg-red-200 hover:text-red-800 transition-colors shadow-[1px_0_0_0_#cbd5e1] font-bold select-none"
+        style={{ width: 60, minWidth: 60, maxWidth: 60, position: 'sticky', left: 0, zIndex: 30 }}
+        onClick={() => onSelectRow && onSelectRow(rowIdx, gridType)}
+        title="Klik untuk memilih baris ini"
+      >
+        {rowId || `${rowIdx + 1}`}
+      </td>
       {colsMeta.map((col, colIdx) => {
         const val = rowData[colIdx] ?? '';
         const isSticky = col.stickyLeft !== undefined;
@@ -544,9 +530,9 @@ const SpreadsheetRow = React.memo(({
         const stickyStyle = isSticky ? { position: 'sticky', left: col.stickyLeft, zIndex: 10 } : {};
 
         let bgClass = 'bg-white';
-        if (col.readOnly) bgClass = 'bg-slate-100/90 text-slate-600';
+        if (col.readOnly) bgClass = 'bg-slate-100 text-slate-600';
         if (isSelected && !isEditing) {
-          bgClass = gridType === 'oee' ? 'bg-emerald-100/90' : 'bg-indigo-100/90';
+          bgClass = gridType === 'oee' ? 'bg-emerald-100' : 'bg-indigo-100';
         }
         if (isSticky && !isSelected) {
           bgClass = col.readOnly ? 'bg-slate-100' : 'bg-white';
@@ -662,9 +648,14 @@ export default function InputF() {
 
   const [oeeSelection, setOeeSelection] = useState({ startRow: 0, startCol: 0, endRow: 0, endCol: 0 });
   const [dtSelection, setDtSelection] = useState({ startRow: 0, startCol: 0, endRow: 0, endCol: 0 });
+  const selectionRef = useRef({ oee: oeeSelection, dt: dtSelection });
+  useEffect(() => {
+    selectionRef.current = { oee: oeeSelection, dt: dtSelection };
+  }, [oeeSelection, dtSelection]);
 
   const [oeeEditingCell, setOeeEditingCell] = useState(null);
   const [dtEditingCell, setDtEditingCell] = useState(null);
+  const [contextMenu, setContextMenu] = useState(null);
 
   const [oeeHistory, setOeeHistory] = useState({ past: [], future: [] });
   const [dtHistory, setDtHistory] = useState({ past: [], future: [] });
@@ -733,6 +724,97 @@ export default function InputF() {
       });
     }
   }, [oeeData, dtData]);
+
+  const handleSelectRow = useCallback((rowIdx, gridType) => {
+    const maxCols = (gridType === 'oee' ? OEE_COLS_META : DT_COLS_META).length - 1;
+    if (gridType === 'oee') {
+      setOeeSelection({ startRow: rowIdx, startCol: 0, endRow: rowIdx, endCol: maxCols });
+      setOeeEditingCell(null);
+    } else {
+      setDtSelection({ startRow: rowIdx, startCol: 0, endRow: rowIdx, endCol: maxCols });
+      setDtEditingCell(null);
+    }
+  }, []);
+
+  const handleRowContextMenu = useCallback((e, rowIdx, gridType) => {
+    e.preventDefault();
+    if (oeeEditingCell || dtEditingCell) return;
+    const isOee = gridType === 'oee';
+    const sel = isOee ? selectionRef.current.oee : selectionRef.current.dt;
+    const minR = Math.min(sel.startRow, sel.endRow);
+    const maxR = Math.max(sel.startRow, sel.endRow);
+
+    if (rowIdx < minR || rowIdx > maxR) {
+      handleSelectRow(rowIdx, 0, gridType);
+    }
+    setContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+      gridType
+    });
+  }, [handleSelectRow, oeeEditingCell, dtEditingCell]);
+
+  useEffect(() => {
+    const closeContextMenu = () => setContextMenu(null);
+    document.addEventListener('click', closeContextMenu);
+    return () => document.removeEventListener('click', closeContextMenu);
+  }, []);
+
+  const handleDeleteRow = useCallback(async (gridType) => {
+    const sel = gridType === 'oee' ? oeeSelection : dtSelection;
+    const minR = Math.min(sel.startRow, sel.endRow);
+    const maxR = Math.max(sel.startRow, sel.endRow);
+    const idsRef = gridType === 'oee' ? oeeIds : dtIds;
+    const setData = gridType === 'oee' ? setOeeData : setDtData;
+
+    for (let r = minR; r <= maxR; r++) {
+      const original_id = idsRef.current[r];
+      if (original_id) {
+        const actionType = gridType === 'oee' ? 'delete_reject_f' : 'delete_downtime_f';
+        await sendAutoSave({ action: actionType, data: { original_id }, user });
+      }
+    }
+
+    setData(prev => {
+      const next = prev.filter((_, idx) => idx < minR || idx > maxR);
+      idsRef.current = idsRef.current.filter((_, idx) => idx < minR || idx > maxR);
+      const emptyFunc = gridType === 'oee' ? getEmptyOEE : getEmptyDT;
+      while (next.length < 50) {
+        next.push(emptyFunc());
+      }
+      localStorage.setItem(gridType === 'oee' ? 'F_DATA_OEE' : 'F_DATA_DT', JSON.stringify(next));
+      localStorage.setItem(gridType === 'oee' ? 'F_IDS_OEE' : 'F_IDS_DT', JSON.stringify(idsRef.current));
+      return next;
+    });
+
+    if (gridType === 'oee') {
+      setOeeSelection({ startRow: 0, startCol: 0, endRow: 0, endCol: 0 });
+    } else {
+      setDtSelection({ startRow: 0, startCol: 0, endRow: 0, endCol: 0 });
+    }
+  }, [oeeSelection, dtSelection, user]);
+
+  const handleAdd1000Rows = useCallback((gridType) => {
+    if (gridType === 'oee') {
+      const newRows = Array.from({ length: 1000 }, getEmptyOEE);
+      oeeIds.current = [...oeeIds.current, ...Array(1000).fill(null)];
+      setOeeData(prev => {
+        const next = [...prev, ...newRows];
+        localStorage.setItem('F_DATA_OEE', JSON.stringify(next));
+        localStorage.setItem('F_IDS_OEE', JSON.stringify(oeeIds.current));
+        return next;
+      });
+    } else {
+      const newRows = Array.from({ length: 1000 }, getEmptyDT);
+      dtIds.current = [...dtIds.current, ...Array(1000).fill(null)];
+      setDtData(prev => {
+        const next = [...prev, ...newRows];
+        localStorage.setItem('F_DATA_DT', JSON.stringify(next));
+        localStorage.setItem('F_IDS_DT', JSON.stringify(dtIds.current));
+        return next;
+      });
+    }
+  }, []);
 
   const triggerAutosaveOEE = useCallback(async (rIdx, rowData) => {
     if (!user || !rowData[0] || !rowData[1]) return;
@@ -853,7 +935,7 @@ export default function InputF() {
   const handleFillHandleMouseDown = useCallback((e, rowIdx, colIdx, gridType) => {
     if (e.button !== 0) return;
     e.stopPropagation();
-    const sel = gridType === 'oee' ? oeeSelection : dtSelection;
+    const sel = gridType === 'oee' ? selectionRef.current.oee : selectionRef.current.dt;
     fillDragRef.current = {
       active: true,
       gridType,
@@ -900,7 +982,7 @@ export default function InputF() {
 
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mouseup', handleMouseUp);
-  }, [oeeSelection, dtSelection]);
+  }, []);
 
   useEffect(() => {
     const handleGlobalMouseUp = () => {
@@ -1048,6 +1130,11 @@ export default function InputF() {
       }
     } else if (e.key === 'Backspace' || e.key === 'Delete') {
       e.preventDefault();
+      const maxCols = (gridType === 'oee' ? OEE_COLS_META : DT_COLS_META).length - 1;
+      if (startCol === 0 && endCol === maxCols) {
+        void handleDeleteRow(gridType);
+        return;
+      }
       const minR = Math.min(startRow, endRow);
       const maxR = Math.max(startRow, endRow);
       const minC = Math.min(startCol, endCol);
@@ -1091,7 +1178,7 @@ export default function InputF() {
         setTimeout(() => setEditing({ row: activeRow, col: activeCol, mode: 'direct', initialValue }), 0);
       }
     }
-  }, [oeeSelection, dtSelection, oeeEditingCell, dtEditingCell, oeeData, dtData, triggerAutosaveOEE, triggerAutosaveDT, handleUndo, handleRedo, pushHistory]);
+  }, [oeeSelection, dtSelection, oeeEditingCell, dtEditingCell, oeeData, dtData, triggerAutosaveOEE, triggerAutosaveDT, handleUndo, handleRedo, pushHistory, handleDeleteRow]);
 
   const handleCopy = useCallback((e, gridType) => {
     e.preventDefault();
@@ -1285,9 +1372,7 @@ export default function InputF() {
       thirtyDaysAgo.setHours(0, 0, 0, 0);
 
       const filterLast30Days = (row) => {
-        if (!row.tanggal) return false;
-        const d = new Date(row.tanggal);
-        return !isNaN(d.getTime()) && d >= thirtyDaysAgo;
+        return true;
       };
 
       let mappedOEE = [];
@@ -1390,6 +1475,82 @@ export default function InputF() {
     loadDataServer();
   }, [loadDataServer]);
 
+  const oeeRows = useMemo(() => {
+    return oeeData.map((row, rowIdx) => {
+      const isSelRow = rowIdx >= Math.min(oeeSelection.startRow, oeeSelection.endRow) && rowIdx <= Math.max(oeeSelection.startRow, oeeSelection.endRow);
+      const minC = Math.min(oeeSelection.startCol, oeeSelection.endCol);
+      const maxC = Math.max(oeeSelection.startCol, oeeSelection.endCol);
+      const maxR = Math.max(oeeSelection.startRow, oeeSelection.endRow);
+      const edCol = (oeeEditingCell && oeeEditingCell.row === rowIdx) ? oeeEditingCell.col : null;
+      const edMode = (oeeEditingCell && oeeEditingCell.row === rowIdx) ? oeeEditingCell.mode : null;
+      const edInit = (oeeEditingCell && oeeEditingCell.row === rowIdx) ? oeeEditingCell.initialValue : undefined;
+
+      return (
+        <SpreadsheetRow
+          key={rowIdx}
+          rowData={row}
+          rowIdx={rowIdx}
+          colsMeta={OEE_COLS_META}
+          gridType="oee"
+          isSelectedRow={isSelRow}
+          selectionMinCol={minC}
+          selectionMaxCol={maxC}
+          selectionMaxRow={maxR}
+          editingColIdx={edCol}
+          editMode={edMode}
+          editingInitialValue={edInit}
+          rowId={oeeIds.current[rowIdx] || null}
+          onSelectRow={handleSelectRow}
+          onCellMouseDown={handleCellMouseDown}
+          onCellMouseEnter={handleCellMouseEnter}
+          onCellDoubleClick={handleCellDoubleClick}
+          onFillHandleMouseDown={handleFillHandleMouseDown}
+          onFinishEdit={handleFinishEdit}
+          onCancelEdit={handleCancelEdit}
+          onRowContextMenu={handleRowContextMenu}
+        />
+      );
+    });
+  }, [oeeData, oeeSelection, oeeEditingCell, handleSelectRow, handleCellMouseDown, handleCellMouseEnter, handleCellDoubleClick, handleFillHandleMouseDown, handleFinishEdit, handleCancelEdit, handleRowContextMenu]);
+
+  const dtRows = useMemo(() => {
+    return dtData.map((row, rowIdx) => {
+      const isSelRow = rowIdx >= Math.min(dtSelection.startRow, dtSelection.endRow) && rowIdx <= Math.max(dtSelection.startRow, dtSelection.endRow);
+      const dtMinC = Math.min(dtSelection.startCol, dtSelection.endCol);
+      const dtMaxC = Math.max(dtSelection.startCol, dtSelection.endCol);
+      const dtMaxR = Math.max(dtSelection.startRow, dtSelection.endRow);
+      const edCol = (dtEditingCell && dtEditingCell.row === rowIdx) ? dtEditingCell.col : null;
+      const edMode = (dtEditingCell && dtEditingCell.row === rowIdx) ? dtEditingCell.mode : null;
+      const edInit = (dtEditingCell && dtEditingCell.row === rowIdx) ? dtEditingCell.initialValue : undefined;
+
+      return (
+        <SpreadsheetRow
+          key={rowIdx}
+          rowData={row}
+          rowIdx={rowIdx}
+          colsMeta={DT_COLS_META}
+          gridType="dt"
+          isSelectedRow={isSelRow}
+          selectionMinCol={dtMinC}
+          selectionMaxCol={dtMaxC}
+          selectionMaxRow={dtMaxR}
+          editingColIdx={edCol}
+          editMode={edMode}
+          editingInitialValue={edInit}
+          rowId={dtIds.current[rowIdx] || null}
+          onSelectRow={handleSelectRow}
+          onCellMouseDown={handleCellMouseDown}
+          onCellMouseEnter={handleCellMouseEnter}
+          onCellDoubleClick={handleCellDoubleClick}
+          onFillHandleMouseDown={handleFillHandleMouseDown}
+          onFinishEdit={handleFinishEdit}
+          onCancelEdit={handleCancelEdit}
+          onRowContextMenu={handleRowContextMenu}
+        />
+      );
+    });
+  }, [dtData, dtSelection, dtEditingCell, handleSelectRow, handleCellMouseDown, handleCellMouseEnter, handleCellDoubleClick, handleFillHandleMouseDown, handleFinishEdit, handleCancelEdit, handleRowContextMenu]);
+
   return (
     <div className="min-h-screen bg-slate-50 p-8 text-slate-800 font-sans outline-none" tabIndex={0} onKeyDown={(e) => {
       if (oeeEditingCell || dtEditingCell) return;
@@ -1408,10 +1569,12 @@ export default function InputF() {
 
         <div className="bg-white border-2 border-slate-300 shadow-xl mb-12 rounded overflow-hidden p-1">
           <div className="w-full h-[700px] overflow-auto select-none" ref={oeeGridRef} tabIndex={0} onCopy={(e) => handleCopy(e, 'oee')} onPaste={(e) => handlePaste(e, 'oee')}>
-            <table className="w-max min-w-full border-collapse text-xs table-fixed">
-              <thead className="bg-slate-100 text-slate-700 font-semibold shadow-sm sticky top-0 z-40">
-                <tr>
-                  <th colSpan={5} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Informasi Batch</th>
+            <div className="w-max min-w-full">
+              <table className="w-max min-w-full border-collapse text-xs table-fixed">
+                <thead className="bg-slate-100 text-slate-700 font-semibold shadow-sm sticky top-0 z-40">
+                  <tr>
+                    <th rowSpan={3} className="py-1.5 px-2 bg-slate-200 text-slate-800 font-mono text-center sticky top-0 left-0 z-50 w-[60px] min-w-[60px] max-w-[60px] shadow-[1px_0_0_0_#cbd5e1]">ID</th>
+                    <th colSpan={5} className="border-r border-b border-slate-300 px-2 py-1.5 text-center sticky left-[60px] z-40 bg-slate-100 shadow-[1px_0_0_0_#cbd5e1]">Informasi Batch</th>
                   <th colSpan={5} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Output After Steril</th>
                   <th colSpan={15} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Output Visual Inspection</th>
                   <th colSpan={2} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Output Packaging</th>
@@ -1420,7 +1583,7 @@ export default function InputF() {
                   <th colSpan={11} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Process Details</th>
                 </tr>
                 <tr>
-                  <th colSpan={5} className="border-r border-b border-slate-300 px-2 py-1.5 text-center"></th>
+                  <th colSpan={5} className="border-r border-b border-slate-300 px-2 py-1.5 text-center sticky left-[60px] z-40 bg-slate-100 shadow-[1px_0_0_0_#cbd5e1]"></th>
                   <th colSpan={1} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Input (Botol chamber)</th>
                   <th colSpan={2} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Reject After Steril</th>
                   <th colSpan={1} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Total</th>
@@ -1457,40 +1620,19 @@ export default function InputF() {
                 </tr>
               </thead>
               <tbody>
-                {oeeData.map((row, rowIdx) => {
-                  const isSelRow = rowIdx >= Math.min(oeeSelection.startRow, oeeSelection.endRow) && rowIdx <= Math.max(oeeSelection.startRow, oeeSelection.endRow);
-                  const minC = Math.min(oeeSelection.startCol, oeeSelection.endCol);
-                  const maxC = Math.max(oeeSelection.startCol, oeeSelection.endCol);
-                  const maxR = Math.max(oeeSelection.startRow, oeeSelection.endRow);
-                  const edCol = (oeeEditingCell && oeeEditingCell.row === rowIdx) ? oeeEditingCell.col : null;
-                  const edMode = (oeeEditingCell && oeeEditingCell.row === rowIdx) ? oeeEditingCell.mode : null;
-                  const edInit = (oeeEditingCell && oeeEditingCell.row === rowIdx) ? oeeEditingCell.initialValue : undefined;
-
-                  return (
-                    <SpreadsheetRow
-                      key={rowIdx}
-                      rowData={row}
-                      rowIdx={rowIdx}
-                      colsMeta={OEE_COLS_META}
-                      gridType="oee"
-                      isSelectedRow={isSelRow}
-                      selectionMinCol={minC}
-                      selectionMaxCol={maxC}
-                      selectionMaxRow={maxR}
-                      editingColIdx={edCol}
-                      editMode={edMode}
-                      editingInitialValue={edInit}
-                      onCellMouseDown={handleCellMouseDown}
-                      onCellMouseEnter={handleCellMouseEnter}
-                      onCellDoubleClick={handleCellDoubleClick}
-                      onFillHandleMouseDown={handleFillHandleMouseDown}
-                      onFinishEdit={handleFinishEdit}
-                      onCancelEdit={handleCancelEdit}
-                    />
-                  );
-                })}
+                {oeeRows}
               </tbody>
             </table>
+            <div className="p-2 bg-slate-100 border-t border-slate-300 flex items-center justify-start">
+              <button
+                type="button"
+                onClick={() => handleAdd1000Rows('oee')}
+                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded shadow transition-colors text-xs flex items-center gap-1.5 sticky left-2 z-30"
+              >
+                <span>+ Tambah Baris</span>
+              </button>
+            </div>
+          </div>
           </div>
         </div>
 
@@ -1502,10 +1644,12 @@ export default function InputF() {
 
         <div className="bg-white border-2 border-slate-300 shadow-xl rounded overflow-hidden p-1 mb-10">
           <div className="w-full h-[700px] overflow-auto select-none" ref={dtGridRef} tabIndex={0} onCopy={(e) => handleCopy(e, 'dt')} onPaste={(e) => handlePaste(e, 'dt')}>
-            <table className="w-max min-w-full border-collapse text-xs table-fixed">
-              <thead className="bg-slate-100 text-slate-700 font-semibold shadow-sm sticky top-0 z-40">
-                <tr>
-                  {DT_COLS_META.map((col, idx) => (
+            <div className="w-max min-w-full">
+              <table className="w-max min-w-full border-collapse text-xs table-fixed">
+                <thead className="bg-slate-100 text-slate-700 font-semibold shadow-sm sticky top-0 z-40">
+                  <tr>
+                    <th className="py-2 px-1 bg-slate-200 text-slate-800 font-mono text-center sticky top-0 left-0 z-50 w-[60px] min-w-[60px] max-w-[60px] shadow-[1px_0_0_0_#cbd5e1]">ID</th>
+                    {DT_COLS_META.map((col, idx) => (
                     <th
                       key={idx}
                       style={{
@@ -1522,44 +1666,45 @@ export default function InputF() {
                 </tr>
               </thead>
               <tbody>
-                {dtData.map((row, rowIdx) => {
-                  const isSelRow = rowIdx >= Math.min(dtSelection.startRow, dtSelection.endRow) && rowIdx <= Math.max(dtSelection.startRow, dtSelection.endRow);
-                  const dtMinC = Math.min(dtSelection.startCol, dtSelection.endCol);
-                  const dtMaxC = Math.max(dtSelection.startCol, dtSelection.endCol);
-                  const dtMaxR = Math.max(dtSelection.startRow, dtSelection.endRow);
-                  const edCol = (dtEditingCell && dtEditingCell.row === rowIdx) ? dtEditingCell.col : null;
-                  const edMode = (dtEditingCell && dtEditingCell.row === rowIdx) ? dtEditingCell.mode : null;
-                  const edInit = (dtEditingCell && dtEditingCell.row === rowIdx) ? dtEditingCell.initialValue : undefined;
-
-                  return (
-                    <SpreadsheetRow
-                      key={rowIdx}
-                      rowData={row}
-                      rowIdx={rowIdx}
-                      colsMeta={DT_COLS_META}
-                      gridType="dt"
-                      isSelectedRow={isSelRow}
-                      selectionMinCol={dtMinC}
-                      selectionMaxCol={dtMaxC}
-                      selectionMaxRow={dtMaxR}
-                      editingColIdx={edCol}
-                      editMode={edMode}
-                      editingInitialValue={edInit}
-                      onCellMouseDown={handleCellMouseDown}
-                      onCellMouseEnter={handleCellMouseEnter}
-                      onCellDoubleClick={handleCellDoubleClick}
-                      onFillHandleMouseDown={handleFillHandleMouseDown}
-                      onFinishEdit={handleFinishEdit}
-                      onCancelEdit={handleCancelEdit}
-                    />
-                  );
-                })}
+                {dtRows}
               </tbody>
             </table>
+            <div className="p-2 bg-slate-100 border-t border-slate-300 flex items-center justify-start">
+              <button
+                type="button"
+                onClick={() => handleAdd1000Rows('dt')}
+                className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded shadow transition-colors text-xs flex items-center gap-1.5 sticky left-2 z-30"
+              >
+                <span>+ Tambah Baris</span>
+              </button>
+            </div>
+          </div>
           </div>
         </div>
 
+        {contextMenu && createPortal(
+          <div
+            style={{ top: contextMenu.y, left: contextMenu.x }}
+            className="fixed z-[999999] bg-white border border-slate-300 shadow-2xl rounded-md py-1.5 min-w-[150px] text-xs font-sans text-slate-700"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => {
+                handleDeleteRow(contextMenu.gridType);
+                setContextMenu(null);
+              }}
+              className="w-full text-left px-3 py-2 hover:bg-red-50 hover:text-red-600 font-semibold flex items-center gap-2 transition-colors"
+            >
+              <span>🗑️</span>
+              <span>Delete</span>
+            </button>
+          </div>,
+          document.body
+        )}
+
       </div>
+
     </div>
   );
 }
