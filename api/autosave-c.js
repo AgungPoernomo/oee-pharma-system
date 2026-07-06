@@ -42,14 +42,34 @@ export default async function handler(req, res) {
     if (action.startsWith('delete_')) {
       const items = Array.isArray(data) ? data : [data];
       let deletedCount = 0;
+      const deletedIds = [];
       for (const item of items) {
         let delId = item?.original_id !== undefined ? item.original_id : (item?.id !== undefined ? item.id : item);
         if (delId && delId !== 'saved' && !isNaN(Number(delId))) {
           await db.query(`DELETE FROM ${tableName} WHERE id = ?`, [Number(delId)]);
           deletedCount++;
+          deletedIds.push(Number(delId));
         }
       }
-      return res.status(200).json({ status: 'success', deleted: deletedCount });
+
+      // Backup async ke Google Apps Script untuk Hapus Data
+      if (deletedIds.length > 0 && process.env.GAS_URL) {
+        const gasUser = { ...(user || {}), line: lineNum };
+        for (const delId of deletedIds) {
+          fetch(process.env.GAS_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: action,
+              data: { original_id: delId, id: delId },
+              user: gasUser,
+              tableName: tableName
+            })
+          }).catch(err => console.error(`[Backup GAS Gagal - ${action}]`, err.message));
+        }
+      }
+
+      return res.status(200).json({ status: 'success', deleted: deletedCount, ids: deletedIds });
     } else if (
       action.startsWith('submit_') || action.startsWith('update_')
     ) {

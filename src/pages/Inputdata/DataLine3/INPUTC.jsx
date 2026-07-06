@@ -840,37 +840,37 @@ export default function InputC() {
         tanggal: rowData[C.TANGGAL],
         shift: rowData[C.SHIFT],
         group: rowData[C.GROUP],
-        volume_botol: rowData[C.VOL_BOTOL],
+        vol_botol: rowData[C.VOL_BOTOL],
         cnt_start: rowData[C.CNT_START],
         cnt_end: rowData[C.CNT_END],
         cnt_sub: rowData[C.CNT_SUB],
         utuh: rowData[C.UTUH],
         jml_batch: rowData[C.JML_BATCH],
-        r_washing: rowData[C.REJ_BOTOL_ISI],
-        r_vk: rowData[C.REJ_SETTING],
-        r_vl: rowData[C.REJ_VL],
-        r_nocap: rowData[C.BOCOR_SEAL],
-        r_sealnok: rowData[C.BOCOR_CUTTING],
-        r_others: rowData[C.REJ_LELEHAN],
-        r_sub: rowData[C.SUB_FILL_SEAL],
-        s_ipc: rowData[C.SAMP_IPC],
-        s_others: rowData[C.SAMP_OTHERS],
-        s_sub: rowData[C.SUB_SAMPLES],
-        trf_st: rowData[C.TRF_TO_ST],
-        pre_in: rowData[C.INPUT_STERIL],
-        pre_rej_total: rowData[C.REJECT_BEFORE_STERIL],
-        pre_out: rowData[C.OUTPUT_CHAMBER],
-        av_sh: rowData[C.AT_SH],
-        av_sm: rowData[C.AT_SM],
-        av_eh: rowData[C.AT_EH],
-        av_em: rowData[C.AT_EM],
-        av_sub: rowData[C.AT_SUB],
-        total_avail_shift: rowData[C.TOTAL_PER_SHIFT],
-        run_sh: rowData[C.RT_SH],
-        run_sm: rowData[C.RT_SM],
-        run_eh: rowData[C.RT_EH],
-        run_em: rowData[C.RT_EM],
-        run_sub: rowData[C.RT_SUB],
+        rej_botol_isi: rowData[C.REJ_BOTOL_ISI],
+        rej_setting: rowData[C.REJ_SETTING],
+        rej_vl: rowData[C.REJ_VL],
+        bocor_seal: rowData[C.BOCOR_SEAL],
+        bocor_cutting: rowData[C.BOCOR_CUTTING],
+        rej_lelehan: rowData[C.REJ_LELEHAN],
+        sub_fill_seal: rowData[C.SUB_FILL_SEAL],
+        samp_ipc: rowData[C.SAMP_IPC],
+        samp_others: rowData[C.SAMP_OTHERS],
+        sub_samples: rowData[C.SUB_SAMPLES],
+        trf_to_st: rowData[C.TRF_TO_ST],
+        input_steril: rowData[C.INPUT_STERIL],
+        reject_before_steril: rowData[C.REJECT_BEFORE_STERIL],
+        output_chamber: rowData[C.OUTPUT_CHAMBER],
+        at_sh: rowData[C.AT_SH],
+        at_sm: rowData[C.AT_SM],
+        at_eh: rowData[C.AT_EH],
+        at_em: rowData[C.AT_EM],
+        at_sub: rowData[C.AT_SUB],
+        total_per_shift: rowData[C.TOTAL_PER_SHIFT],
+        rt_sh: rowData[C.RT_SH],
+        rt_sm: rowData[C.RT_SM],
+        rt_eh: rowData[C.RT_EH],
+        rt_em: rowData[C.RT_EM],
+        rt_sub: rowData[C.RT_SUB],
         lc_sh: rowData[C.LC_SH],
         lc_sm: rowData[C.LC_SM],
         lc_eh: rowData[C.LC_EH],
@@ -1399,37 +1399,37 @@ export default function InputC() {
           r[C.TANGGAL] = parseToYMD(row.tanggal);
           r[C.SHIFT] = row.shift ?? '';
           r[C.GROUP] = row.group ?? '';
-          r[C.VOL_BOTOL] = row.volume_botol ?? '';
+          r[C.VOL_BOTOL] = row.vol_botol ?? '';
           r[C.CNT_START] = row.cnt_start ?? '';
           r[C.CNT_END] = row.cnt_end ?? '';
           r[C.CNT_SUB] = row.cnt_sub ?? '';
           r[C.UTUH] = row.utuh ?? 'Y';
           r[C.JML_BATCH] = row.jml_batch ?? '';
-          r[C.REJ_BOTOL_ISI] = row.r_washing ?? '';
-          r[C.REJ_SETTING] = row.r_vk ?? '';
-          r[C.REJ_VL] = row.r_vl ?? '';
-          r[C.BOCOR_SEAL] = row.r_nocap ?? '';
-          r[C.BOCOR_CUTTING] = row.r_sealnok ?? '';
-          r[C.REJ_LELEHAN] = row.r_others ?? '';
-          r[C.SUB_FILL_SEAL] = row.r_sub ?? '';
-          r[C.SAMP_IPC] = row.s_ipc ?? '';
-          r[C.SAMP_OTHERS] = row.s_others ?? '';
-          r[C.SUB_SAMPLES] = row.s_sub ?? '';
-          r[C.TRF_TO_ST] = row.trf_st ?? '';
-          r[C.INPUT_STERIL] = row.pre_in ?? '';
-          r[C.REJECT_BEFORE_STERIL] = row.pre_rej_total ?? '';
-          r[C.OUTPUT_CHAMBER] = row.pre_out ?? '';
-          r[C.AT_SH] = row.av_sh ?? '';
-          r[C.AT_SM] = row.av_sm ?? '';
-          r[C.AT_EH] = row.av_eh ?? '';
-          r[C.AT_EM] = row.av_em ?? '';
-          r[C.AT_SUB] = row.av_sub ?? '';
-          r[C.TOTAL_PER_SHIFT] = row.total_avail_shift ?? '';
-          r[C.RT_SH] = row.run_sh ?? '';
-          r[C.RT_SM] = row.run_sm ?? '';
-          r[C.RT_EH] = row.run_eh ?? '';
-          r[C.RT_EM] = row.run_em ?? '';
-          r[C.RT_SUB] = row.run_sub ?? '';
+          r[C.REJ_BOTOL_ISI] = row.rej_botol_isi ?? '';
+          r[C.REJ_SETTING] = row.rej_setting ?? '';
+          r[C.REJ_VL] = row.rej_vl ?? '';
+          r[C.BOCOR_SEAL] = row.bocor_seal ?? '';
+          r[C.BOCOR_CUTTING] = row.bocor_cutting ?? '';
+          r[C.REJ_LELEHAN] = row.rej_lelehan ?? '';
+          r[C.SUB_FILL_SEAL] = row.sub_fill_seal ?? '';
+          r[C.SAMP_IPC] = row.samp_ipc ?? '';
+          r[C.SAMP_OTHERS] = row.samp_others ?? '';
+          r[C.SUB_SAMPLES] = row.sub_samples ?? '';
+          r[C.TRF_TO_ST] = row.trf_to_st ?? '';
+          r[C.INPUT_STERIL] = row.input_steril ?? '';
+          r[C.REJECT_BEFORE_STERIL] = row.reject_before_steril ?? '';
+          r[C.OUTPUT_CHAMBER] = row.output_chamber ?? '';
+          r[C.AT_SH] = row.at_sh ?? '';
+          r[C.AT_SM] = row.at_sm ?? '';
+          r[C.AT_EH] = row.at_eh ?? '';
+          r[C.AT_EM] = row.at_em ?? '';
+          r[C.AT_SUB] = row.at_sub ?? '';
+          r[C.TOTAL_PER_SHIFT] = row.total_per_shift ?? '';
+          r[C.RT_SH] = row.rt_sh ?? '';
+          r[C.RT_SM] = row.rt_sm ?? '';
+          r[C.RT_EH] = row.rt_eh ?? '';
+          r[C.RT_EM] = row.rt_em ?? '';
+          r[C.RT_SUB] = row.rt_sub ?? '';
           r[C.LC_SH] = row.lc_sh ?? '';
           r[C.LC_SM] = row.lc_sm ?? '';
           r[C.LC_EH] = row.lc_eh ?? '';

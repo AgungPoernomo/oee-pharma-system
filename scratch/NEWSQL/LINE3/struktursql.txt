@@ -1,0 +1,176 @@
+USE test;
+
+-- ==========================================
+-- DOWNTIME LINE 3 ZONE C
+-- ==========================================
+CREATE TABLE downtime_line3_zonec (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    tanggal DATE,
+    shift VARCHAR(10),
+    `group` VARCHAR(10),
+    no_batch VARCHAR(50),
+    start_h INT DEFAULT 0,
+    start_m INT DEFAULT 0,
+    end_h INT DEFAULT 0,
+    end_m INT DEFAULT 0,
+    duration INT DEFAULT 0,
+    plan_unplan VARCHAR(20),
+    root_cause VARCHAR(50),
+    proses VARCHAR(50),
+    unit VARCHAR(100),
+    kasus TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_dt_c_tanggal (tanggal)
+);
+
+-- ==========================================
+-- DOWNTIME LINE 3 ZONE F
+-- ==========================================
+CREATE TABLE downtime_line3_zonef (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    tanggal DATE,
+    shift VARCHAR(10),
+    `group` VARCHAR(10),
+    no_batch VARCHAR(50),
+    start_h INT DEFAULT 0,
+    start_m INT DEFAULT 0,
+    end_h INT DEFAULT 0,
+    end_m INT DEFAULT 0,
+    duration INT DEFAULT 0,
+    plan_unplan VARCHAR(20),
+    root_cause VARCHAR(50),
+    proses VARCHAR(50),
+    unit VARCHAR(100),
+    kasus TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_dt_f_tanggal (tanggal)
+);
+
+-- ==========================================
+-- OEE LINE 3 ZONE C
+-- ==========================================
+CREATE TABLE oee_line3_zonec (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    no_batch VARCHAR(50),
+    tanggal DATE,
+    shift VARCHAR(10),
+    `group` VARCHAR(10),
+    vol_botol VARCHAR(20),
+    
+    cnt_start INT DEFAULT 0,
+    cnt_end INT DEFAULT 0,
+    cnt_sub INT DEFAULT 0,
+    utuh VARCHAR(5),
+    jml_batch DECIMAL(10, 2) DEFAULT 0,
+    
+    rej_botol_isi INT DEFAULT 0,
+    rej_setting INT DEFAULT 0,
+    rej_vl INT DEFAULT 0,
+    bocor_seal INT DEFAULT 0,
+    bocor_cutting INT DEFAULT 0,
+    rej_lelehan INT DEFAULT 0,
+    sub_fill_seal INT DEFAULT 0,
+    
+    samp_ipc INT DEFAULT 0,
+    samp_others INT DEFAULT 0,
+    sub_samples INT DEFAULT 0,
+    
+    trf_to_st INT DEFAULT 0,
+    input_steril INT DEFAULT 0,
+    reject_before_steril INT DEFAULT 0,
+    output_chamber INT DEFAULT 0,
+    
+    at_sh INT DEFAULT 0,
+    at_sm INT DEFAULT 0,
+    at_eh INT DEFAULT 0,
+    at_em INT DEFAULT 0,
+    at_sub INT DEFAULT 0,
+    total_per_shift INT DEFAULT 0,
+    
+    rt_sh INT DEFAULT 0,
+    rt_sm INT DEFAULT 0,
+    rt_eh INT DEFAULT 0,
+    rt_em INT DEFAULT 0,
+    rt_sub INT DEFAULT 0,
+    
+    lc_sh INT DEFAULT 0,
+    lc_sm INT DEFAULT 0,
+    lc_eh INT DEFAULT 0,
+    lc_em INT DEFAULT 0,
+    lc_sub INT DEFAULT 0,
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_oee_c_tanggal (tanggal),
+    INDEX idx_oee_c_batch (no_batch)
+);
+
+-- ==========================================
+-- OEE LINE 3 ZONE F
+-- ==========================================
+CREATE TABLE oee_line3_zonef (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    no_batch VARCHAR(50),
+    tanggal DATE,
+    shift VARCHAR(10),
+    `group` VARCHAR(10),
+    vol_botol VARCHAR(20),
+    
+    input_botol_chamber INT DEFAULT 0,
+    reject_bocor INT DEFAULT 0,
+    reject_lain INT DEFAULT 0,
+    total_reject_chamber INT DEFAULT 0,
+    output_tf_to_vi INT DEFAULT 0,
+    
+    vi_start INT DEFAULT 0,
+    vi_end INT DEFAULT 0,
+    vi_sub_total INT DEFAULT 0,
+    vi_total_per_shift INT DEFAULT 0,
+    
+    rej_partikel_menempel INT DEFAULT 0,
+    rej_lelehan INT DEFAULT 0,
+    rej_rilent INT DEFAULT 0,
+    rej_bocor_sealing INT DEFAULT 0,
+    rej_bocor_logo INT DEFAULT 0,
+    rej_volume_kurang INT DEFAULT 0,
+    rej_volume_lebih INT DEFAULT 0,
+    rej_others INT DEFAULT 0,
+    total_reject_vi INT DEFAULT 0,
+    
+    hasil_baik_vi INT DEFAULT 0,
+    transfer_ke_packing INT DEFAULT 0,
+    hasil_baik_packing INT DEFAULT 0,
+    qc_sample INT DEFAULT 0,
+    finished_goods INT DEFAULT 0,
+    
+    utuh VARCHAR(5),
+    jumlah_batch DECIMAL(10, 2) DEFAULT 0,
+    
+    at_sh INT DEFAULT 0,
+    at_sm INT DEFAULT 0,
+    at_eh INT DEFAULT 0,
+    at_em INT DEFAULT 0,
+    at_sub INT DEFAULT 0,
+    total_at INT DEFAULT 0,
+    
+    rt_sh INT DEFAULT 0,
+    rt_sm INT DEFAULT 0,
+    rt_eh INT DEFAULT 0,
+    rt_em INT DEFAULT 0,
+    rt_sub INT DEFAULT 0,
+    
+    lc_sh INT DEFAULT 0,
+    lc_sm INT DEFAULT 0,
+    lc_eh INT DEFAULT 0,
+    lc_em INT DEFAULT 0,
+    lc_sub INT DEFAULT 0,
+    
+    total_process_details INT DEFAULT 0,
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_oee_f_tanggal (tanggal),
+    INDEX idx_oee_f_batch (no_batch)
+);

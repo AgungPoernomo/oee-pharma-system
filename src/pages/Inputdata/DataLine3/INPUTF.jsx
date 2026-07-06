@@ -41,7 +41,7 @@ const incrementBatchNumber = (str, step) => {
 };
 
 const getEmptyOEE = () => {
-  const arr = Array(47).fill('');
+  const arr = Array(46).fill('');
   arr[4] = ''; // Volume
   arr[28] = ''; // Utuh ?
   return arr;
@@ -169,11 +169,6 @@ const calculateOEERow = (row) => {
 
   let rVal = v(40);
   let cVal = v(45);
-  if (rVal > 0 || cVal > 0) {
-    setV(46, rVal + cVal);
-  } else {
-    setV(46, '');
-  }
 
   return next;
 };
@@ -289,10 +284,7 @@ const OEE_COLS_META = [
   { title: 'Start (Menit)', width: 90, type: 'number' },
   { title: 'End (Jam)', width: 80, type: 'number' },
   { title: 'End (Menit)', width: 90, type: 'number' },
-  { title: 'Sub Total', width: 90, type: 'number', readOnly: true },
-
-  // 8. Process Details - Total (46)
-  { title: 'TOTAL', width: 80, type: 'number', readOnly: true }
+  { title: 'Sub Total', width: 90, type: 'number', readOnly: true }
 ];
 
 const DT_COLS_META = [
@@ -826,49 +818,48 @@ export default function InputF() {
         tanggal: rowData[1],
         shift: rowData[2],
         group: rowData[3],
-        volume_botol: rowData[4],
-        steril_in: rowData[5],
-        steril_bocor: rowData[6],
-        steril_h_patah_ring: rowData[7],
-        steril_rej_total: rowData[8],
-        steril_out: rowData[9],
+        vol_botol: rowData[4],
+        input_botol_chamber: rowData[5],
+        reject_bocor: rowData[6],
+        reject_lain: rowData[7],
+        total_reject_chamber: rowData[8],
+        output_tf_to_vi: rowData[9],
         vi_start: rowData[10],
         vi_end: rowData[11],
-        vi_sub: rowData[12],
-        vi_in_shift: rowData[13],
-        vi_partikel_menempel: rowData[14],
-        vi_lelehan: rowData[15],
-        vi_rilent: rowData[16],
-        vi_bocor_sealing: rowData[17],
-        vi_bocor_logo: rowData[18],
-        vi_volume_kurang: rowData[19],
-        vi_volume_lebih: rowData[20],
-        vi_bercak: rowData[21],
-        vi_total: rowData[22],
-        vi_hasil_baik: rowData[23],
-        vi_tf_packing: rowData[24],
-        pack_hasil_baik: rowData[25],
-        pack_s_qc: rowData[26],
-        pack_fg: rowData[27],
-        pack_utuh: rowData[28],
-        pack_jml_batch: rowData[29],
-        av_sh: rowData[30],
-        av_sm: rowData[31],
-        av_eh: rowData[32],
-        av_em: rowData[33],
-        av_sub: rowData[34],
-        total_avail_shift: rowData[35],
-        run_sh: rowData[36],
-        run_sm: rowData[37],
-        run_eh: rowData[38],
-        run_em: rowData[39],
-        run_sub: rowData[40],
-        clear_sh: rowData[41],
-        clear_sm: rowData[42],
-        clear_eh: rowData[43],
-        clear_em: rowData[44],
-        clear_sub: rowData[45],
-        process_total: rowData[46]
+        vi_sub_total: rowData[12],
+        vi_total_per_shift: rowData[13],
+        rej_partikel_menempel: rowData[14],
+        rej_lelehan: rowData[15],
+        rej_rilent: rowData[16],
+        rej_bocor_sealing: rowData[17],
+        rej_bocor_logo: rowData[18],
+        rej_volume_kurang: rowData[19],
+        rej_volume_lebih: rowData[20],
+        rej_others: rowData[21],
+        total_reject_vi: rowData[22],
+        hasil_baik_vi: rowData[23],
+        transfer_ke_packing: rowData[24],
+        hasil_baik_packing: rowData[25],
+        qc_sample: rowData[26],
+        finished_goods: rowData[27],
+        utuh: rowData[28],
+        jumlah_batch: rowData[29],
+        at_sh: rowData[30],
+        at_sm: rowData[31],
+        at_eh: rowData[32],
+        at_em: rowData[33],
+        at_sub: rowData[34],
+        total_at: rowData[35],
+        rt_sh: rowData[36],
+        rt_sm: rowData[37],
+        rt_eh: rowData[38],
+        rt_em: rowData[39],
+        rt_sub: rowData[40],
+        lc_sh: rowData[41],
+        lc_sm: rowData[42],
+        lc_eh: rowData[43],
+        lc_em: rowData[44],
+        lc_sub: rowData[45]
       };
 
       const actionType = payloadData.original_id ? 'update_reject_f' : 'submit_reject_f';
@@ -1383,54 +1374,53 @@ export default function InputF() {
         const filteredOEE = [...resOEE.data].reverse().filter(filterLast30Days);
         mappedOEE = filteredOEE.map((row) => {
           mappedOEEIds.push(row.id);
-          const arr = Array(47).fill('');
+          const arr = Array(46).fill('');
           arr[0] = row.no_batch ?? '';
           arr[1] = parseToYMD(row.tanggal);
           arr[2] = row.shift ?? '';
           arr[3] = row.group ?? '';
-          arr[4] = row.volume_botol ?? '';
-          arr[5] = row.steril_in ?? '';
-          arr[6] = row.steril_bocor ?? '';
-          arr[7] = row.steril_h_patah_ring ?? '';
-          arr[8] = row.steril_rej_total ?? '';
-          arr[9] = row.steril_out ?? '';
+          arr[4] = row.vol_botol ?? '';
+          arr[5] = row.input_botol_chamber ?? '';
+          arr[6] = row.reject_bocor ?? '';
+          arr[7] = row.reject_lain ?? '';
+          arr[8] = row.total_reject_chamber ?? '';
+          arr[9] = row.output_tf_to_vi ?? '';
           arr[10] = row.vi_start ?? '';
           arr[11] = row.vi_end ?? '';
-          arr[12] = row.vi_sub ?? '';
-          arr[13] = row.vi_in_shift ?? '';
-          arr[14] = row.vi_partikel_menempel ?? '';
-          arr[15] = row.vi_lelehan ?? '';
-          arr[16] = row.vi_rilent ?? '';
-          arr[17] = row.vi_bocor_sealing ?? '';
-          arr[18] = row.vi_bocor_logo ?? '';
-          arr[19] = row.vi_volume_kurang ?? '';
-          arr[20] = row.vi_volume_lebih ?? '';
-          arr[21] = row.vi_bercak ?? '';
-          arr[22] = row.vi_total ?? '';
-          arr[23] = row.vi_hasil_baik ?? '';
-          arr[24] = row.vi_tf_packing ?? '';
-          arr[25] = row.pack_hasil_baik ?? '';
-          arr[26] = row.pack_s_qc ?? '';
-          arr[27] = row.pack_fg ?? '';
-          arr[28] = row.pack_utuh ?? 'Y';
-          arr[29] = row.pack_jml_batch ?? '';
-          arr[30] = row.av_sh ?? '';
-          arr[31] = row.av_sm ?? '';
-          arr[32] = row.av_eh ?? '';
-          arr[33] = row.av_em ?? '';
-          arr[34] = row.av_sub ?? '';
-          arr[35] = row.total_avail_shift ?? (row.av_sub ?? '');
-          arr[36] = row.run_sh ?? '';
-          arr[37] = row.run_sm ?? '';
-          arr[38] = row.run_eh ?? '';
-          arr[39] = row.run_em ?? '';
-          arr[40] = row.run_sub ?? '';
-          arr[41] = row.clear_sh ?? '';
-          arr[42] = row.clear_sm ?? '';
-          arr[43] = row.clear_eh ?? '';
-          arr[44] = row.clear_em ?? '';
-          arr[45] = row.clear_sub ?? '';
-          arr[46] = row.process_total ?? '';
+          arr[12] = row.vi_sub_total ?? '';
+          arr[13] = row.vi_total_per_shift ?? '';
+          arr[14] = row.rej_partikel_menempel ?? '';
+          arr[15] = row.rej_lelehan ?? '';
+          arr[16] = row.rej_rilent ?? '';
+          arr[17] = row.rej_bocor_sealing ?? '';
+          arr[18] = row.rej_bocor_logo ?? '';
+          arr[19] = row.rej_volume_kurang ?? '';
+          arr[20] = row.rej_volume_lebih ?? '';
+          arr[21] = row.rej_others ?? '';
+          arr[22] = row.total_reject_vi ?? '';
+          arr[23] = row.hasil_baik_vi ?? '';
+          arr[24] = row.transfer_ke_packing ?? '';
+          arr[25] = row.hasil_baik_packing ?? '';
+          arr[26] = row.qc_sample ?? '';
+          arr[27] = row.finished_goods ?? '';
+          arr[28] = row.utuh ?? 'Y';
+          arr[29] = row.jumlah_batch ?? '';
+          arr[30] = row.at_sh ?? '';
+          arr[31] = row.at_sm ?? '';
+          arr[32] = row.at_eh ?? '';
+          arr[33] = row.at_em ?? '';
+          arr[34] = row.at_sub ?? '';
+          arr[35] = row.total_at ?? (row.at_sub ?? '');
+          arr[36] = row.rt_sh ?? '';
+          arr[37] = row.rt_sm ?? '';
+          arr[38] = row.rt_eh ?? '';
+          arr[39] = row.rt_em ?? '';
+          arr[40] = row.rt_sub ?? '';
+          arr[41] = row.lc_sh ?? '';
+          arr[42] = row.lc_sm ?? '';
+          arr[43] = row.lc_eh ?? '';
+          arr[44] = row.lc_em ?? '';
+          arr[45] = row.lc_sub ?? '';
           return arr;
         });
       }
