@@ -1,58 +1,100 @@
 import db from './db.js';
 
+const columnCache = {};
+async function getValidColumns(tableName) {
+  if (!columnCache[tableName]) {
+    try {
+      const [colRows] = await db.query(`SHOW COLUMNS FROM ${tableName}`);
+      columnCache[tableName] = new Set(colRows.map(c => c.Field));
+    } catch (e) {
+      console.error(`Gagal SHOW COLUMNS untuk ${tableName}:`, e.message);
+      return null;
+    }
+  }
+  return columnCache[tableName];
+}
+
+function cleanItem(item, validCols) {
+  const cleaned = {};
+  Object.keys(item || {}).forEach(key => {
+    if (key === 'id' || key === 'original_id' || key === 'is_closing' || key === 'rowId' || key === 'draftId') return;
+    if (!validCols || validCols.has(key)) {
+      let val = item[key];
+      if (val === '' || val === undefined || val === null) {
+        val = null;
+      }
+      cleaned[key] = val;
+    }
+  });
+  return cleaned;
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ message: 'Method Not Allowed' });
 
-  const { data, user, action } = req.body;
-  
+  const { action, data, user } = req.body;
   const rawLine = user?.line || user?.plant || "4";
   const lineNum = rawLine.match(/\d+/) ? rawLine.match(/\d+/)[0] : "4";
 
+  let tableName = action.includes('reject') ? `oee_line${lineNum}_zonef` : `downtime_line${lineNum}_zonef`;
+
   try {
-    let insertId = data?.original_id;
-    let tableName = action.includes('reject') ? `oee_line${lineNum}_zonef` : `downtime_line${lineNum}_zonef`;
-
-    if (action === 'delete_reject_f' || action === 'delete_downtime_f') {
-      if (insertId) {
-        await db.query(`DELETE FROM ${tableName} WHERE id = ?`, [insertId]);
-      }
-    } else if (action === 'submit_reject_f' || action === 'update_reject_f' || action === 'submit_downtime_f' || action === 'update_downtime_f') {
-      const dbPayload = { ...data };
-      delete dbPayload.original_id;
-      delete dbPayload.is_closing;
-
-      // Sanitasi Teks Kosong ke NULL
-      Object.keys(dbPayload).forEach(key => {
-        if (dbPayload[key] === '' || dbPayload[key] === undefined || dbPayload[key] === null) {
-          dbPayload[key] = null;
+    if (action.startsWith('delete_')) {
+      const items = Array.isArray(data) ? data : [data];
+      let deletedCount = 0;
+      for (const item of items) {
+        let delId = item?.original_id !== undefined ? item.original_id : (item?.id !== undefined ? item.id : item);
+        if (delId && delId !== 'saved' && !isNaN(Number(delId))) {
+          await db.query(`DELETE FROM ${tableName} WHERE id = ?`, [Number(delId)]);
+          deletedCount++;
         }
-      });
+      }
+      return res.status(200).json({ status: 'success', deleted: deletedCount });
+    } else if (
+      action.startsWith('submit_') || action.startsWith('update_')
+    ) {
+      const items = Array.isArray(data) ? data : [data];
+      const validCols = await getValidColumns(tableName);
+      const insertedIds = [];
 
-      // Abaikan jika data utama kosong
-      if (!dbPayload.no_batch && !dbPayload.tanggal && !dbPayload.shift) {
-        return res.status(200).json({ status: 'ignored', message: 'Row is empty' });
+      for (const item of items) {
+        let currentId = item?.original_id !== undefined ? item.original_id : item?.id;
+        if (currentId === 'saved' || !currentId || isNaN(Number(currentId))) {
+          currentId = null;
+        }
+
+        const dbPayload = cleanItem(item, validCols);
+
+        if (!dbPayload.no_batch && !dbPayload.tanggal && !dbPayload.shift) {
+          continue;
+        }
+
+        if (!currentId) {
+          const [result] = await db.query(`INSERT INTO ${tableName} SET ?`, [dbPayload]);
+          insertedIds.push(result.insertId);
+        } else {
+          await db.query(`UPDATE ${tableName} SET ? WHERE id = ?`, [dbPayload, Number(currentId)]);
+          insertedIds.push(Number(currentId));
+        }
       }
 
-      if (!insertId) {
-        const [result] = await db.query(`INSERT INTO ${tableName} SET ?`, [dbPayload]);
-        insertId = result.insertId;
-      } else {
-        await db.query(`UPDATE ${tableName} SET ? WHERE id = ?`, [dbPayload, insertId]);
-      }
-    } 
+      const firstId = insertedIds.length > 0 ? insertedIds[0] : null;
 
-    // Backup ke Google App Script menggunakan Native Fetch (Tanpa Axios)
-    const gasUser = { ...(user || {}), line: lineNum };
-    const backupData = { ...data, original_id: insertId };
-    if (process.env.GAS_URL) {
-      fetch(process.env.GAS_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: action, data: backupData, user: gasUser, tableName: tableName })
-      }).catch(err => console.error(`[Backup GAS Gagal]`, err.message));
+      // Backup async ke Google Apps Script
+      const gasUser = { ...(user || {}), line: lineNum };
+      const backupData = { ...data, original_id: firstId };
+      if (process.env.GAS_URL) {
+        fetch(process.env.GAS_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: action, data: backupData, user: gasUser, tableName: tableName })
+        }).catch(err => console.error(`[Backup GAS Gagal - ${action}]`, err.message));
+      }
+
+      return res.status(200).json({ status: 'success', original_id: firstId, ids: insertedIds });
     }
 
-    return res.status(200).json({ status: 'success', original_id: insertId });
+    return res.status(400).json({ status: 'error', message: 'Action not mapped in autosave-f' });
   } catch (error) {
     console.error('API Error Zone F:', error);
     return res.status(500).json({ status: 'error', message: error.message });

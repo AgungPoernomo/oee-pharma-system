@@ -54,6 +54,34 @@ export const submitOEEData = async (payload, explicitUser = null) => {
   const realAction = payload.action || "submit_oee";
   const realData = payload.data ? payload.data : payload;
 
+  if (realAction.endsWith('_c') || realAction.includes('_c') || realAction.includes('reject_c') || realAction.includes('downtime_c')) {
+    try {
+      const res = await fetch('/api/autosave-c', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: realAction, data: realData, user: userData })
+      });
+      return await res.json();
+    } catch (err) {
+      console.error("Autosave C Error:", err);
+      return { status: "error", message: err.message };
+    }
+  }
+
+  if (realAction.endsWith('_f') || realAction.includes('_f') || realAction.includes('reject_f') || realAction.includes('downtime_f')) {
+    try {
+      const res = await fetch('/api/autosave-f', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: realAction, data: realData, user: userData })
+      });
+      return await res.json();
+    } catch (err) {
+      console.error("Autosave F Error:", err);
+      return { status: "error", message: err.message };
+    }
+  }
+
   return await sendRequest({
     action: realAction,
     data: realData,

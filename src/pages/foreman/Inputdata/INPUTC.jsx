@@ -278,7 +278,7 @@ export default function InputC() {
         if (actionType === 'delete_reject_c') {
           setOeeRows(prev => recalculateOEE(prev.filter(r => r.rowId !== row.rowId)));
         } else if (actionType === 'submit_reject_c') {
-          setOeeRows(prev => prev.map(r => r.rowId === row.rowId ? { ...r, original_id: "saved" } : r));
+          setOeeRows(prev => prev.map(r => r.rowId === row.rowId ? { ...r, original_id: res.original_id || res.id || "saved" } : r));
           setOeeRows(prev => recalculateOEE([...prev, getEmptyOEE()])); 
         }
       } else { toast.error(res.message, { id: tId }); }
@@ -314,7 +314,7 @@ export default function InputC() {
         toast.success("Berhasil!", { id: tId });
         if (actionType === 'delete_downtime_c') setDtRows(prev => prev.filter(r => r.rowId !== row.rowId));
         else if (actionType === 'submit_downtime_c') {
-          setDtRows(prev => prev.map(r => r.rowId === row.rowId ? { ...r, original_id: "saved" } : r));
+          setDtRows(prev => prev.map(r => r.rowId === row.rowId ? { ...r, original_id: res.original_id || res.id || "saved" } : r));
           setDtRows(prev => [...prev, getEmptyDT()]); 
         }
       } else { toast.error(res.message, { id: tId }); }

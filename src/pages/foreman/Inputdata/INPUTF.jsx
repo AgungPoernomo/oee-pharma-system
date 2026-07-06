@@ -261,7 +261,7 @@ export default function InputF() {
         toast.success(row.is_closing ? "Akhir Shift Tersimpan!" : "Berhasil!", { id: tId });
         if (actionType === 'delete_reject_f') setOeeRows(prev => recalculateOEE_F(prev.filter(r => r.rowId !== row.rowId)));
         else if (actionType === 'submit_reject_f') {
-          setOeeRows(prev => prev.map(r => r.rowId === row.rowId ? { ...r, original_id: "saved" } : r));
+          setOeeRows(prev => prev.map(r => r.rowId === row.rowId ? { ...r, original_id: res.original_id || res.id || "saved" } : r));
           setOeeRows(prev => recalculateOEE_F([...prev, getEmptyOEE()])); 
         }
       } else toast.error(res.message, { id: tId });
@@ -297,7 +297,7 @@ export default function InputF() {
         toast.success("Berhasil!", { id: tId });
         if (actionType === 'delete_downtime_f') setDtRows(prev => prev.filter(r => r.rowId !== row.rowId));
         else if (actionType === 'submit_downtime_f') {
-          setDtRows(prev => prev.map(r => r.rowId === row.rowId ? { ...r, original_id: "saved" } : r));
+          setDtRows(prev => prev.map(r => r.rowId === row.rowId ? { ...r, original_id: res.original_id || res.id || "saved" } : r));
           setDtRows(prev => [...prev, getEmptyDT()]); 
         }
       } else toast.error(res.message, { id: tId });
