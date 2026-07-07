@@ -544,7 +544,7 @@ const SpreadsheetRow = React.memo(({
         onClick={() => onSelectRow && onSelectRow(rowIdx, gridType)}
         title="Klik untuk memilih baris ini"
       >
-        {rowId || `${rowIdx + 1}`}
+        {rowIdx + 1}
       </td>
       {colsMeta.map((col, colIdx) => {
         const val = rowData[colIdx] ?? '';
