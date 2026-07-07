@@ -23,14 +23,17 @@ const highlightLabels = [
 const isHighlightRow = (label) => highlightLabels.includes(label);
 
 const calculateZoneMetrics = (volume) => {
-  let speed = 15000;
+  let speedC = 6300;
+  let speedF = 15000;
   let teoriBatch = 29412;
 
-  if (volume === '25 ML') { speed = 15000; teoriBatch = 29412; }
+  if (volume === '25 ML') { speedC = 6300; speedF = 15000; teoriBatch = 29412; }
 
-  const targetRuntimeHours = teoriBatch / speed;
-  const targetRuntimeMins = targetRuntimeHours * 60;
-  return { speed, teoriBatch, targetRuntimeHours, targetRuntimeMins };
+  const targetRuntimeHoursC = teoriBatch / speedC;
+  const targetRuntimeMinsC = targetRuntimeHoursC * 60;
+  const targetRuntimeHoursF = teoriBatch / speedF;
+  const targetRuntimeMinsF = targetRuntimeHoursF * 60;
+  return { speedC, speedF, speed: speedC, teoriBatch, targetRuntimeHoursC, targetRuntimeMinsC, targetRuntimeHoursF, targetRuntimeMinsF };
 };
 
 const useZoneCProcessor = (rawReject, rawDowntime, date, volume, headerMetrics) => {
@@ -86,7 +89,7 @@ const useZoneCProcessor = (rawReject, rawDowntime, date, volume, headerMetrics) 
       const total_time = d.pot - ps_total;
       const unplanned_dt_jam = dt_total_min / 60;
       const prod_run_time = total_time - unplanned_dt_jam;
-      const target_output = prod_run_time * headerMetrics.speed;
+      const target_output = prod_run_time * (headerMetrics.speedC || 6300);
       const out_total = d.out_counter + d.out_reject_blow;
       const ba_total = headerMetrics.teoriBatch > 0 ? (d.out_counter / headerMetrics.teoriBatch) : 0;
       const q_rej_total = d.rej_botol_isi + d.rej_setting + d.rej_vl + d.bocor_seal + d.bocor_cutting + d.rej_lelehan;
@@ -94,7 +97,7 @@ const useZoneCProcessor = (rawReject, rawDowntime, date, volume, headerMetrics) 
       const q_good = d.out_counter - q_rej_total;
 
       matrix[g].pot = d.pot; matrix[g].total_time = total_time; matrix[g].unplanned_dt = unplanned_dt_jam; matrix[g].prod_run_time = prod_run_time; matrix[g].avail_pct = total_time > 0 ? (prod_run_time / total_time) * 100 : 0;
-      matrix[g].speed_blow = headerMetrics.speed; matrix[g].target_output = target_output; matrix[g].out_counter_fill = d.out_counter; matrix[g].out_speed_loss = d.out_reject_blow; matrix[g].out_total = out_total; matrix[g].ba_std = headerMetrics.teoriBatch; matrix[g].ba_total = ba_total; matrix[g].perf_pct = target_output > 0 ? (out_total / target_output) * 100 : 0;
+      matrix[g].speed_blow = (headerMetrics.speedC || 6300); matrix[g].target_output = target_output; matrix[g].out_counter_fill = d.out_counter; matrix[g].out_speed_loss = d.out_reject_blow; matrix[g].out_total = out_total; matrix[g].ba_std = headerMetrics.teoriBatch; matrix[g].ba_total = ba_total; matrix[g].perf_pct = target_output > 0 ? (out_total / target_output) * 100 : 0;
       matrix[g].q_std_batch = headerMetrics.teoriBatch; matrix[g].q_out_counter = d.out_counter; matrix[g].q_out_rej = q_rej_total; matrix[g].q_out_samp = q_samp_tot; matrix[g].q_good_count = q_good; matrix[g].qual_pct = d.out_counter > 0 ? (q_good / d.out_counter) * 100 : 0;
       matrix[g].dt_tot_min = dt_total_min; matrix[g].dt_tot_jam = unplanned_dt_jam; matrix[g].jd_p = d.dt_p; matrix[g].jd_np = d.dt_np;
       matrix[g].qc_samp_ipc = d.q_samp_ipc; matrix[g].qc_samp_others = d.q_samp_others; matrix[g].qc_samp = q_samp_tot; matrix[g].qc_tot_dec = q_samp_tot; matrix[g].qc_tot_pct = d.out_counter > 0 ? ((q_samp_tot / d.out_counter) * 100).toFixed(2) : "0";
@@ -196,7 +199,7 @@ const useZoneFProcessor = (rawReject, rawDowntime, date, volume, headerMetrics) 
       const total_time = d.pot - ps_total;
       const unplanned_dt_jam = dt_total_min / 60;
       const prod_run_time = total_time - unplanned_dt_jam;
-      const target_output = prod_run_time * headerMetrics.speed;
+      const target_output = prod_run_time * (headerMetrics.speedF || 15000);
       
       const total_samp = d.q_samp_as + d.q_samp_ret;
       const total_rej = d.rej_partikel + d.rej_kosmetik + d.rej_bocor + d.rej_lain;
@@ -206,7 +209,7 @@ const useZoneFProcessor = (rawReject, rawDowntime, date, volume, headerMetrics) 
       const ba_total = std_fg_95 > 0 ? (q_good / std_fg_95) : 0;
 
       matrix[g].pot = d.pot; matrix[g].total_time = total_time; matrix[g].unplanned_dt = unplanned_dt_jam; matrix[g].prod_run_time = prod_run_time; matrix[g].avail_pct = total_time > 0 ? (prod_run_time / total_time) * 100 : 0;
-      matrix[g].speed_blow = headerMetrics.speed; matrix[g].target_output = target_output; matrix[g].out_counter_vi = d.out_counter; matrix[g].ba_std_fg = std_fg_95; matrix[g].ba_total_fg = ba_total; matrix[g].perf_pct = target_output > 0 ? (d.out_counter / target_output) * 100 : 0;
+      matrix[g].speed_blow = (headerMetrics.speedF || 15000); matrix[g].target_output = target_output; matrix[g].out_counter_vi = d.out_counter; matrix[g].ba_std_fg = std_fg_95; matrix[g].ba_total_fg = ba_total; matrix[g].perf_pct = target_output > 0 ? (d.out_counter / target_output) * 100 : 0;
       matrix[g].q_std_batch = std_fg_95; matrix[g].q_out_counter = d.out_counter; matrix[g].q_out_rej = total_rej; matrix[g].q_out_samp = total_samp; matrix[g].q_good_count_fg = q_good; matrix[g].qual_pct = d.out_counter > 0 ? (q_good / d.out_counter) * 100 : 0;
       matrix[g].dt_tot_min = dt_total_min; matrix[g].dt_tot_jam = unplanned_dt_jam; matrix[g].jd_p = d.dt_p; matrix[g].jd_np = d.dt_np;
       matrix[g].qc_samp_as = d.q_samp_as; matrix[g].qc_samp_ret = d.q_samp_ret; matrix[g].qc_tot_dec = total_samp; matrix[g].qc_tot_pct = d.out_counter > 0 ? ((total_samp / d.out_counter) * 100).toFixed(2) : "0";
@@ -258,7 +261,7 @@ const SummaryTable = ({ zoneTitle, structure, matrixData, oee, avail, perf, qual
       <div className="grid grid-cols-3 border-b border-black divide-x divide-black bg-gray-50">
         <div className="p-3 text-center">
           <span className="block text-[10px] font-bold text-gray-600 uppercase tracking-widest">Speed</span>
-          <span className="text-xl font-black text-black">{metrics.speed.toLocaleString('id-ID')} <span className="text-sm font-bold text-gray-500">bph</span></span>
+          <span className="text-xl font-black text-black">{(zoneTitle.includes('F') ? (metrics.speedF || 15000) : (metrics.speedC || 6300)).toLocaleString('id-ID')} <span className="text-sm font-bold text-gray-500">bph</span></span>
         </div>
         <div className="p-3 text-center">
           <span className="block text-[10px] font-bold text-gray-600 uppercase tracking-widest">Unplanned DT</span>
@@ -348,7 +351,7 @@ const DailyOnesheet = () => {
   const [activeVolume, setActiveVolume] = useState("25 ML"); 
   
   const [isFetching, setIsFetching] = useState(false); 
-  const [isPrinting, setIsPrinting] = useState(false); // State untuk mengatur ukuran saat cetak
+  const [isPrinting, setIsPrinting] = useState(false); 
   const printRef = useRef(); 
   
   const [rawRejectC, setRawRejectC] = useState([]);
@@ -388,11 +391,11 @@ const DailyOnesheet = () => {
   const { matrix: mockMatrixDataF, structure: zoneFMatrixStructure, oee: calculatedOEEF, avail: availF, perf: perfF, qual: qualF } = useZoneFProcessor(rawRejectF, rawDowntimeF, activeDate, activeVolume, metrics);
 
   const dtJamC = parseFloat(mockMatrixDataC['TOTAL']?.['dt_tot_jam']) || 0;
-  const lossUnitDtC = metrics.speed * dtJamC;
+  const lossUnitDtC = (metrics.speedC || 6300) * dtJamC;
   const totalFinLossC = (lossUnitDtC * 6500) + ((parseFloat(mockMatrixDataC['TOTAL']?.['rej_tot_dec']) || 0) * 6500);
 
   const dtJamF = parseFloat(mockMatrixDataF['TOTAL']?.['dt_tot_jam']) || 0;
-  const lossUnitDtF = metrics.speed * dtJamF;
+  const lossUnitDtF = (metrics.speedF || 15000) * dtJamF;
   const totalFinLossF = (lossUnitDtF * 6500) + ((parseFloat(mockMatrixDataF['TOTAL']?.['rej_tot_dec']) || 0) * 6500);
 
   const handleDownloadJPG = () => {
