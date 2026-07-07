@@ -831,7 +831,26 @@ export default function InputC() {
   }, []);
 
   const triggerAutosaveOEE = useCallback(async (rIdx, rowData) => {
-    if (!user || !rowData[C.NO_BATCH] || !rowData[C.TANGGAL]) return;
+    if (!user) return;
+    const original_id = oeeIds.current[rIdx] || null;
+    const isValidKey = (val) => val !== '' && val !== null && val !== undefined && String(val).trim() !== '';
+    const isKeyComplete = 
+      isValidKey(rowData[C.TANGGAL]) &&
+      isValidKey(rowData[C.NO_BATCH]) &&
+      isValidKey(rowData[C.SHIFT]) &&
+      isValidKey(rowData[C.AT_SH]) &&
+      isValidKey(rowData[C.AT_SM]) &&
+      isValidKey(rowData[C.AT_EH]) &&
+      isValidKey(rowData[C.AT_EM]);
+
+    if (!isKeyComplete) {
+      if (original_id) {
+        await sendAutoSave({ action: 'delete_reject_c', data: { original_id }, user });
+        oeeIds.current[rIdx] = null;
+        localStorage.setItem('C_IDS_OEE', JSON.stringify(oeeIds.current));
+      }
+      return;
+    }
     try {
       const payloadData = {
         original_id: oeeIds.current[rIdx] || null,
@@ -891,7 +910,26 @@ export default function InputC() {
   }, [user]);
 
   const triggerAutosaveDT = useCallback(async (rIdx, rowData) => {
-    if (!user || !rowData[DC.TANGGAL] || !rowData[DC.SHIFT] || !rowData[DC.NO_BATCH]) return;
+    if (!user) return;
+    const original_id = dtIds.current[rIdx] || null;
+    const isValidKey = (val) => val !== '' && val !== null && val !== undefined && String(val).trim() !== '';
+    const isKeyComplete = 
+      isValidKey(rowData[DC.TANGGAL]) &&
+      isValidKey(rowData[DC.NO_BATCH]) &&
+      isValidKey(rowData[DC.SHIFT]) &&
+      isValidKey(rowData[DC.SH]) &&
+      isValidKey(rowData[DC.SM]) &&
+      isValidKey(rowData[DC.EH]) &&
+      isValidKey(rowData[DC.EM]);
+
+    if (!isKeyComplete) {
+      if (original_id) {
+        await sendAutoSave({ action: 'delete_downtime_c', data: { original_id }, user });
+        dtIds.current[rIdx] = null;
+        localStorage.setItem('C_IDS_DT', JSON.stringify(dtIds.current));
+      }
+      return;
+    }
     try {
       const payloadData = {
         original_id: dtIds.current[rIdx] || null,

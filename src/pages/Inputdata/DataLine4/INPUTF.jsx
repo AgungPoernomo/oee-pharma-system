@@ -657,7 +657,25 @@ export default function InputF() {
     if (oeeTimers.current[rIdx]) clearTimeout(oeeTimers.current[rIdx]);
 
     oeeTimers.current[rIdx] = setTimeout(async () => {
-      if (!rowData[0] && !rowData[2] && !rowData[3]) return;
+      const original_id = oeeIds.current[rIdx] || null;
+      const isValidKey = (val) => val !== '' && val !== null && val !== undefined && String(val).trim() !== '';
+      const isKeyComplete = 
+        isValidKey(rowData[2]) &&
+        isValidKey(rowData[0]) &&
+        isValidKey(rowData[3]) &&
+        isValidKey(rowData[35]) &&
+        isValidKey(rowData[36]) &&
+        isValidKey(rowData[37]) &&
+        isValidKey(rowData[38]);
+
+      if (!isKeyComplete) {
+        if (original_id) {
+          await sendAutoSave({ action: 'delete_reject_f', data: { original_id }, user });
+          oeeIds.current[rIdx] = null;
+          localStorage.setItem('F_IDS_OEE', JSON.stringify(oeeIds.current));
+        }
+        return;
+      }
 
       const payloadData = {
         original_id: oeeIds.current[rIdx] || null,
@@ -724,7 +742,25 @@ export default function InputF() {
     if (dtTimers.current[rIdx]) clearTimeout(dtTimers.current[rIdx]);
 
     dtTimers.current[rIdx] = setTimeout(async () => {
-      if (!rowData[0] && !rowData[3]) return;
+      const original_id = dtIds.current[rIdx] || null;
+      const isValidKey = (val) => val !== '' && val !== null && val !== undefined && String(val).trim() !== '';
+      const isKeyComplete = 
+        isValidKey(rowData[0]) &&
+        isValidKey(rowData[3]) &&
+        isValidKey(rowData[1]) &&
+        isValidKey(rowData[4]) &&
+        isValidKey(rowData[5]) &&
+        isValidKey(rowData[6]) &&
+        isValidKey(rowData[7]);
+
+      if (!isKeyComplete) {
+        if (original_id) {
+          await sendAutoSave({ action: 'delete_downtime_f', data: { original_id }, user });
+          dtIds.current[rIdx] = null;
+          localStorage.setItem('F_IDS_DT', JSON.stringify(dtIds.current));
+        }
+        return;
+      }
 
       const payloadData = {
         original_id: dtIds.current[rIdx] || null,

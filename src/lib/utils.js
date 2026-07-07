@@ -21,7 +21,7 @@ export function scrollCellIntoView(td, container) {
     const tdRect = td.getBoundingClientRect();
 
     // 1. VERTICAL SCROLLING (scrollTop)
-    const thead = scrollContainer.querySelector('thead');
+    const thead = scrollContainer.getElementsByTagName('thead')[0];
     const headerHeight = thead ? thead.getBoundingClientRect().height : 0;
     const visibleTop = cRect.top + headerHeight;
     const visibleBottom = cRect.bottom;

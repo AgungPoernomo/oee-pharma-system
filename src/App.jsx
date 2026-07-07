@@ -162,12 +162,19 @@ const SessionGuard = () => {
 
 const JSpreadsheetScrollFix = () => {
   useEffect(() => {
+    // Cache live HTMLCollections outside high-frequency event listeners (O(1) property access)
+    const jssSheets = document.getElementsByClassName('jss_worksheet');
+    const jexcels = document.getElementsByClassName('jexcel');
+
     let ticking = false;
+    let rAfId = null;
+    let timeoutId = null;
+
     const fixScroll = () => {
-      if (!document.querySelector('.jss_worksheet, .jexcel')) return;
+      if (jssSheets.length === 0 && jexcels.length === 0) return;
       if (ticking) return;
       ticking = true;
-      requestAnimationFrame(() => {
+      rAfId = requestAnimationFrame(() => {
         ticking = false;
         const activeCell = document.querySelector('.jss_worksheet tbody td.highlight, .jexcel tbody td.highlight');
         if (activeCell && !activeCell.classList.contains('jss_freezed')) {
@@ -189,14 +196,20 @@ const JSpreadsheetScrollFix = () => {
     };
 
     const handleJSpreadsheetScrollBug = (e) => {
-      if (!document.querySelector('.jss_worksheet, .jexcel')) return;
+      // O(1) check using cached live collection instead of expensive querySelector on every keystroke
+      if (jssSheets.length === 0 && jexcels.length === 0) return;
+      
       const isKey = e.type === 'keydown' || e.type === 'keyup';
       if (isKey && !['ArrowLeft', 'ArrowRight', 'Tab', 'Enter', 'ArrowUp', 'ArrowDown'].includes(e.key)) return;
 
-      requestAnimationFrame(() => {
-        fixScroll();
-        setTimeout(fixScroll, 50);
-      });
+      // Throttle updates to prevent excessive rAF and setTimeout calls during rapid typing/interaction
+      if (!ticking) {
+        rAfId = requestAnimationFrame(() => {
+          fixScroll();
+          if (timeoutId) clearTimeout(timeoutId);
+          timeoutId = setTimeout(fixScroll, 50);
+        });
+      }
     };
 
     window.addEventListener('keydown', handleJSpreadsheetScrollBug, true);
@@ -204,6 +217,8 @@ const JSpreadsheetScrollFix = () => {
     window.addEventListener('mousedown', handleJSpreadsheetScrollBug, true);
     window.addEventListener('scroll', fixScroll, { capture: true, passive: true });
     return () => {
+      if (rAfId) cancelAnimationFrame(rAfId);
+      if (timeoutId) clearTimeout(timeoutId);
       window.removeEventListener('keydown', handleJSpreadsheetScrollBug, true);
       window.removeEventListener('keyup', handleJSpreadsheetScrollBug, true);
       window.removeEventListener('mousedown', handleJSpreadsheetScrollBug, true);

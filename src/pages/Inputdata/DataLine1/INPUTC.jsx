@@ -715,7 +715,25 @@ export default function InputC() {
     if (oeeTimers.current[rIdx]) clearTimeout(oeeTimers.current[rIdx]);
 
     oeeTimers.current[rIdx] = setTimeout(async () => {
-      if (!rowData[C.NO_BATCH] && !rowData[C.TANGGAL] && !rowData[C.SHIFT]) return;
+      const original_id = oeeIds.current[rIdx] || null;
+      const isValidKey = (val) => val !== '' && val !== null && val !== undefined && String(val).trim() !== '';
+      const isKeyComplete = 
+        isValidKey(rowData[C.TANGGAL]) &&
+        isValidKey(rowData[C.NO_BATCH]) &&
+        isValidKey(rowData[C.SHIFT]) &&
+        isValidKey(rowData[C.AT_SH]) &&
+        isValidKey(rowData[C.AT_SM]) &&
+        isValidKey(rowData[C.AT_EH]) &&
+        isValidKey(rowData[C.AT_EM]);
+
+      if (!isKeyComplete) {
+        if (original_id) {
+          await sendAutoSave({ action: 'delete_reject_c', data: { original_id }, user });
+          oeeIds.current[rIdx] = null;
+          localStorage.setItem('C_IDS_OEE', JSON.stringify(oeeIds.current));
+        }
+        return;
+      }
 
       const payloadData = {
         original_id: oeeIds.current[rIdx] || null,
@@ -783,7 +801,25 @@ export default function InputC() {
     if (dtTimers.current[rIdx]) clearTimeout(dtTimers.current[rIdx]);
 
     dtTimers.current[rIdx] = setTimeout(async () => {
-      if (!rowData[DC.TANGGAL] && !rowData[DC.NO_BATCH]) return;
+      const original_id = dtIds.current[rIdx] || null;
+      const isValidKey = (val) => val !== '' && val !== null && val !== undefined && String(val).trim() !== '';
+      const isKeyComplete = 
+        isValidKey(rowData[DC.TANGGAL]) &&
+        isValidKey(rowData[DC.NO_BATCH]) &&
+        isValidKey(rowData[DC.SHIFT]) &&
+        isValidKey(rowData[DC.SH]) &&
+        isValidKey(rowData[DC.SM]) &&
+        isValidKey(rowData[DC.EH]) &&
+        isValidKey(rowData[DC.EM]);
+
+      if (!isKeyComplete) {
+        if (original_id) {
+          await sendAutoSave({ action: 'delete_downtime_c', data: { original_id }, user });
+          dtIds.current[rIdx] = null;
+          localStorage.setItem('C_IDS_DT', JSON.stringify(dtIds.current));
+        }
+        return;
+      }
 
       const payloadData = {
         original_id: dtIds.current[rIdx] || null,
@@ -1131,14 +1167,14 @@ export default function InputC() {
       }
 
       if (e.shiftKey && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
-        setTimeout(() => setSel({ startRow, startCol, endRow: nextR, endCol: nextC }), 0);
+        setSel({ startRow, startCol, endRow: nextR, endCol: nextC });
       } else {
-        setTimeout(() => setSel({ startRow: nextR, startCol: nextC, endRow: nextR, endCol: nextC }), 0);
+        setSel({ startRow: nextR, startCol: nextC, endRow: nextR, endCol: nextC });
       }
     } else if (e.key === 'Enter' || e.key === 'F2') {
       e.preventDefault();
       if (!colsMeta[activeCol].readOnly) {
-        setTimeout(() => setEditing({ row: activeRow, col: activeCol, mode: 'enter' }), 0);
+        setEditing({ row: activeRow, col: activeCol, mode: 'enter' });
       }
     } else if (e.key === 'Backspace' || e.key === 'Delete') {
       e.preventDefault();
@@ -1357,7 +1393,7 @@ export default function InputC() {
   // Auto scroll into view on navigation
   useEffect(() => {
     if (!oeeGridRef.current) return;
-    const tbody = oeeGridRef.current.querySelector('tbody');
+    const tbody = oeeGridRef.current.getElementsByTagName('tbody')[0];
     const rowEl = tbody?.rows?.[oeeSelection.endRow];
     const td = rowEl?.cells?.[oeeSelection.endCol];
     scrollCellIntoView(td, oeeGridRef.current);
@@ -1365,7 +1401,7 @@ export default function InputC() {
 
   useEffect(() => {
     if (!dtGridRef.current) return;
-    const tbody = dtGridRef.current.querySelector('tbody');
+    const tbody = dtGridRef.current.getElementsByTagName('tbody')[0];
     const rowEl = tbody?.rows?.[dtSelection.endRow];
     const td = rowEl?.cells?.[dtSelection.endCol];
     scrollCellIntoView(td, dtGridRef.current);
@@ -1479,6 +1515,7 @@ export default function InputC() {
           onCopy={(e) => handleCopy(e, 'oee')}
           onPaste={(e) => handlePaste(e, 'oee')}
           className="bg-white border border-slate-300 shadow-lg mb-10 rounded overflow-hidden focus:outline-none focus:ring-2 focus:ring-emerald-500"
+          style={{ contentVisibility: 'auto', containIntrinsicSize: '680px' }}
         >
           <div className="overflow-x-auto max-h-[680px]">
             <table className="border-collapse w-max min-w-full text-left">
@@ -1593,6 +1630,7 @@ export default function InputC() {
           onCopy={(e) => handleCopy(e, 'dt')}
           onPaste={(e) => handlePaste(e, 'dt')}
           className="bg-white border border-slate-300 shadow-lg rounded overflow-hidden mb-12 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          style={{ contentVisibility: 'auto', containIntrinsicSize: '500px' }}
         >
           <div className="overflow-x-auto max-h-[500px]">
             <table className="border-collapse w-max min-w-full text-left">

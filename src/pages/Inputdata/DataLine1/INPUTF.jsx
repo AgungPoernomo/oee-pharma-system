@@ -657,7 +657,25 @@ export default function InputF() {
     if (oeeTimers.current[rIdx]) clearTimeout(oeeTimers.current[rIdx]);
 
     oeeTimers.current[rIdx] = setTimeout(async () => {
-      if (!rowData[0] && !rowData[2] && !rowData[3]) return;
+      const original_id = oeeIds.current[rIdx] || null;
+      const isValidKey = (val) => val !== '' && val !== null && val !== undefined && String(val).trim() !== '';
+      const isKeyComplete = 
+        isValidKey(rowData[2]) &&
+        isValidKey(rowData[0]) &&
+        isValidKey(rowData[3]) &&
+        isValidKey(rowData[35]) &&
+        isValidKey(rowData[36]) &&
+        isValidKey(rowData[37]) &&
+        isValidKey(rowData[38]);
+
+      if (!isKeyComplete) {
+        if (original_id) {
+          await sendAutoSave({ action: 'delete_reject_f', data: { original_id }, user });
+          oeeIds.current[rIdx] = null;
+          localStorage.setItem('F_IDS_OEE', JSON.stringify(oeeIds.current));
+        }
+        return;
+      }
 
       const payloadData = {
         original_id: oeeIds.current[rIdx] || null,
@@ -724,7 +742,25 @@ export default function InputF() {
     if (dtTimers.current[rIdx]) clearTimeout(dtTimers.current[rIdx]);
 
     dtTimers.current[rIdx] = setTimeout(async () => {
-      if (!rowData[0] && !rowData[3]) return;
+      const original_id = dtIds.current[rIdx] || null;
+      const isValidKey = (val) => val !== '' && val !== null && val !== undefined && String(val).trim() !== '';
+      const isKeyComplete = 
+        isValidKey(rowData[0]) &&
+        isValidKey(rowData[3]) &&
+        isValidKey(rowData[1]) &&
+        isValidKey(rowData[4]) &&
+        isValidKey(rowData[5]) &&
+        isValidKey(rowData[6]) &&
+        isValidKey(rowData[7]);
+
+      if (!isKeyComplete) {
+        if (original_id) {
+          await sendAutoSave({ action: 'delete_downtime_f', data: { original_id }, user });
+          dtIds.current[rIdx] = null;
+          localStorage.setItem('F_IDS_DT', JSON.stringify(dtIds.current));
+        }
+        return;
+      }
 
       const payloadData = {
         original_id: dtIds.current[rIdx] || null,
@@ -1057,14 +1093,14 @@ export default function InputF() {
       }
 
       if (e.shiftKey && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
-        setTimeout(() => setSel({ startRow, startCol, endRow: nextR, endCol: nextC }), 0);
+        setSel({ startRow, startCol, endRow: nextR, endCol: nextC });
       } else {
-        setTimeout(() => setSel({ startRow: nextR, startCol: nextC, endRow: nextR, endCol: nextC }), 0);
+        setSel({ startRow: nextR, startCol: nextC, endRow: nextR, endCol: nextC });
       }
     } else if (e.key === 'Enter' || e.key === 'F2') {
       e.preventDefault();
       if (!colsMeta[activeCol].readOnly) {
-        setTimeout(() => setEditing({ row: activeRow, col: activeCol, mode: 'enter' }), 0);
+        setEditing({ row: activeRow, col: activeCol, mode: 'enter' });
       }
     } else if (e.key === 'Backspace' || e.key === 'Delete') {
       e.preventDefault();
@@ -1282,7 +1318,7 @@ export default function InputF() {
 
   useEffect(() => {
     if (!oeeGridRef.current) return;
-    const tbody = oeeGridRef.current.querySelector('tbody');
+    const tbody = oeeGridRef.current.getElementsByTagName('tbody')[0];
     const rowEl = tbody?.rows?.[oeeSelection.endRow];
     const td = rowEl?.cells?.[oeeSelection.endCol];
     scrollCellIntoView(td, oeeGridRef.current);
@@ -1290,7 +1326,7 @@ export default function InputF() {
 
   useEffect(() => {
     if (!dtGridRef.current) return;
-    const tbody = dtGridRef.current.querySelector('tbody');
+    const tbody = dtGridRef.current.getElementsByTagName('tbody')[0];
     const rowEl = tbody?.rows?.[dtSelection.endRow];
     const td = rowEl?.cells?.[dtSelection.endCol];
     scrollCellIntoView(td, dtGridRef.current);
@@ -1414,12 +1450,7 @@ export default function InputF() {
   }, [loadDataServer]);
 
   return (
-    <div className="min-h-screen bg-slate-50 p-8 text-slate-800 font-sans outline-none" tabIndex={0} onKeyDown={(e) => {
-      if (oeeEditingCell || dtEditingCell) return;
-      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab', 'Enter', 'F2', 'Backspace', 'Delete'].includes(e.key) || (e.ctrlKey && ['z', 'y', 'a'].includes(e.key.toLowerCase())) || (e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey)) {
-        handleGridKeyDown(e, oeeSelection.endRow !== undefined && document.activeElement === oeeGridRef.current ? 'oee' : 'dt');
-      }
-    }}>
+    <div className="min-h-screen bg-slate-50 p-8 text-slate-800 font-sans outline-none">
       <Toaster position="bottom-right" />
       <div className="max-w-full mx-auto">
 
@@ -1429,8 +1460,8 @@ export default function InputF() {
           </h1>
         </div>
 
-        <div className="bg-white border-2 border-slate-300 shadow-xl mb-12 rounded overflow-hidden p-1">
-          <div className="w-full h-[700px] overflow-auto select-none" ref={oeeGridRef} tabIndex={0} onCopy={(e) => handleCopy(e, 'oee')} onPaste={(e) => handlePaste(e, 'oee')}>
+        <div className="bg-white border-2 border-slate-300 shadow-xl mb-12 rounded overflow-hidden p-1" style={{ contentVisibility: 'auto', containIntrinsicSize: '700px' }}>
+          <div className="w-full h-[700px] overflow-auto select-none outline-none" ref={oeeGridRef} tabIndex={0} onKeyDown={(e) => handleGridKeyDown(e, 'oee')} onCopy={(e) => handleCopy(e, 'oee')} onPaste={(e) => handlePaste(e, 'oee')}>
             <table className="w-max min-w-full border-collapse text-xs table-fixed">
               <thead className="bg-slate-100 text-slate-700 font-semibold shadow-sm sticky top-0 z-40">
                 <tr>
@@ -1542,8 +1573,8 @@ export default function InputF() {
           </h2>
         </div>
 
-        <div className="bg-white border-2 border-slate-300 shadow-xl rounded overflow-hidden p-1 mb-10">
-          <div className="w-full h-[700px] overflow-auto select-none" ref={dtGridRef} tabIndex={0} onCopy={(e) => handleCopy(e, 'dt')} onPaste={(e) => handlePaste(e, 'dt')}>
+        <div className="bg-white border-2 border-slate-300 shadow-xl rounded overflow-hidden p-1 mb-10" style={{ contentVisibility: 'auto', containIntrinsicSize: '700px' }}>
+          <div className="w-full h-[700px] overflow-auto select-none outline-none" ref={dtGridRef} tabIndex={0} onKeyDown={(e) => handleGridKeyDown(e, 'dt')} onCopy={(e) => handleCopy(e, 'dt')} onPaste={(e) => handlePaste(e, 'dt')}>
             <table className="w-max min-w-full border-collapse text-xs table-fixed">
               <thead className="bg-slate-100 text-slate-700 font-semibold shadow-sm sticky top-0 z-40">
                 <tr>

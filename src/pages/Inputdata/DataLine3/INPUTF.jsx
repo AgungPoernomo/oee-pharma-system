@@ -809,7 +809,26 @@ export default function InputF() {
   }, []);
 
   const triggerAutosaveOEE = useCallback(async (rIdx, rowData) => {
-    if (!user || !rowData[0] || !rowData[1]) return;
+    if (!user) return;
+    const original_id = oeeIds.current[rIdx] || null;
+    const isValidKey = (val) => val !== '' && val !== null && val !== undefined && String(val).trim() !== '';
+    const isKeyComplete = 
+      isValidKey(rowData[1]) &&
+      isValidKey(rowData[0]) &&
+      isValidKey(rowData[2]) &&
+      isValidKey(rowData[30]) &&
+      isValidKey(rowData[31]) &&
+      isValidKey(rowData[32]) &&
+      isValidKey(rowData[33]);
+
+    if (!isKeyComplete) {
+      if (original_id) {
+        await sendAutoSave({ action: 'delete_reject_f', data: { original_id }, user });
+        oeeIds.current[rIdx] = null;
+        localStorage.setItem('F_IDS_OEE', JSON.stringify(oeeIds.current));
+      }
+      return;
+    }
     try {
       const payloadData = {
         original_id: oeeIds.current[rIdx] || null,
@@ -875,7 +894,26 @@ export default function InputF() {
   }, [user]);
 
   const triggerAutosaveDT = useCallback(async (rIdx, rowData) => {
-    if (!user || !rowData[0] || !rowData[1] || !rowData[3]) return;
+    if (!user) return;
+    const original_id = dtIds.current[rIdx] || null;
+    const isValidKey = (val) => val !== '' && val !== null && val !== undefined && String(val).trim() !== '';
+    const isKeyComplete = 
+      isValidKey(rowData[0]) &&
+      isValidKey(rowData[3]) &&
+      isValidKey(rowData[1]) &&
+      isValidKey(rowData[4]) &&
+      isValidKey(rowData[5]) &&
+      isValidKey(rowData[6]) &&
+      isValidKey(rowData[7]);
+
+    if (!isKeyComplete) {
+      if (original_id) {
+        await sendAutoSave({ action: 'delete_downtime_f', data: { original_id }, user });
+        dtIds.current[rIdx] = null;
+        localStorage.setItem('F_IDS_DT', JSON.stringify(dtIds.current));
+      }
+      return;
+    }
     try {
       const payloadData = {
         original_id: dtIds.current[rIdx] || null,
