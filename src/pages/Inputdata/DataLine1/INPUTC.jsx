@@ -1416,18 +1416,21 @@ export default function InputC() {
       ]);
 
       const now = new Date();
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(now.getDate() - 30);
-      thirtyDaysAgo.setHours(0, 0, 0, 0);
+      const currentYear = now.getFullYear();
+      const currentMonth = now.getMonth() + 1;
 
-      const filterLast30Days = (row) => {
-        return true;
+      const filterCurrentMonth = (row) => {
+        if (!row || !row.tanggal) return false;
+        const ymd = parseToYMD(row.tanggal);
+        if (!ymd) return false;
+        const [year, month] = ymd.split('-').map(Number);
+        return year === currentYear && month === currentMonth;
       };
 
       let mappedOEE = [];
       let mappedOEEIds = [];
       if (resOEE?.status === 'success' && Array.isArray(resOEE.data)) {
-        mappedOEE = resOEE.data.filter(filterLast30Days).reverse().map((row) => {
+        mappedOEE = resOEE.data.filter(filterCurrentMonth).reverse().map((row) => {
           mappedOEEIds.push(row.id);
           const r = [
             row.no_batch ?? '', parseToYMD(row.tanggal), row.shift ?? '', row.group ?? '', row.reject_botol ?? '', row.reject_preform ?? '',
@@ -1447,7 +1450,7 @@ export default function InputC() {
       let mappedDT = [];
       let mappedDTIds = [];
       if (resDT?.status === 'success' && Array.isArray(resDT.data)) {
-        mappedDT = resDT.data.filter(filterLast30Days).reverse().map((row) => {
+        mappedDT = resDT.data.filter(filterCurrentMonth).reverse().map((row) => {
           mappedDTIds.push(row.id);
           const r = [
             parseToYMD(row.tanggal), row.shift ?? '', row.group ?? '', row.no_batch ?? '', row.start_h ?? '', row.start_m ?? '',
