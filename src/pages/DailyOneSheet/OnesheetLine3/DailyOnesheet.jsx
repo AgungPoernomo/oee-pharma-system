@@ -5,7 +5,7 @@ import { Calendar, Package, Search, Download, Loader2 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import { toPng } from 'html-to-image';
 
-const VOLUMES = ["25 ML", "100 ML", "250 ML", "500 ML", "1000 ML"];
+const VOLUMES = ["25 ML"];
 
 const formatRp = (num) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(num || 0);
 const formatNum = (num) => new Intl.NumberFormat('id-ID', { maximumFractionDigits: 2 }).format(num || 0);
@@ -23,14 +23,10 @@ const highlightLabels = [
 const isHighlightRow = (label) => highlightLabels.includes(label);
 
 const calculateZoneMetrics = (volume) => {
-  let speed = 11500;
-  let teoriBatch = 23076;
+  let speed = 15000;
+  let teoriBatch = 29412;
 
-  if (volume === '25 ML') { speed = 6300; teoriBatch = 29412; }
-  else if (volume === '100 ML') { speed = 11500; teoriBatch = 56880; }
-  else if (volume === '250 ML') { speed = 12000; teoriBatch = 21509; }
-  else if (volume === '500 ML') { speed = 12000; teoriBatch = 23076; }
-  else if (volume === '1000 ML') { speed = 6000; teoriBatch = 60194; }
+  if (volume === '25 ML') { speed = 15000; teoriBatch = 29412; }
 
   const targetRuntimeHours = teoriBatch / speed;
   const targetRuntimeMins = targetRuntimeHours * 60;
@@ -41,23 +37,28 @@ const useZoneCProcessor = (rawReject, rawDowntime, date, volume, headerMetrics) 
   return useMemo(() => {
     const groups = ['A', 'B', 'C', 'D'];
     const data = {};
-    groups.forEach(g => data[g] = { pot: 0, ps: {}, dt: {}, out_counter: 0, out_reject_blow: 0, q_wash: 0, q_vk: 0, q_vl: 0, q_nocap: 0, q_seal: 0, q_bocor: 0, q_samp: 0, dt_p: 0, dt_np: 0 });
+    groups.forEach(g => data[g] = { pot: 0, ps: {}, dt: {}, out_counter: 0, out_reject_blow: 0, rej_botol_isi: 0, rej_setting: 0, rej_vl: 0, bocor_seal: 0, bocor_cutting: 0, rej_lelehan: 0, q_samp_ipc: 0, q_samp_others: 0, dt_p: 0, dt_np: 0 });
 
     const plannedSet = new Set();
     const unplannedSet = new Set();
 
-    const filteredReject = rawReject.filter(r => String(r.volume_botol).trim().toUpperCase() === String(volume).trim().toUpperCase());
+    const filteredReject = rawReject.filter(r => String(r.vol_botol || r.volume_botol || '').trim().toUpperCase() === String(volume).trim().toUpperCase());
     const filteredDowntime = rawDowntime;
 
     filteredReject.forEach(r => {
       const g = String(r.group).trim().toUpperCase();
       if (!groups.includes(g)) return;
-      data[g].pot += (parseFloat(r.av_sub) || 0) / 60; 
+      data[g].pot += (parseFloat(r.at_sub || r.av_sub) || 0) / 60; 
       data[g].out_counter += parseFloat(r.cnt_sub) || 0; 
-      data[g].out_reject_blow += parseFloat(r.reject_blow) || 0; 
-      data[g].q_wash += parseFloat(r.r_washing) || 0; data[g].q_vk += parseFloat(r.r_vk) || 0; data[g].q_vl += parseFloat(r.r_vl) || 0;
-      data[g].q_nocap += parseFloat(r.r_nocap) || 0; data[g].q_seal += parseFloat(r.r_sealnok) || 0; data[g].q_bocor += parseFloat(r.r_others) || 0;
-      data[g].q_samp += parseFloat(r.s_sub) || 0;
+      data[g].out_reject_blow += parseFloat(r.sub_fill_seal || r.reject_blow) || 0; 
+      data[g].rej_botol_isi += parseFloat(r.rej_botol_isi) || 0; 
+      data[g].rej_setting += parseFloat(r.rej_setting) || 0; 
+      data[g].rej_vl += parseFloat(r.rej_vl) || 0;
+      data[g].bocor_seal += parseFloat(r.bocor_seal) || 0; 
+      data[g].bocor_cutting += parseFloat(r.bocor_cutting) || 0; 
+      data[g].rej_lelehan += parseFloat(r.rej_lelehan) || 0;
+      data[g].q_samp_ipc += parseFloat(r.samp_ipc) || 0;
+      data[g].q_samp_others += parseFloat(r.samp_others) || 0;
     });
 
     filteredDowntime.forEach(r => {
@@ -75,7 +76,7 @@ const useZoneCProcessor = (rawReject, rawDowntime, date, volume, headerMetrics) 
 
     const matrix = { A:{}, B:{}, C:{}, D:{}, TOTAL:{} };
     const dynamicLists = { planned: Array.from(plannedSet), unplanned: Array.from(unplannedSet) };
-    const totals = { pot: 0, ps: {}, total_time: 0, dt: {}, dt_min: 0, dt_jam: 0, unplanned_dt_jam: 0, prod_run_time: 0, target_output: 0, out_counter: 0, out_reject_blow: 0, out_total: 0, ba_total: 0, q_rej: 0, q_samp: 0, q_good: 0, dt_p: 0, dt_np: 0, rej_wash: 0, rej_vk: 0, rej_vl: 0, rej_nocap: 0, rej_seal: 0, rej_bocor: 0 };
+    const totals = { pot: 0, ps: {}, total_time: 0, dt: {}, dt_min: 0, dt_jam: 0, unplanned_dt_jam: 0, prod_run_time: 0, target_output: 0, out_counter: 0, out_reject_blow: 0, out_total: 0, ba_total: 0, q_rej: 0, q_samp_ipc: 0, q_samp_others: 0, q_samp_tot: 0, q_good: 0, dt_p: 0, dt_np: 0, rej_botol_isi: 0, rej_setting: 0, rej_vl: 0, bocor_seal: 0, bocor_cutting: 0, rej_lelehan: 0 };
 
     groups.forEach(g => {
       const d = data[g];
@@ -88,25 +89,26 @@ const useZoneCProcessor = (rawReject, rawDowntime, date, volume, headerMetrics) 
       const target_output = prod_run_time * headerMetrics.speed;
       const out_total = d.out_counter + d.out_reject_blow;
       const ba_total = headerMetrics.teoriBatch > 0 ? (d.out_counter / headerMetrics.teoriBatch) : 0;
-      const q_rej_total = d.q_wash + d.q_vk + d.q_vl + d.q_nocap + d.q_seal + d.q_bocor;
+      const q_rej_total = d.rej_botol_isi + d.rej_setting + d.rej_vl + d.bocor_seal + d.bocor_cutting + d.rej_lelehan;
+      const q_samp_tot = d.q_samp_ipc + d.q_samp_others;
       const q_good = d.out_counter - q_rej_total;
 
       matrix[g].pot = d.pot; matrix[g].total_time = total_time; matrix[g].unplanned_dt = unplanned_dt_jam; matrix[g].prod_run_time = prod_run_time; matrix[g].avail_pct = total_time > 0 ? (prod_run_time / total_time) * 100 : 0;
       matrix[g].speed_blow = headerMetrics.speed; matrix[g].target_output = target_output; matrix[g].out_counter_fill = d.out_counter; matrix[g].out_speed_loss = d.out_reject_blow; matrix[g].out_total = out_total; matrix[g].ba_std = headerMetrics.teoriBatch; matrix[g].ba_total = ba_total; matrix[g].perf_pct = target_output > 0 ? (out_total / target_output) * 100 : 0;
-      matrix[g].q_std_batch = headerMetrics.teoriBatch; matrix[g].q_out_counter = d.out_counter; matrix[g].q_out_rej = q_rej_total; matrix[g].q_out_samp = d.q_samp; matrix[g].q_good_count = q_good; matrix[g].qual_pct = d.out_counter > 0 ? (q_good / d.out_counter) * 100 : 0;
+      matrix[g].q_std_batch = headerMetrics.teoriBatch; matrix[g].q_out_counter = d.out_counter; matrix[g].q_out_rej = q_rej_total; matrix[g].q_out_samp = q_samp_tot; matrix[g].q_good_count = q_good; matrix[g].qual_pct = d.out_counter > 0 ? (q_good / d.out_counter) * 100 : 0;
       matrix[g].dt_tot_min = dt_total_min; matrix[g].dt_tot_jam = unplanned_dt_jam; matrix[g].jd_p = d.dt_p; matrix[g].jd_np = d.dt_np;
-      matrix[g].qc_samp = d.q_samp; matrix[g].qc_tot_dec = d.q_samp; matrix[g].qc_tot_pct = d.out_counter > 0 ? ((d.q_samp / d.out_counter) * 100).toFixed(2) : "0";
-      matrix[g].rej_wash = d.q_wash; matrix[g].rej_volk = d.q_vk; matrix[g].rej_voll = d.q_vl; matrix[g].rej_nocap = d.q_nocap; matrix[g].rej_seal = d.q_seal; matrix[g].rej_bocor = d.q_bocor; matrix[g].rej_tot_dec = q_rej_total; matrix[g].rej_tot_pct = d.out_counter > 0 ? ((q_rej_total / d.out_counter) * 100).toFixed(2) : "0";
+      matrix[g].qc_samp_ipc = d.q_samp_ipc; matrix[g].qc_samp_others = d.q_samp_others; matrix[g].qc_samp = q_samp_tot; matrix[g].qc_tot_dec = q_samp_tot; matrix[g].qc_tot_pct = d.out_counter > 0 ? ((q_samp_tot / d.out_counter) * 100).toFixed(2) : "0";
+      matrix[g].rej_botol_isi = d.rej_botol_isi; matrix[g].rej_setting = d.rej_setting; matrix[g].rej_vl = d.rej_vl; matrix[g].bocor_seal = d.bocor_seal; matrix[g].bocor_cutting = d.bocor_cutting; matrix[g].rej_lelehan = d.rej_lelehan; matrix[g].rej_tot_dec = q_rej_total; matrix[g].rej_tot_pct = d.out_counter > 0 ? ((q_rej_total / d.out_counter) * 100).toFixed(2) : "0";
 
-      totals.pot += d.pot; totals.total_time += total_time; totals.unplanned_dt_jam += unplanned_dt_jam; totals.prod_run_time += prod_run_time; totals.target_output += target_output; totals.out_counter += d.out_counter; totals.out_reject_blow += d.out_reject_blow; totals.out_total += out_total; totals.ba_total += ba_total; totals.q_rej += q_rej_total; totals.q_samp += d.q_samp; totals.q_good += q_good; totals.dt_min += dt_total_min; totals.dt_p += d.dt_p; totals.dt_np += d.dt_np; totals.rej_wash += d.q_wash; totals.rej_vk += d.q_vk; totals.rej_vl += d.q_vl; totals.rej_nocap += d.q_nocap; totals.rej_seal += d.q_seal; totals.rej_bocor += d.q_bocor;
+      totals.pot += d.pot; totals.total_time += total_time; totals.unplanned_dt_jam += unplanned_dt_jam; totals.prod_run_time += prod_run_time; totals.target_output += target_output; totals.out_counter += d.out_counter; totals.out_reject_blow += d.out_reject_blow; totals.out_total += out_total; totals.ba_total += ba_total; totals.q_rej += q_rej_total; totals.q_samp_ipc += d.q_samp_ipc; totals.q_samp_others += d.q_samp_others; totals.q_samp_tot += q_samp_tot; totals.q_good += q_good; totals.dt_min += dt_total_min; totals.dt_p += d.dt_p; totals.dt_np += d.dt_np; totals.rej_botol_isi += d.rej_botol_isi; totals.rej_setting += d.rej_setting; totals.rej_vl += d.rej_vl; totals.bocor_seal += d.bocor_seal; totals.bocor_cutting += d.bocor_cutting; totals.rej_lelehan += d.rej_lelehan;
     });
 
     matrix.TOTAL.pot = totals.pot; dynamicLists.planned.forEach(k => matrix.TOTAL[`ps_${k}`] = totals.ps[k]); matrix.TOTAL.total_time = totals.total_time; matrix.TOTAL.unplanned_dt = totals.unplanned_dt_jam; matrix.TOTAL.prod_run_time = totals.prod_run_time; matrix.TOTAL.avail_pct = totals.total_time > 0 ? (totals.prod_run_time / totals.total_time) * 100 : 0;
     matrix.TOTAL.speed_blow = "-"; matrix.TOTAL.target_output = totals.target_output; matrix.TOTAL.out_counter_fill = totals.out_counter; matrix.TOTAL.out_speed_loss = totals.out_reject_blow; matrix.TOTAL.out_total = totals.out_total; matrix.TOTAL.ba_std = "-"; matrix.TOTAL.ba_total = totals.ba_total; matrix.TOTAL.perf_pct = totals.target_output > 0 ? (totals.out_total / totals.target_output) * 100 : 0;
-    matrix.TOTAL.q_std_batch = headerMetrics.teoriBatch * 3; matrix.TOTAL.q_out_counter = totals.out_counter; matrix.TOTAL.q_out_rej = totals.q_rej; matrix.TOTAL.q_out_samp = totals.q_samp; matrix.TOTAL.q_good_count = totals.q_good; matrix.TOTAL.qual_pct = totals.out_counter > 0 ? (totals.q_good / totals.out_counter) * 100 : 0;
+    matrix.TOTAL.q_std_batch = headerMetrics.teoriBatch * 3; matrix.TOTAL.q_out_counter = totals.out_counter; matrix.TOTAL.q_out_rej = totals.q_rej; matrix.TOTAL.q_out_samp = totals.q_samp_tot; matrix.TOTAL.q_good_count = totals.q_good; matrix.TOTAL.qual_pct = totals.out_counter > 0 ? (totals.q_good / totals.out_counter) * 100 : 0;
     dynamicLists.unplanned.forEach(k => matrix.TOTAL[`dt_${k}`] = totals.dt[k]); matrix.TOTAL.dt_tot_min = totals.dt_min; matrix.TOTAL.dt_tot_jam = totals.dt_min / 60; matrix.TOTAL.jd_p = totals.dt_p; matrix.TOTAL.jd_np = totals.dt_np;
-    matrix.TOTAL.qc_samp = totals.q_samp; matrix.TOTAL.qc_tot_dec = totals.q_samp; matrix.TOTAL.qc_tot_pct = "-";
-    matrix.TOTAL.rej_wash = totals.rej_wash; matrix.TOTAL.rej_volk = totals.rej_vk; matrix.TOTAL.rej_voll = totals.rej_vl; matrix.TOTAL.rej_nocap = totals.rej_nocap; matrix.TOTAL.rej_seal = totals.rej_seal; matrix.TOTAL.rej_bocor = totals.rej_bocor; matrix.TOTAL.rej_tot_dec = totals.q_rej; matrix.TOTAL.rej_tot_pct = totals.out_counter > 0 ? ((totals.q_rej / totals.out_counter) * 100).toFixed(2) : "0";
+    matrix.TOTAL.qc_samp_ipc = totals.q_samp_ipc; matrix.TOTAL.qc_samp_others = totals.q_samp_others; matrix.TOTAL.qc_samp = totals.q_samp_tot; matrix.TOTAL.qc_tot_dec = totals.q_samp_tot; matrix.TOTAL.qc_tot_pct = "-";
+    matrix.TOTAL.rej_botol_isi = totals.rej_botol_isi; matrix.TOTAL.rej_setting = totals.rej_setting; matrix.TOTAL.rej_vl = totals.rej_vl; matrix.TOTAL.bocor_seal = totals.bocor_seal; matrix.TOTAL.bocor_cutting = totals.bocor_cutting; matrix.TOTAL.rej_lelehan = totals.rej_lelehan; matrix.TOTAL.rej_tot_dec = totals.q_rej; matrix.TOTAL.rej_tot_pct = totals.out_counter > 0 ? ((totals.q_rej / totals.out_counter) * 100).toFixed(2) : "0";
 
     const structure = [
       { section: "AVAILABILITY", key: "avail_pct", unit: "%", items: [ { label: "Plant Operating Time (POT)", key: "pot", unit: "hour" }, { label: "List Planned Shutdown", isGroupHeader: true }, ...dynamicLists.planned.map(k => ({ label: `Planned - ${k}`, key: `ps_${k}`, unit: "hour", isSubItem: true })), { label: "Total Time", key: "total_time", unit: "hour" }, { label: "Unplanned Downtime", isGroupHeader: true }, { label: "Unplanned DT", key: "unplanned_dt", unit: "hour", isSubItem: true }, { label: "Production Run Time", key: "prod_run_time", unit: "hour" } ] },
@@ -114,8 +116,8 @@ const useZoneCProcessor = (rawReject, rawDowntime, date, volume, headerMetrics) 
       { section: "QUALITY", key: "qual_pct", unit: "%", items: [ { label: "Standart / batch (100%)", key: "q_std_batch", unit: "bottles" }, { label: "Output", isGroupHeader: true }, { label: "Counter Filling", key: "q_out_counter", unit: "bottles", isSubItem: true }, { label: "Reject", key: "q_out_rej", unit: "bottles", isSubItem: true }, { label: "Sample", key: "q_out_samp", unit: "bottles", isSubItem: true }, { label: "Good Count", key: "q_good_count", unit: "bottles" } ] },
       { section: "DETAIL DOWNTIME", key: "dt_header", unit: "-", items: [ { label: "List Detail Downtime", isGroupHeader: true }, ...dynamicLists.unplanned.map(k => ({ label: `${k}`, key: `dt_${k}`, unit: "minutes", isSubItem: true })), { label: "TOTAL", isGroupHeader: true }, { label: "TOTAL (Dalam bentuk menit)", key: "dt_tot_min", unit: "minutes", isSubItem: true }, { label: "TOTAL (Dalam bentuk Jam)", key: "dt_tot_jam", unit: "Jam", isSubItem: true } ] },
       { section: "JENIS DOWNTIME", key: "jd_header", unit: "-", items: [ { label: "Production (P)", key: "jd_p", unit: "minutes" }, { label: "Non-Production (NP)", key: "jd_np", unit: "minutes" } ] },
-      { section: "DETAIL QC SAMPLE", key: "qc_header", unit: "-", items: [ { label: "Samples", key: "qc_samp", unit: "-" }, { label: "TOTAL", isGroupHeader: true }, { label: "TOTAL (dalam bentuk decimal)", key: "qc_tot_dec", unit: "-", isSubItem: true }, { label: "TOTAL (Dalam bentuk persentase)", key: "qc_tot_pct", unit: "%", isSubItem: true } ] },
-      { section: "DETAIL REJECT", key: "rej_header", unit: "-", items: [ { label: "List Detail Reject", isGroupHeader: true }, { label: "Washing", key: "rej_wash", unit: "-", isSubItem: true }, { label: "Vol Kurang", key: "rej_volk", unit: "-", isSubItem: true }, { label: "Vol Lebih", key: "rej_voll", unit: "-", isSubItem: true }, { label: "Tanpa Cap", key: "rej_nocap", unit: "-", isSubItem: true }, { label: "Sealing", key: "rej_seal", unit: "-", isSubItem: true }, { label: "Bocor", key: "rej_bocor", unit: "-", isSubItem: true }, { label: "TOTAL", isGroupHeader: true }, { label: "TOTAL (Dalam bentuk desimal)", key: "rej_tot_dec", unit: "-", isSubItem: true }, { label: "TOTAL (Dalam bentuk persentase)", key: "rej_tot_pct", unit: "%", isSubItem: true } ] }
+      { section: "DETAIL QC SAMPLE", key: "qc_header", unit: "-", items: [ { label: "Samples", isGroupHeader: true }, { label: "IPC", key: "qc_samp_ipc", unit: "-", isSubItem: true }, { label: "Others", key: "qc_samp_others", unit: "-", isSubItem: true }, { label: "TOTAL", isGroupHeader: true }, { label: "TOTAL (dalam bentuk decimal)", key: "qc_tot_dec", unit: "-", isSubItem: true }, { label: "TOTAL (Dalam bentuk persentase)", key: "qc_tot_pct", unit: "%", isSubItem: true } ] },
+      { section: "DETAIL REJECT", key: "rej_header", unit: "-", items: [ { label: "List Detail Reject", isGroupHeader: true }, { label: "Botol Isi", key: "rej_botol_isi", unit: "-", isSubItem: true }, { label: "Setting", key: "rej_setting", unit: "-", isSubItem: true }, { label: "Volume Lebih", key: "rej_vl", unit: "-", isSubItem: true }, { label: "Bocor Seal", key: "bocor_seal", unit: "-", isSubItem: true }, { label: "Bocor Cutting", key: "bocor_cutting", unit: "-", isSubItem: true }, { label: "Lelehan", key: "rej_lelehan", unit: "-", isSubItem: true }, { label: "TOTAL", isGroupHeader: true }, { label: "TOTAL (Dalam bentuk desimal)", key: "rej_tot_dec", unit: "-", isSubItem: true }, { label: "TOTAL (Dalam bentuk persentase)", key: "rej_tot_pct", unit: "%", isSubItem: true } ] }
     ];
 
     const oeeC = (matrix.TOTAL.avail_pct * matrix.TOTAL.perf_pct * matrix.TOTAL.qual_pct) / 10000;
@@ -130,25 +132,27 @@ const useZoneFProcessor = (rawReject, rawDowntime, date, volume, headerMetrics) 
     
     groups.forEach(g => data[g] = { 
       pot: 0, ps: {}, dt: {}, out_counter: 0, q_samp_as: 0, q_samp_ret: 0, 
-      dt_p: 0, dt_np: 0, rej_partikel: 0, rej_kosmetik: 0 
+      dt_p: 0, dt_np: 0, rej_partikel: 0, rej_kosmetik: 0, rej_bocor: 0, rej_lain: 0 
     });
 
     const plannedSet = new Set();
     const unplannedSet = new Set();
     
-    const filteredReject = rawReject.filter(r => String(r.volume_botol).trim().toUpperCase() === String(volume).trim().toUpperCase()); 
+    const filteredReject = rawReject.filter(r => String(r.vol_botol || r.volume_botol || '').trim().toUpperCase() === String(volume).trim().toUpperCase()); 
     const filteredDowntime = rawDowntime;
 
     filteredReject.forEach(r => {
       const g = String(r.group).trim().toUpperCase();
       if (!groups.includes(g)) return;
       
-      data[g].pot += (parseFloat(r.av_sub) || 0) / 60; 
-      data[g].out_counter += parseFloat(r.vi_sub) || 0; 
-      data[g].q_samp_as += parseFloat(r.pack_reject) || 0;  
-      data[g].q_samp_ret += parseFloat(r.pack_fg) || 0; 
-      data[g].rej_partikel += (parseFloat(r.vi_partikel) || 0); 
-      data[g].rej_kosmetik += (parseFloat(r.vi_kotik) || 0); 
+      data[g].pot += (parseFloat(r.at_sub || r.av_sub) || 0) / 60; 
+      data[g].out_counter += parseFloat(r.cnt_sub || r.vi_sub || r.input_botol_chamber) || 0; 
+      data[g].q_samp_as += parseFloat(r.pack_reject || r.samp_as) || 0;  
+      data[g].q_samp_ret += parseFloat(r.pack_fg || r.samp_ret) || 0; 
+      data[g].rej_partikel += (parseFloat(r.vi_partikel || r.rej_partikel) || 0); 
+      data[g].rej_kosmetik += (parseFloat(r.vi_kotik || r.rej_kosmetik) || 0); 
+      data[g].rej_bocor += (parseFloat(r.vi_bocor || r.reject_bocor) || 0); 
+      data[g].rej_lain += (parseFloat(r.vi_lain || r.reject_lain) || 0); 
     });
 
     filteredDowntime.forEach(r => {
@@ -179,7 +183,7 @@ const useZoneFProcessor = (rawReject, rawDowntime, date, volume, headerMetrics) 
       pot: 0, ps: {}, total_time: 0, dt: {}, dt_min: 0, dt_jam: 0, 
       unplanned_dt_jam: 0, prod_run_time: 0, target_output: 0, out_counter: 0, 
       ba_total: 0, q_rej: 0, q_samp_as: 0, q_samp_ret: 0, q_good: 0, 
-      dt_p: 0, dt_np: 0, rej_partikel: 0, rej_kosmetik: 0 
+      dt_p: 0, dt_np: 0, rej_partikel: 0, rej_kosmetik: 0, rej_bocor: 0, rej_lain: 0 
     };
 
     groups.forEach(g => {
@@ -195,7 +199,7 @@ const useZoneFProcessor = (rawReject, rawDowntime, date, volume, headerMetrics) 
       const target_output = prod_run_time * headerMetrics.speed;
       
       const total_samp = d.q_samp_as + d.q_samp_ret;
-      const total_rej = d.rej_partikel + d.rej_kosmetik;
+      const total_rej = d.rej_partikel + d.rej_kosmetik + d.rej_bocor + d.rej_lain;
       
       const q_good = d.out_counter - total_rej;
       const std_fg_95 = headerMetrics.teoriBatch * 0.95;
@@ -206,9 +210,9 @@ const useZoneFProcessor = (rawReject, rawDowntime, date, volume, headerMetrics) 
       matrix[g].q_std_batch = std_fg_95; matrix[g].q_out_counter = d.out_counter; matrix[g].q_out_rej = total_rej; matrix[g].q_out_samp = total_samp; matrix[g].q_good_count_fg = q_good; matrix[g].qual_pct = d.out_counter > 0 ? (q_good / d.out_counter) * 100 : 0;
       matrix[g].dt_tot_min = dt_total_min; matrix[g].dt_tot_jam = unplanned_dt_jam; matrix[g].jd_p = d.dt_p; matrix[g].jd_np = d.dt_np;
       matrix[g].qc_samp_as = d.q_samp_as; matrix[g].qc_samp_ret = d.q_samp_ret; matrix[g].qc_tot_dec = total_samp; matrix[g].qc_tot_pct = d.out_counter > 0 ? ((total_samp / d.out_counter) * 100).toFixed(2) : "0";
-      matrix[g].rej_partikel = d.rej_partikel; matrix[g].rej_kosmetik = d.rej_kosmetik; matrix[g].rej_tot_dec = total_rej; matrix[g].rej_tot_pct = d.out_counter > 0 ? ((total_rej / d.out_counter) * 100).toFixed(2) : "0";
+      matrix[g].rej_partikel = d.rej_partikel; matrix[g].rej_kosmetik = d.rej_kosmetik; matrix[g].rej_bocor = d.rej_bocor; matrix[g].rej_lain = d.rej_lain; matrix[g].rej_tot_dec = total_rej; matrix[g].rej_tot_pct = d.out_counter > 0 ? ((total_rej / d.out_counter) * 100).toFixed(2) : "0";
 
-      totals.pot += d.pot; totals.total_time += total_time; totals.unplanned_dt_jam += unplanned_dt_jam; totals.prod_run_time += prod_run_time; totals.target_output += target_output; totals.out_counter += d.out_counter; totals.ba_total += ba_total; totals.q_rej += total_rej; totals.q_samp_as += d.q_samp_as; totals.q_samp_ret += d.q_samp_ret; totals.q_good += q_good; totals.dt_min += dt_total_min; totals.dt_p += d.dt_p; totals.dt_np += d.dt_np; totals.rej_partikel += d.rej_partikel; totals.rej_kosmetik += d.rej_kosmetik;
+      totals.pot += d.pot; totals.total_time += total_time; totals.unplanned_dt_jam += unplanned_dt_jam; totals.prod_run_time += prod_run_time; totals.target_output += target_output; totals.out_counter += d.out_counter; totals.ba_total += ba_total; totals.q_rej += total_rej; totals.q_samp_as += d.q_samp_as; totals.q_samp_ret += d.q_samp_ret; totals.q_good += q_good; totals.dt_min += dt_total_min; totals.dt_p += d.dt_p; totals.dt_np += d.dt_np; totals.rej_partikel += d.rej_partikel; totals.rej_kosmetik += d.rej_kosmetik; totals.rej_bocor += d.rej_bocor; totals.rej_lain += d.rej_lain;
     });
 
     const total_samp_all = totals.q_samp_as + totals.q_samp_ret;
@@ -221,8 +225,7 @@ const useZoneFProcessor = (rawReject, rawDowntime, date, volume, headerMetrics) 
     matrix.TOTAL.q_out_counter = totals.out_counter; matrix.TOTAL.q_out_rej = totals.q_rej; matrix.TOTAL.q_out_samp = total_samp_all; matrix.TOTAL.q_good_count_fg = totals.q_good; matrix.TOTAL.qual_pct = totals.out_counter > 0 ? (totals.q_good / totals.out_counter) * 100 : 0;
     dynamicLists.unplanned.forEach(k => matrix.TOTAL[`dt_${k}`] = totals.dt[k]); matrix.TOTAL.dt_tot_min = totals.dt_min; matrix.TOTAL.dt_tot_jam = totals.dt_min / 60; matrix.TOTAL.jd_p = totals.dt_p; matrix.TOTAL.jd_np = totals.dt_np;
     matrix.TOTAL.qc_samp_as = totals.q_samp_as; matrix.TOTAL.qc_samp_ret = totals.q_samp_ret; matrix.TOTAL.qc_tot_dec = total_samp_all; matrix.TOTAL.qc_tot_pct = totals.out_counter > 0 ? ((total_samp_all / totals.out_counter) * 100).toFixed(2) : "0";
-    // 👇 FIX DILAKUKAN DI SINI:
-    matrix.TOTAL.rej_partikel = totals.rej_partikel; matrix.TOTAL.rej_kosmetik = totals.rej_kosmetik; matrix.TOTAL.rej_tot_dec = totals.q_rej; matrix.TOTAL.rej_tot_pct = totals.out_counter > 0 ? ((totals.q_rej / totals.out_counter) * 100).toFixed(2) : "0";
+    matrix.TOTAL.rej_partikel = totals.rej_partikel; matrix.TOTAL.rej_kosmetik = totals.rej_kosmetik; matrix.TOTAL.rej_bocor = totals.rej_bocor; matrix.TOTAL.rej_lain = totals.rej_lain; matrix.TOTAL.rej_tot_dec = totals.q_rej; matrix.TOTAL.rej_tot_pct = totals.out_counter > 0 ? ((totals.q_rej / totals.out_counter) * 100).toFixed(2) : "0";
 
     const structure = [
       { section: "AVAILABILITY", key: "avail_pct", unit: "%", items: [ { label: "Plant Operating Time (POT)", key: "pot", unit: "hour" }, { label: "List Planned Shutdown", isGroupHeader: true }, ...dynamicLists.planned.map(k => ({ label: `Planned - ${k}`, key: `ps_${k}`, unit: "hour", isSubItem: true })), { label: "Total Time", key: "total_time", unit: "hour" }, { label: "Unplanned Downtime", isGroupHeader: true }, { label: "Unplanned DT", key: "unplanned_dt", unit: "hour", isSubItem: true }, { label: "Production Run Time", key: "prod_run_time", unit: "hour" } ] },
@@ -231,7 +234,7 @@ const useZoneFProcessor = (rawReject, rawDowntime, date, volume, headerMetrics) 
       { section: "DETAIL DOWNTIME", key: "dt_header", unit: "-", items: [ { label: "List Detail Downtime", isGroupHeader: true }, ...dynamicLists.unplanned.map(k => ({ label: `Unplanned - ${k}`, key: `dt_${k}`, unit: "minutes", isSubItem: true })), { label: "TOTAL", isGroupHeader: true }, { label: "TOTAL (Dalam bentuk menit)", key: "dt_tot_min", unit: "minutes", isSubItem: true }, { label: "TOTAL (Dalam bentuk Jam)", key: "dt_tot_jam", unit: "Jam", isSubItem: true } ] },
       { section: "JENIS DOWNTIME", key: "jd_header", unit: "-", items: [ { label: "Production (P)", key: "jd_p", unit: "minutes" }, { label: "Non-Production (NP)", key: "jd_np", unit: "minutes" } ] },
       { section: "DETAIL QC SAMPLE", key: "qc_header", unit: "-", items: [ { label: "Samples", isGroupHeader: true }, { label: "AS", key: "qc_samp_as", unit: "-", isSubItem: true }, { label: "Retained", key: "qc_samp_ret", unit: "-", isSubItem: true }, { label: "TOTAL", isGroupHeader: true }, { label: "TOTAL (dalam bentuk decimal)", key: "qc_tot_dec", unit: "-", isSubItem: true }, { label: "TOTAL (Dalam bentuk persentase)", key: "qc_tot_pct", unit: "%", isSubItem: true } ] },
-      { section: "DETAIL REJECT", key: "rej_header", unit: "-", items: [ { label: "List Detail Reject", isGroupHeader: true }, { label: "Partikel", key: "rej_partikel", unit: "-", isSubItem: true }, { label: "Kosmetik", key: "rej_kosmetik", unit: "-", isSubItem: true }, { label: "TOTAL", isGroupHeader: true }, { label: "TOTAL (Dalam bentuk desimal)", key: "rej_tot_dec", unit: "-", isSubItem: true }, { label: "TOTAL (Dalam bentuk persentase)", key: "rej_tot_pct", unit: "%", isSubItem: true } ] }
+      { section: "DETAIL REJECT", key: "rej_header", unit: "-", items: [ { label: "List Detail Reject", isGroupHeader: true }, { label: "Partikel", key: "rej_partikel", unit: "-", isSubItem: true }, { label: "Kosmetik", key: "rej_kosmetik", unit: "-", isSubItem: true }, { label: "Bocor", key: "rej_bocor", unit: "-", isSubItem: true }, { label: "Lain-lain", key: "rej_lain", unit: "-", isSubItem: true }, { label: "TOTAL", isGroupHeader: true }, { label: "TOTAL (Dalam bentuk desimal)", key: "rej_tot_dec", unit: "-", isSubItem: true }, { label: "TOTAL (Dalam bentuk persentase)", key: "rej_tot_pct", unit: "%", isSubItem: true } ] }
     ];
 
     const oeeF = (matrix.TOTAL.avail_pct * matrix.TOTAL.perf_pct * matrix.TOTAL.qual_pct) / 10000;
