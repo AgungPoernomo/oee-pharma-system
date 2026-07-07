@@ -65,9 +65,9 @@ export function scrollCellIntoView(td, container) {
       const leftOverlap = (stickyRight + 5) - tdLeft;
       scrollContainer.scrollLeft = Math.max(0, scrollContainer.scrollLeft - leftOverlap);
     } 
-    // Check if hidden beyond the right edge of the container (with a safety margin of 5px)
-    else if (tdRight > cRect.right - 5) {
-      const rightOverlap = tdRight - (cRect.right - 5);
+    // Check if hidden beyond the right edge of the container (with a safety margin of 200px for comfortable field of view)
+    else if (tdRight > cRect.right - 200) {
+      const rightOverlap = tdRight - (cRect.right - 200);
       scrollContainer.scrollLeft += rightOverlap;
     }
   });

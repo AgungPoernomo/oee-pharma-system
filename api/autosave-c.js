@@ -29,6 +29,23 @@ function cleanItem(item, validCols) {
   return cleaned;
 }
 
+async function sendToGAS(url, payload) {
+  if (!url) return;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) break;
+    } catch (err) {
+      console.error(`[Backup GAS Attempt ${attempt} Gagal - ${payload.action}]`, err.message);
+      if (attempt < 3) await new Promise(r => setTimeout(r, 1000 * attempt));
+    }
+  }
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ message: 'Method Not Allowed' });
 
@@ -52,21 +69,18 @@ export default async function handler(req, res) {
         }
       }
 
-      // Backup async ke Google Apps Script untuk Hapus Data
+      // Backup async ke Google Apps Script dengan Retry
       if (deletedIds.length > 0 && process.env.GAS_URL) {
         const gasUser = { ...(user || {}), line: lineNum };
-        for (const delId of deletedIds) {
-          fetch(process.env.GAS_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              action: action,
-              data: { original_id: delId, id: delId },
-              user: gasUser,
-              tableName: tableName
-            })
-          }).catch(err => console.error(`[Backup GAS Gagal - ${action}]`, err.message));
-        }
+        const gasPromises = deletedIds.map(delId =>
+          sendToGAS(process.env.GAS_URL, {
+            action: action,
+            data: { original_id: delId, id: delId },
+            user: gasUser,
+            tableName: tableName
+          })
+        );
+        await Promise.allSettled(gasPromises);
       }
 
       return res.status(200).json({ status: 'success', deleted: deletedCount, ids: deletedIds });
@@ -100,15 +114,16 @@ export default async function handler(req, res) {
 
       const firstId = insertedIds.length > 0 ? insertedIds[0] : null;
 
-      // Backup async ke Google Apps Script
+      // Backup async ke Google Apps Script dengan Retry
       const gasUser = { ...(user || {}), line: lineNum };
       const backupData = { ...data, original_id: firstId };
       if (process.env.GAS_URL) {
-        fetch(process.env.GAS_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: action, data: backupData, user: gasUser, tableName: tableName })
-        }).catch(err => console.error(`[Backup GAS Gagal - ${action}]`, err.message));
+        await sendToGAS(process.env.GAS_URL, {
+          action: action,
+          data: backupData,
+          user: gasUser,
+          tableName: tableName
+        });
       }
 
       return res.status(200).json({ status: 'success', original_id: firstId, ids: insertedIds });

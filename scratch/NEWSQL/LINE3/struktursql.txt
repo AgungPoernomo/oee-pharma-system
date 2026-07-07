@@ -167,8 +167,6 @@ CREATE TABLE oee_line3_zonef (
     lc_em INT DEFAULT 0,
     lc_sub INT DEFAULT 0,
     
-    total_process_details INT DEFAULT 0,
-
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_oee_f_tanggal (tanggal),

@@ -1576,7 +1576,7 @@ export default function InputC() {
 
         <div className="bg-white border-2 border-slate-300 shadow-xl mb-12 rounded overflow-hidden p-1">
           <div className="w-full h-[700px] overflow-auto select-none" ref={oeeGridRef} tabIndex={0} onCopy={(e) => handleCopy(e, 'oee')} onPaste={(e) => handlePaste(e, 'oee')}>
-            <div className="w-max min-w-full">
+            <div className="w-max min-w-full pr-[350px] pb-[150px]">
               <table className="w-max min-w-full border-collapse text-xs table-fixed">
                 <thead className="bg-slate-100 text-slate-700 font-semibold shadow-sm sticky top-0 z-40">
                   <tr>
@@ -1655,7 +1655,7 @@ export default function InputC() {
 
         <div className="bg-white border-2 border-slate-300 shadow-xl rounded overflow-hidden p-1 mb-10">
           <div className="w-full h-[700px] overflow-auto select-none" ref={dtGridRef} tabIndex={0} onCopy={(e) => handleCopy(e, 'dt')} onPaste={(e) => handlePaste(e, 'dt')}>
-            <div className="w-max min-w-full">
+            <div className="w-max min-w-full pr-[350px] pb-[150px]">
               <table className="w-max min-w-full border-collapse text-xs table-fixed">
                 <thead className="bg-slate-100 text-slate-700 font-semibold shadow-sm sticky top-0 z-40">
                   <tr>

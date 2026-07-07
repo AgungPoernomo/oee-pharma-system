@@ -33,13 +33,45 @@ function raw(val) {
   return val; 
 }
 
-function getRowByTidbId(sheet, tidbId) {
-  if (!tidbId) return -1;
+function getRowByTidbId(sheet, tidbId, data, userLine) {
+  if (!tidbId || tidbId === "saved") {
+    tidbId = null;
+  } else {
+    var lastRow = sheet.getLastRow();
+    if (lastRow < START_ROW_DATA) return -1;
+    var numRows = lastRow - START_ROW_DATA + 1;
+    var rangeCV = sheet.getRange(START_ROW_DATA, TIDB_ID_COL, numRows, 1).getValues();
+    var rangeA = sheet.getRange(START_ROW_DATA, 1, numRows, 1).getValues();
+    for (var i = numRows - 1; i >= 0; i--) {
+      if (String(rangeCV[i][0]).trim() === String(tidbId).trim() || String(rangeA[i][0]).trim() === String(tidbId).trim()) {
+        return i + START_ROW_DATA;
+      }
+    }
+  }
+
+  // Fallback pencarian berdasarkan keys unik: no_batch, tanggal, dan shift
+  if (!data || !data.no_batch || !data.tanggal) return -1;
   var lastRow = sheet.getLastRow();
   if (lastRow < START_ROW_DATA) return -1;
-  var range = sheet.getRange(START_ROW_DATA, TIDB_ID_COL, lastRow - START_ROW_DATA + 1, 1).getValues();
-  for (var i = range.length - 1; i >= 0; i--) {
-    if (String(range[i][0]).trim() === String(tidbId).trim()) {
+  var numRows = lastRow - START_ROW_DATA + 1;
+  
+  var colBatch = 3;
+  var colTgl = (String(userLine) === "3") ? 4 : 5;
+  var colShift = (String(userLine) === "3") ? 5 : 6;
+  
+  var maxCol = Math.max(colBatch, colTgl, colShift);
+  var values = sheet.getRange(START_ROW_DATA, 1, numRows, maxCol).getValues();
+  
+  var targetBatch = String(raw(data.no_batch)).trim().toLowerCase();
+  var targetTgl = String(formatTglIndo(data.tanggal)).replace(/^'/, "").trim();
+  var targetShift = String(raw(data.shift)).trim().toLowerCase();
+  
+  for (var i = numRows - 1; i >= 0; i--) {
+    var rowBatch = String(values[i][colBatch - 1] || "").trim().toLowerCase();
+    var rowTgl = String(values[i][colTgl - 1] || "").replace(/^'/, "").trim();
+    var rowShift = String(values[i][colShift - 1] || "").trim().toLowerCase();
+    
+    if (rowBatch === targetBatch && rowTgl === targetTgl && rowShift === targetShift) {
       return i + START_ROW_DATA;
     }
   }
@@ -63,7 +95,7 @@ function formatTglIndo(dateStr) {
   var day = ("0" + d.getDate()).slice(-2);
   var month = ("0" + (d.getMonth() + 1)).slice(-2);
   var year = d.getFullYear();
-  return "'" + day + "/" + month + "/" + year; 
+  return "'" + year + "-" + month + "-" + day; 
 }
 
 /**
@@ -189,7 +221,7 @@ function handleDynamicSync(payload) {
 
 function doPost(e) {
   const lock = LockService.getScriptLock();
-  lock.tryLock(10000);
+  lock.waitLock(30000);
   try {
     const params = JSON.parse(e.postData.contents);
     const action = params.action || "";
@@ -246,7 +278,16 @@ function doPost(e) {
     }
     return responseJSON(result);
   } catch (error) {
-    return responseJSON({ status: "error", message: error.toString() });
+    if (e && e.postData && e.postData.contents) {
+      try {
+        const p = JSON.parse(e.postData.contents);
+        if (p.action && (p.action.indexOf('submit_') !== -1 || p.action.indexOf('update_') !== -1)) {
+          const uLine = p.user ? (p.user.line || p.user.plant || "2") : "2";
+          queuePendingSave(uLine, p.action, p.data, p.user);
+        }
+      } catch (ex) {}
+    }
+    return responseJSON({ status: "error", message: error.toString(), queued: true });
   } finally {
     lock.releaseLock();
   }
@@ -257,9 +298,28 @@ function doGet(e) {
   return responseJSON({ status: "success", message: "Server OEE V14 (TiDB & Dynamic Sync Ready)" });
 }
 
-function constructRejectCArray(data, user, isClosing, r) {
-  var yield_batch = data.yield_batch ? (parseFloat(data.yield_batch) / 100) : "";
+function constructRejectCArray(data, user, isClosing, r, userLine) {
   var tglIndo = formatTglIndo(data.tanggal);
+  
+  // KHUSUS LINE 3 (INPUTC - Cutting / Filling Seal)
+  if (String(userLine) === "3") {
+    return [
+      new Date(), (user && user.nama) ? user.nama : "Unknown", 
+      raw(data.no_batch), tglIndo, raw(data.shift), raw(data.group), 
+      raw(data.vol_botol ?? data.volume_botol), 
+      raw(data.cnt_start), raw(data.cnt_end), raw(data.cnt_sub), raw(data.utuh), raw(data.jml_batch), 
+      raw(data.rej_botol_isi), raw(data.rej_setting), raw(data.rej_vl ?? data.r_vl), raw(data.bocor_seal), raw(data.bocor_cutting), raw(data.rej_lelehan), raw(data.sub_fill_seal ?? data.r_sub), 
+      raw(data.samp_ipc ?? data.s_ipc), raw(data.samp_others ?? data.s_others), raw(data.sub_samples ?? data.s_sub), 
+      raw(data.trf_to_st ?? data.trf_st), 
+      raw(data.input_steril ?? data.steril_in), raw(data.reject_before_steril ?? data.steril_rej_total), raw(data.output_chamber ?? data.steril_out), 
+      raw(data.at_sh ?? data.av_sh), raw(data.at_sm ?? data.av_sm), raw(data.at_eh ?? data.av_eh), raw(data.at_em ?? data.av_em), raw(data.at_sub ?? data.av_sub), raw(data.total_per_shift), 
+      raw(data.rt_sh ?? data.rework_sh), raw(data.rt_sm ?? data.rework_sm), raw(data.rt_eh ?? data.rework_eh), raw(data.rt_em ?? data.rework_em), raw(data.rt_sub ?? data.rework_sub), 
+      raw(data.lc_sh ?? data.clear_sh), raw(data.lc_sm ?? data.clear_sm), raw(data.lc_eh ?? data.clear_eh), raw(data.lc_em ?? data.clear_em), raw(data.lc_sub ?? data.clear_sub)
+    ];
+  }
+
+  // LINE 1, 2, 4 (Blow / Washing / Filling / Preform)
+  var yield_batch = data.yield_batch ? (parseFloat(data.yield_batch) / 100) : "";
   var tglKriteria = "\"" + tglIndo + "\""; 
   var shiftKriteria = "\"" + String(data.shift).trim() + "\"";
   var kriteria_absolut = "D:D; " + tglKriteria + "; E:E; " + shiftKriteria;
@@ -296,21 +356,24 @@ function saveRejectZoneC(data, user, userLine) {
   const ss = SpreadsheetApp.openById(getDbIdByLine(userLine));
   const sheet = ss.getSheetByName(SHEET_DL_REJECT_C);
   if (!sheet) return { status: 'error', message: `Sheet Missing!` };
-  if (data.original_id) {
-    var existingRow = getRowByTidbId(sheet, data.original_id);
+  var idToSave = data.original_id || data.id;
+  if (idToSave) {
+    var existingRow = getRowByTidbId(sheet, idToSave, data, userLine);
     if (existingRow !== -1) return updateRejectZoneC(data, user, userLine);
   }
   var startRow = getRealLastDataRow(sheet, 4);
   
-  var rowData = constructRejectCArray(data, user, data.is_closing, startRow);
+  var rowData = constructRejectCArray(data, user, data.is_closing, startRow, userLine);
   sheet.getRange(startRow, 1, 1, rowData.length).setValues([rowData]);
-  sheet.getRange(startRow, 27, 1, 2).setNumberFormat("0.00%");
+  if (String(userLine) !== "3") {
+    sheet.getRange(startRow, 27, 1, 2).setNumberFormat("0.00%");
+  }
   
   // Real-Time Sync Backup (ID TiDB & JSON Payload)
-  sheet.getRange(startRow, TIDB_ID_COL).setValue(data.original_id || "");
+  sheet.getRange(startRow, TIDB_ID_COL).setValue(idToSave || "");
   sheet.getRange(startRow, TIDB_JSON_COL).setValue(JSON.stringify(data));
 
-  if (data.is_closing === true) sheet.getRange(startRow, 1, 1, 74).setBackground("#FFF2CC");
+  if (data.is_closing === true) sheet.getRange(startRow, 1, 1, rowData.length).setBackground("#FFF2CC");
   return { status: 'success', message: 'Data Zone C Tersimpan!' };
 }
 
@@ -320,21 +383,24 @@ function updateRejectZoneC(data, user, userLine) {
   if (!sheet) return { status: 'error', message: `Sheet Missing!` };
   
   // Gunakan ID TiDB untuk mencari baris yang tepat
-  var rowIndex = getRowByTidbId(sheet, data.original_id);
+  var idToUpdate = data.original_id || data.id;
+  var rowIndex = getRowByTidbId(sheet, idToUpdate, data, userLine);
   if (rowIndex === -1) return saveRejectZoneC(data, user, userLine); 
   
-  var rowData = constructRejectCArray(data, user, data.is_closing, rowIndex);
+  var rowData = constructRejectCArray(data, user, data.is_closing, rowIndex, userLine);
   rowData[0] = sheet.getRange(rowIndex, 1).getValue(); // Pertahankan Timestamp awal
   rowData[1] = (user && user.nama) ? user.nama : "Unknown (Edited)"; 
   
   sheet.getRange(rowIndex, 1, 1, rowData.length).setValues([rowData]);
-  sheet.getRange(rowIndex, 27, 1, 2).setNumberFormat("0.00%");
+  if (String(userLine) !== "3") {
+    sheet.getRange(rowIndex, 27, 1, 2).setNumberFormat("0.00%");
+  }
   
-  sheet.getRange(rowIndex, TIDB_ID_COL).setValue(data.original_id || "");
+  sheet.getRange(rowIndex, TIDB_ID_COL).setValue(idToUpdate || "");
   sheet.getRange(rowIndex, TIDB_JSON_COL).setValue(JSON.stringify(data));
 
-  if (data.is_closing === true) sheet.getRange(rowIndex, 1, 1, 74).setBackground("#FFF2CC");
-  else sheet.getRange(rowIndex, 1, 1, 74).setBackground(null); 
+  if (data.is_closing === true) sheet.getRange(rowIndex, 1, 1, rowData.length).setBackground("#FFF2CC");
+  else sheet.getRange(rowIndex, 1, 1, rowData.length).setBackground(null); 
   
   return { status: 'success', message: 'Data OEE Zone C Berhasil Diupdate!' };
 }
@@ -343,15 +409,39 @@ function deleteRejectZoneC(data, user, userLine) {
   const ss = SpreadsheetApp.openById(getDbIdByLine(userLine));
   const sheet = ss.getSheetByName(SHEET_DL_REJECT_C);
   if (!sheet) return { status: 'error', message: `Sheet Missing!` };
-  var rowIndex = getRowByTidbId(sheet, data.original_id);
-  if (rowIndex !== -1) sheet.deleteRow(rowIndex);
+  var idToDelete = data.original_id || data.id;
+  var rowIndex = getRowByTidbId(sheet, idToDelete, data, userLine);
+  if (rowIndex !== -1) {
+    sheet.deleteRow(rowIndex);
+  } else {
+    queuePendingDelete(userLine, SHEET_DL_REJECT_C, idToDelete);
+  }
   SpreadsheetApp.flush();
   return { status: 'success', message: 'Data berhasil dihapus!' };
 }
 
-function constructRejectFArray(data, user, isClosing, r) {
-  var yield_batch = data.yield_batch ? (parseFloat(data.yield_batch) / 100) : "";
+function constructRejectFArray(data, user, isClosing, r, userLine) {
   var tglIndo = formatTglIndo(data.tanggal);
+
+  // KHUSUS LINE 3 (INPUTF - Visual Inspection / Packing)
+  if (String(userLine) === "3") {
+    return [
+      new Date(), (user && user.nama) ? user.nama : "Unknown", 
+      raw(data.no_batch), tglIndo, raw(data.shift), raw(data.group), 
+      raw(data.vol_botol ?? data.volume_botol), 
+      raw(data.input_botol_chamber), raw(data.reject_bocor), raw(data.reject_lain), raw(data.total_reject_chamber), raw(data.output_tf_to_vi), 
+      raw(data.vi_start), raw(data.vi_end), raw(data.vi_sub ?? data.vi_sub_total), raw(data.vi_total_per_shift), 
+      raw(data.rej_partikel_menempel ?? data.vi_partikel), raw(data.rej_lelehan ?? data.vi_kotik), raw(data.rej_rilent), raw(data.rej_bocor_sealing), raw(data.rej_bocor_logo), raw(data.rej_volume_kurang), raw(data.rej_volume_lebih), raw(data.rej_others), 
+      raw(data.total_reject_vi ?? data.vi_rej_total ?? data.vi_total), raw(data.hasil_baik_vi ?? data.vi_hasil_baik), raw(data.transfer_ke_packing ?? data.vi_tf_packing), raw(data.hasil_baik_packing ?? data.pack_hasil_baik), 
+      raw(data.qc_sample ?? data.vi_sample_qc ?? data.pack_s_qc), raw(data.finished_goods ?? data.pack_fg), raw(data.utuh ?? data.pack_utuh), raw(data.jumlah_batch ?? data.pack_jml_batch), 
+      raw(data.at_sh ?? data.av_sh), raw(data.at_sm ?? data.av_sm), raw(data.at_eh ?? data.av_eh), raw(data.at_em ?? data.av_em), raw(data.at_sub ?? data.av_sub), raw(data.total_at ?? data.total_per_shift), 
+      raw(data.rt_sh ?? data.rework_sh), raw(data.rt_sm ?? data.rework_sm), raw(data.rt_eh ?? data.rework_eh), raw(data.rt_em ?? data.rework_em), raw(data.rt_sub ?? data.rework_sub), 
+      raw(data.lc_sh ?? data.clear_sh), raw(data.lc_sm ?? data.clear_sm), raw(data.lc_eh ?? data.clear_eh), raw(data.lc_em ?? data.clear_em), raw(data.lc_sub ?? data.clear_sub)
+    ];
+  }
+
+  // LINE 1, 2, 4 (Visual Inspection & Packing Standard)
+  var yield_batch = data.yield_batch ? (parseFloat(data.yield_batch) / 100) : "";
   var tglKriteria = "\"" + tglIndo + "\""; 
   var shiftKriteria = "\"" + String(data.shift).trim() + "\"";
   var kriteria_absolut = "E:E; " + tglKriteria + "; F:F; " + shiftKriteria;
@@ -388,21 +478,24 @@ function saveRejectZoneF(data, user, userLine) {
   const ss = SpreadsheetApp.openById(getDbIdByLine(userLine));
   const sheet = ss.getSheetByName(SHEET_DL_REJECT_F);
   if (!sheet) return { status: 'error', message: `Sheet Missing!` };
-  if (data.original_id) {
-    var existingRow = getRowByTidbId(sheet, data.original_id);
+  var idToSave = data.original_id || data.id;
+  if (idToSave) {
+    var existingRow = getRowByTidbId(sheet, idToSave, data, userLine);
     if (existingRow !== -1) return updateRejectZoneF(data, user, userLine);
   }
   
   var startRow = getRealLastDataRow(sheet, 4);
-  var rowData = constructRejectFArray(data, user, data.is_closing, startRow);
+  var rowData = constructRejectFArray(data, user, data.is_closing, startRow, userLine);
   
   sheet.getRange(startRow, 1, 1, rowData.length).setValues([rowData]);
-  sheet.getRange(startRow, 36, 1, 2).setNumberFormat("0.00%"); 
+  if (String(userLine) !== "3") {
+    sheet.getRange(startRow, 36, 1, 2).setNumberFormat("0.00%"); 
+  }
   
-  sheet.getRange(startRow, TIDB_ID_COL).setValue(data.original_id || "");
+  sheet.getRange(startRow, TIDB_ID_COL).setValue(idToSave || "");
   sheet.getRange(startRow, TIDB_JSON_COL).setValue(JSON.stringify(data));
 
-  if (data.is_closing === true) sheet.getRange(startRow, 1, 1, 67).setBackground("#FFF2CC");
+  if (data.is_closing === true) sheet.getRange(startRow, 1, 1, rowData.length).setBackground("#FFF2CC");
   return { status: 'success', message: 'Data Zone F Tersimpan!' };
 }
 
@@ -411,21 +504,24 @@ function updateRejectZoneF(data, user, userLine) {
   const sheet = ss.getSheetByName(SHEET_DL_REJECT_F);
   if (!sheet) return { status: 'error', message: `Sheet Missing!` };
   
-  var rowIndex = getRowByTidbId(sheet, data.original_id); 
+  var idToUpdate = data.original_id || data.id;
+  var rowIndex = getRowByTidbId(sheet, idToUpdate, data, userLine); 
   if (rowIndex === -1) return saveRejectZoneF(data, user, userLine);
   
-  var rowData = constructRejectFArray(data, user, data.is_closing, rowIndex);
+  var rowData = constructRejectFArray(data, user, data.is_closing, rowIndex, userLine);
   rowData[0] = sheet.getRange(rowIndex, 1).getValue(); 
   rowData[1] = (user && user.nama) ? user.nama : "Unknown (Edited)";
   
   sheet.getRange(rowIndex, 1, 1, rowData.length).setValues([rowData]);
-  sheet.getRange(rowIndex, 36, 1, 2).setNumberFormat("0.00%");
+  if (String(userLine) !== "3") {
+    sheet.getRange(rowIndex, 36, 1, 2).setNumberFormat("0.00%");
+  }
   
-  sheet.getRange(rowIndex, TIDB_ID_COL).setValue(data.original_id || "");
+  sheet.getRange(rowIndex, TIDB_ID_COL).setValue(idToUpdate || "");
   sheet.getRange(rowIndex, TIDB_JSON_COL).setValue(JSON.stringify(data));
 
-  if (data.is_closing === true) sheet.getRange(rowIndex, 1, 1, 67).setBackground("#FFF2CC");
-  else sheet.getRange(rowIndex, 1, 1, 67).setBackground(null);
+  if (data.is_closing === true) sheet.getRange(rowIndex, 1, 1, rowData.length).setBackground("#FFF2CC");
+  else sheet.getRange(rowIndex, 1, 1, rowData.length).setBackground(null);
   
   return { status: 'success', message: 'Data Zone F Berhasil Diupdate!' };
 }
@@ -435,8 +531,13 @@ function deleteRejectZoneF(data, user, userLine) {
   const sheet = ss.getSheetByName(SHEET_DL_REJECT_F);
   if (!sheet) return { status: 'error', message: `Sheet Missing!` };
   
-  var rowIndex = getRowByTidbId(sheet, data.original_id); 
-  if (rowIndex !== -1) sheet.deleteRow(rowIndex);
+  var idToDelete = data.original_id || data.id;
+  var rowIndex = getRowByTidbId(sheet, idToDelete, data, userLine); 
+  if (rowIndex !== -1) {
+    sheet.deleteRow(rowIndex);
+  } else {
+    queuePendingDelete(userLine, SHEET_DL_REJECT_F, idToDelete);
+  }
   SpreadsheetApp.flush();
   return { status: 'success', message: 'Data berhasil dihapus!' };
 }
@@ -456,8 +557,9 @@ function saveDT(data, user, userLine, sheetName, hasLot) {
   const ss = SpreadsheetApp.openById(getDbIdByLine(userLine));
   const sheet = ss.getSheetByName(sheetName);
   if (!sheet) return { status: 'error', message: `${sheetName} Missing!` };
-  if (data.original_id) {
-    var existingRow = getRowByTidbId(sheet, data.original_id);
+  var idToSave = data.original_id || data.id;
+  if (idToSave) {
+    var existingRow = getRowByTidbId(sheet, idToSave, data, userLine);
     if (existingRow !== -1) return updateDT(data, user, userLine, sheetName, hasLot);
   }
   
@@ -465,7 +567,7 @@ function saveDT(data, user, userLine, sheetName, hasLot) {
   var targetRow = getRealLastDataRow(sheet, 2);
   sheet.getRange(targetRow, 1, 1, rowData.length).setValues([rowData]);
   
-  sheet.getRange(targetRow, TIDB_ID_COL).setValue(data.original_id || "");
+  sheet.getRange(targetRow, TIDB_ID_COL).setValue(idToSave || "");
   sheet.getRange(targetRow, TIDB_JSON_COL).setValue(JSON.stringify(data));
   return { status: 'success', message: 'Downtime Saved!' };
 }
@@ -478,7 +580,8 @@ function updateDT(data, user, userLine, sheetName, hasLot) {
   const sheet = ss.getSheetByName(sheetName);
   if (!sheet) return { status: 'error', message: `${sheetName} Missing!` };
   
-  var rowIndex = getRowByTidbId(sheet, data.original_id); 
+  var idToUpdate = data.original_id || data.id;
+  var rowIndex = getRowByTidbId(sheet, idToUpdate, data, userLine); 
   if (rowIndex === -1) return saveDT(data, user, userLine, sheetName, hasLot);
 
   var rowData = constructDowntimeArray(data, user, hasLot);
@@ -486,7 +589,7 @@ function updateDT(data, user, userLine, sheetName, hasLot) {
   rowData[1] = (user && user.nama) ? user.nama : "Unknown (Edited)";
   
   sheet.getRange(rowIndex, 1, 1, rowData.length).setValues([rowData]);
-  sheet.getRange(rowIndex, TIDB_ID_COL).setValue(data.original_id || "");
+  sheet.getRange(rowIndex, TIDB_ID_COL).setValue(idToUpdate || "");
   sheet.getRange(rowIndex, TIDB_JSON_COL).setValue(JSON.stringify(data));
   return { status: 'success', message: 'Downtime Berhasil Diupdate!' };
 }
@@ -496,8 +599,13 @@ function deleteDowntimeZoneC(data, user, userLine) {
   const sheet = ss.getSheetByName(SHEET_DL_DOWNTIME_C); 
   if (!sheet) return { status: 'error', message: `Sheet Missing!` };
 
-  var rowIndex = getRowByTidbId(sheet, data.original_id); 
-  if (rowIndex !== -1) sheet.deleteRow(rowIndex);
+  var idToDelete = data.original_id || data.id;
+  var rowIndex = getRowByTidbId(sheet, idToDelete, data, userLine); 
+  if (rowIndex !== -1) {
+    sheet.deleteRow(rowIndex);
+  } else {
+    queuePendingDelete(userLine, SHEET_DL_DOWNTIME_C, idToDelete);
+  }
   return { status: 'success', message: 'Data downtime C berhasil dihapus!' };
 }
 
@@ -506,8 +614,13 @@ function deleteDowntimeZoneF(data, user, userLine) {
   const sheet = ss.getSheetByName(SHEET_DL_DOWNTIME_F); 
   if (!sheet) return { status: 'error', message: `Sheet Missing!` };
 
-  var rowIndex = getRowByTidbId(sheet, data.original_id); 
-  if (rowIndex !== -1) sheet.deleteRow(rowIndex);
+  var idToDelete = data.original_id || data.id;
+  var rowIndex = getRowByTidbId(sheet, idToDelete, data, userLine); 
+  if (rowIndex !== -1) {
+    sheet.deleteRow(rowIndex);
+  } else {
+    queuePendingDelete(userLine, SHEET_DL_DOWNTIME_F, idToDelete);
+  }
   return { status: 'success', message: 'Data downtime berhasil dihapus!' };
 }
 
@@ -812,4 +925,152 @@ function streamRealTimeData(payload, user, userLine) {
   } catch (error) {
     return { status: "error", message: error.toString() };
   }
+}
+
+// ==================== FUNGSI TRIGGER WAKTU 1 MENIT (TIME-DRIVEN TRIGGER) ====================
+/**
+ * FUNGSI TRIGGER AUTOMATIS 1 MENIT
+ * Pasang fungsi ini pada Trigger Google Apps Script (Time-driven -> Every 1 minute).
+ * 
+ * Fungsi ini bertugas:
+ * 1. Memeriksa dan mengeksekusi antrean penghapusan data (Queue Delete) yang tertunda saat lock sibuk.
+ * 2. Membersihkan baris duplikat berdasarkan ID TiDB pada setiap Line.
+ * 3. Memastikan sinkronisasi data yang telah di-delete dari sistem terupdate otomatis di Google Spreadsheet.
+ */
+function autoSyncAndClean1Min() {
+  // 1. Proses Antrean Deletion & Saves
+  processPendingDeletes();
+  processPendingSaves();
+
+  // 2. Pembersihan Duplikat ID TiDB pada Sheet OEE & Downtime
+  const lines = ["1", "2", "3", "4"];
+  const sheetNames = [SHEET_DL_REJECT_C, SHEET_DL_REJECT_F, SHEET_DL_DOWNTIME_C, SHEET_DL_DOWNTIME_F];
+  
+  for (let l = 0; l < lines.length; l++) {
+    try {
+      const ss = SpreadsheetApp.openById(getDbIdByLine(lines[l]));
+      for (let s = 0; s < sheetNames.length; s++) {
+        const sheet = ss.getSheetByName(sheetNames[s]);
+        if (!sheet) continue;
+        
+        const lastRow = sheet.getLastRow();
+        if (lastRow < START_ROW_DATA) continue;
+        
+        const numRows = lastRow - START_ROW_DATA + 1;
+        const idsCV = sheet.getRange(START_ROW_DATA, TIDB_ID_COL, numRows, 1).getValues();
+        const idsA = sheet.getRange(START_ROW_DATA, 1, numRows, 1).getValues();
+        
+        const seenIds = new Set();
+        const rowsToDelete = [];
+        
+        // Cek dari bawah ke atas (data terbaru di bawah)
+        for (let i = numRows - 1; i >= 0; i--) {
+          let id = String(idsCV[i][0] || idsA[i][0] || "").trim();
+          
+          if (id && !isNaN(Number(id)) && Number(id) > 0) {
+            if (seenIds.has(id)) {
+              rowsToDelete.push(i + START_ROW_DATA);
+            } else {
+              seenIds.add(id);
+            }
+          }
+        }
+        
+        // Hapus baris duplikat dari bawah agar indeks tidak bergeser
+        rowsToDelete.sort((a, b) => b - a);
+        for (let r = 0; r < rowsToDelete.length; r++) {
+          sheet.deleteRow(rowsToDelete[r]);
+        }
+      }
+    } catch (err) {
+      console.error(`Error clean line ${lines[l]}: ${err.toString()}`);
+    }
+  }
+}
+
+function queuePendingDelete(userLine, sheetName, idToDelete) {
+  if (!idToDelete || idToDelete === "saved") return;
+  try {
+    const props = PropertiesService.getScriptProperties();
+    const queueStr = props.getProperty("PENDING_DELETES") || "[]";
+    const queue = JSON.parse(queueStr);
+    if (!queue.some(item => String(item.id) === String(idToDelete) && item.sheet === sheetName)) {
+      queue.push({ line: userLine, sheet: sheetName, id: idToDelete, timestamp: new Date().getTime(), retries: 0 });
+      props.setProperty("PENDING_DELETES", JSON.stringify(queue));
+    }
+  } catch (e) { console.error("Failed to queue delete:", e); }
+}
+
+function processPendingDeletes() {
+  try {
+    const props = PropertiesService.getScriptProperties();
+    const queueStr = props.getProperty("PENDING_DELETES") || "[]";
+    let queue = JSON.parse(queueStr);
+    if (!queue || queue.length === 0) return;
+    
+    const remainingQueue = [];
+    for (let i = 0; i < queue.length; i++) {
+      const item = queue[i];
+      if (new Date().getTime() - item.timestamp > 86400000) continue;
+      
+      const ss = SpreadsheetApp.openById(getDbIdByLine(item.line));
+      const sheet = ss.getSheetByName(item.sheet);
+      if (!sheet) continue;
+      
+      const rowIndex = getRowByTidbId(sheet, item.id);
+      if (rowIndex !== -1) {
+        sheet.deleteRow(rowIndex);
+      } else {
+        item.retries = (item.retries || 0) + 1;
+        if (item.retries < 10) remainingQueue.push(item);
+      }
+    }
+    props.setProperty("PENDING_DELETES", JSON.stringify(remainingQueue));
+  } catch (e) { console.error("Error processing delete queue:", e); }
+}
+
+function queuePendingSave(userLine, action, data, user) {
+  if (!data) return;
+  try {
+    const props = PropertiesService.getScriptProperties();
+    const queueStr = props.getProperty("PENDING_SAVES") || "[]";
+    const queue = JSON.parse(queueStr);
+    var targetId = data.original_id || data.id || (data.no_batch + "_" + data.tanggal + "_" + data.shift);
+    const filtered = queue.filter(item => {
+      var itemId = item.data.original_id || item.data.id || (item.data.no_batch + "_" + item.data.tanggal + "_" + item.data.shift);
+      return String(itemId) !== String(targetId) || item.action !== action;
+    });
+    filtered.push({ line: userLine, action: action, data: data, user: user, timestamp: new Date().getTime(), retries: 0 });
+    props.setProperty("PENDING_SAVES", JSON.stringify(filtered));
+  } catch (e) { console.error("Failed to queue save:", e); }
+}
+
+function processPendingSaves() {
+  try {
+    const props = PropertiesService.getScriptProperties();
+    const queueStr = props.getProperty("PENDING_SAVES") || "[]";
+    let queue = JSON.parse(queueStr);
+    if (!queue || queue.length === 0) return;
+    
+    const remainingQueue = [];
+    for (let i = 0; i < queue.length; i++) {
+      const item = queue[i];
+      if (new Date().getTime() - item.timestamp > 86400000) continue;
+      
+      try {
+        if (item.action === "submit_reject_c") saveRejectZoneC(item.data, item.user, item.line);
+        else if (item.action === "submit_reject_f") saveRejectZoneF(item.data, item.user, item.line);
+        else if (item.action === "submit_downtime_c") saveDowntimeZoneC(item.data, item.user, item.line);
+        else if (item.action === "submit_downtime_f") saveDowntimeZoneF(item.data, item.user, item.line);
+        else if (item.action === "update_reject_c") updateRejectZoneC(item.data, item.user, item.line);
+        else if (item.action === "update_reject_f") updateRejectZoneF(item.data, item.user, item.line);
+        else if (item.action === "update_downtime_c") updateDowntimeZoneC(item.data, item.user, item.line);
+        else if (item.action === "update_downtime_f") updateDowntimeZoneF(item.data, item.user, item.line);
+      } catch (err) {
+        item.retries = (item.retries || 0) + 1;
+        if (item.retries < 5) remainingQueue.push(item);
+      }
+    }
+    props.setProperty("PENDING_SAVES", JSON.stringify(remainingQueue));
+  } catch (e) { console.error("Error processPendingSaves:", e); }
 }
