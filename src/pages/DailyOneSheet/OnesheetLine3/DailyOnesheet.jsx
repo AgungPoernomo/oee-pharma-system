@@ -343,9 +343,9 @@ const SummaryTable = ({ zoneTitle, structure, matrixData, oee, avail, perf, qual
 const DailyOnesheet = () => {
   const { user } = useAuth();
   const [inputDate, setInputDate] = useState(new Date().toISOString().split('T')[0]); 
-  const [inputVolume, setInputVolume] = useState("500 ML"); 
+  const [inputVolume, setInputVolume] = useState("25 ML"); 
   const [activeDate, setActiveDate] = useState(new Date().toISOString().split('T')[0]); 
-  const [activeVolume, setActiveVolume] = useState("500 ML"); 
+  const [activeVolume, setActiveVolume] = useState("25 ML"); 
   
   const [isFetching, setIsFetching] = useState(false); 
   const [isPrinting, setIsPrinting] = useState(false); // State untuk mengatur ukuran saat cetak
@@ -454,7 +454,7 @@ const DailyOnesheet = () => {
           <div className="border-b-4 bg-purple-200 border-black pb-4 mb-8 text-center flex flex-col items-center">
             <h1 className="text-4xl font-black uppercase tracking-widest mb-4">Laporan Onesheet</h1>
             <div className="flex gap-12 text-sm font-bold">
-              <div className="flex flex-col"><span className="text-black-500 uppercase tracking-widest text-[10px]">Line</span><span className="text-xl">{user?.line || 2}</span></div>
+              <div className="flex flex-col"><span className="text-black-500 uppercase tracking-widest text-[10px]">Line</span><span className="text-xl">{user?.line || 3}</span></div>
               <div className="flex flex-col"><span className="text-black-500 uppercase tracking-widest text-[10px]">Tanggal</span><span className="text-xl">{activeDate}</span></div>
               <div className="flex flex-col"><span className="text-black-500 uppercase tracking-widest text-[10px]">Volume</span><span className="text-xl">{activeVolume}</span></div>
             </div>
