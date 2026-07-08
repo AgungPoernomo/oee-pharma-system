@@ -69,19 +69,8 @@ export default async function handler(req, res) {
         }
       }
 
-      // Backup async ke Google Apps Script dengan Retry
-      if (deletedIds.length > 0 && process.env.GAS_URL) {
-        const gasUser = { ...(user || {}), line: lineNum };
-        const gasPromises = deletedIds.map(delId =>
-          sendToGAS(process.env.GAS_URL, {
-            action: action,
-            data: { original_id: delId, id: delId },
-            user: gasUser,
-            tableName: tableName
-          })
-        );
-        Promise.allSettled(gasPromises).catch(err => console.error("GAS Delete Background Error:", err));
-      }
+      // [OPSI 1 SCHEDULED BACKUP]: sendToGAS dinonaktifkan pada saat Cell Blur operasional.
+      // Pengiriman data ke GAS dilakukan saat Log Out (via endpoint /api/sync-on-logout).
 
       return res.status(200).json({ status: 'success', deleted: deletedCount, ids: deletedIds });
     } else if (
@@ -114,17 +103,8 @@ export default async function handler(req, res) {
 
       const firstId = insertedIds.length > 0 ? insertedIds[0] : null;
 
-      // Backup async ke Google Apps Script dengan Retry
-      const gasUser = { ...(user || {}), line: lineNum };
-      const backupData = { ...data, original_id: firstId };
-      if (process.env.GAS_URL) {
-        sendToGAS(process.env.GAS_URL, {
-          action: action,
-          data: backupData,
-          user: gasUser,
-          tableName: tableName
-        }).catch(err => console.error("GAS Save Background Error:", err));
-      }
+      // [OPSI 1 SCHEDULED BACKUP]: sendToGAS dinonaktifkan pada saat Cell Blur operasional.
+      // Pengiriman data ke GAS dilakukan saat Log Out (via endpoint /api/sync-on-logout).
 
       return res.status(200).json({ status: 'success', original_id: firstId, ids: insertedIds });
     }

@@ -16,10 +16,6 @@ const SHEET_DATA_LAKE_DT = "data_lake_DT";
 
 const START_ROW_DATA = 2; 
 
-// KOLOM KHUSUS UNTUK BACKUP ID TIDB & RAW JSON
-const TIDB_ID_COL = 100;   // Kolom CV
-const TIDB_JSON_COL = 101; // Kolom CW
-
 function getDbIdByLine(userLine) {
   const str = String(userLine || "2").toUpperCase().trim(); 
   if (str.includes("LINE 1") || str.includes("LINE1") || str === "1") return ID_DB_LINE_1;
@@ -34,17 +30,15 @@ function raw(val) {
 }
 
 function getRowByTidbId(sheet, tidbId, data, userLine) {
-  if (!tidbId || tidbId === "saved") {
-    tidbId = null;
-  } else {
+  if (tidbId && tidbId !== "saved") {
     var lastRow = sheet.getLastRow();
-    if (lastRow < START_ROW_DATA) return -1;
-    var numRows = lastRow - START_ROW_DATA + 1;
-    var rangeCV = sheet.getRange(START_ROW_DATA, TIDB_ID_COL, numRows, 1).getValues();
-    var rangeA = sheet.getRange(START_ROW_DATA, 1, numRows, 1).getValues();
-    for (var i = numRows - 1; i >= 0; i--) {
-      if (String(rangeCV[i][0]).trim() === String(tidbId).trim() || String(rangeA[i][0]).trim() === String(tidbId).trim()) {
-        return i + START_ROW_DATA;
+    if (lastRow >= START_ROW_DATA) {
+      var numRows = lastRow - START_ROW_DATA + 1;
+      var rangeA = sheet.getRange(START_ROW_DATA, 1, numRows, 1).getValues();
+      for (var i = numRows - 1; i >= 0; i--) {
+        if (String(rangeA[i][0]).trim() === String(tidbId).trim()) {
+          return i + START_ROW_DATA;
+        }
       }
     }
   }
@@ -164,16 +158,7 @@ function doPost(e) {
     }
     return responseJSON(result);
   } catch (error) {
-    if (e && e.postData && e.postData.contents) {
-      try {
-        const p = JSON.parse(e.postData.contents);
-        if (p.action && (p.action.indexOf('submit_') !== -1 || p.action.indexOf('update_') !== -1)) {
-          const uLine = p.user ? (p.user.line || p.user.plant || "2") : "2";
-          queuePendingSave(uLine, p.action, p.data, p.user);
-        }
-      } catch (ex) {}
-    }
-    return responseJSON({ status: "error", message: error.toString(), queued: true });
+    return responseJSON({ status: "error", message: error.toString() });
   } finally {
     lock.releaseLock();
   }
@@ -248,64 +233,18 @@ function saveRejectZoneC(data, user, userLine) {
   const ss = SpreadsheetApp.openById(getDbIdByLine(userLine));
   const sheet = ss.getSheetByName(SHEET_DL_REJECT_C);
   if (!sheet) return { status: 'error', message: `Sheet Missing!` };
-  var idToSave = data.original_id || data.id;
-  if (idToSave) {
-    var existingRow = getRowByTidbId(sheet, idToSave, data, userLine);
-    if (existingRow !== -1) return updateRejectZoneC(data, user, userLine);
-  }
-  var startRow = getRealLastDataRow(sheet, 4);
   
+  var startRow = getRealLastDataRow(sheet, 4);
   var rowData = constructRejectCArray(data, user, data.is_closing, startRow, userLine);
   sheet.getRange(startRow, 1, 1, rowData.length).setValues([rowData]);
-  
-  // Real-Time Sync Backup (ID TiDB & JSON Payload)
-  sheet.getRange(startRow, TIDB_ID_COL).setValue(idToSave || "");
-  sheet.getRange(startRow, TIDB_JSON_COL).setValue(JSON.stringify(data));
 
   if (data.is_closing === true) sheet.getRange(startRow, 1, 1, rowData.length).setBackground("#FFF2CC");
   SpreadsheetApp.flush();
   return { status: 'success', message: 'Data Zone C Tersimpan!' };
 }
 
-function updateRejectZoneC(data, user, userLine) {
-  const ss = SpreadsheetApp.openById(getDbIdByLine(userLine));
-  const sheet = ss.getSheetByName(SHEET_DL_REJECT_C);
-  if (!sheet) return { status: 'error', message: `Sheet Missing!` };
-  
-  // Gunakan ID TiDB untuk mencari baris yang tepat
-  var idToUpdate = data.original_id || data.id;
-  var rowIndex = getRowByTidbId(sheet, idToUpdate, data, userLine);
-  if (rowIndex === -1) return saveRejectZoneC(data, user, userLine); 
-  
-  var rowData = constructRejectCArray(data, user, data.is_closing, rowIndex, userLine);
-  rowData[0] = sheet.getRange(rowIndex, 1).getValue(); // Pertahankan Timestamp awal
-  rowData[1] = (user && user.nama) ? user.nama : "Unknown (Edited)"; 
-  
-  sheet.getRange(rowIndex, 1, 1, rowData.length).setValues([rowData]);
-  
-  sheet.getRange(rowIndex, TIDB_ID_COL).setValue(idToUpdate || "");
-  sheet.getRange(rowIndex, TIDB_JSON_COL).setValue(JSON.stringify(data));
-
-  if (data.is_closing === true) sheet.getRange(rowIndex, 1, 1, rowData.length).setBackground("#FFF2CC");
-  else sheet.getRange(rowIndex, 1, 1, rowData.length).setBackground(null); 
-  SpreadsheetApp.flush();
-  return { status: 'success', message: 'Data OEE Zone C Berhasil Diupdate!' };
-}
-
-function deleteRejectZoneC(data, user, userLine) {
-  const ss = SpreadsheetApp.openById(getDbIdByLine(userLine));
-  const sheet = ss.getSheetByName(SHEET_DL_REJECT_C);
-  if (!sheet) return { status: 'error', message: `Sheet Missing!` };
-  var idToDelete = data.original_id || data.id;
-  var rowIndex = getRowByTidbId(sheet, idToDelete, data, userLine);
-  if (rowIndex !== -1) {
-    sheet.deleteRow(rowIndex);
-  } else {
-    queuePendingDelete(userLine, SHEET_DL_REJECT_C, idToDelete);
-  }
-  SpreadsheetApp.flush();
-  return { status: 'success', message: 'Data berhasil dihapus!' };
-}
+function updateRejectZoneC(data, user, userLine) { return saveRejectZoneC(data, user, userLine); }
+function deleteRejectZoneC(data, user, userLine) { return { status: 'success', message: 'Delete dilewati di GAS (Opsi 1 Batch Log Out)' }; }
 
 function constructRejectFArray(data, user, isClosing, r, userLine) {
   var tglIndo = formatTglIndo(data.tanggal);
@@ -371,64 +310,19 @@ function saveRejectZoneF(data, user, userLine) {
   const ss = SpreadsheetApp.openById(getDbIdByLine(userLine));
   const sheet = ss.getSheetByName(SHEET_DL_REJECT_F);
   if (!sheet) return { status: 'error', message: `Sheet Missing!` };
-  var idToSave = data.original_id || data.id;
-  if (idToSave) {
-    var existingRow = getRowByTidbId(sheet, idToSave, data, userLine);
-    if (existingRow !== -1) return updateRejectZoneF(data, user, userLine);
-  }
   
-  var startRow = getRealLastDataRow(sheet, 4);
+  var startRow = sheet.getLastRow() + 1;
   var rowData = constructRejectFArray(data, user, data.is_closing, startRow, userLine);
   
-  sheet.getRange(startRow, 1, 1, rowData.length).setValues([rowData]);
-  
-  sheet.getRange(startRow, TIDB_ID_COL).setValue(idToSave || "");
-  sheet.getRange(startRow, TIDB_JSON_COL).setValue(JSON.stringify(data));
+  sheet.appendRow(rowData);
 
   if (data.is_closing === true) sheet.getRange(startRow, 1, 1, rowData.length).setBackground("#FFF2CC");
   SpreadsheetApp.flush();
   return { status: 'success', message: 'Data Zone F Tersimpan!' };
 }
 
-function updateRejectZoneF(data, user, userLine) {
-  const ss = SpreadsheetApp.openById(getDbIdByLine(userLine));
-  const sheet = ss.getSheetByName(SHEET_DL_REJECT_F);
-  if (!sheet) return { status: 'error', message: `Sheet Missing!` };
-  
-  var idToUpdate = data.original_id || data.id;
-  var rowIndex = getRowByTidbId(sheet, idToUpdate, data, userLine); 
-  if (rowIndex === -1) return saveRejectZoneF(data, user, userLine);
-  
-  var rowData = constructRejectFArray(data, user, data.is_closing, rowIndex, userLine);
-  rowData[0] = sheet.getRange(rowIndex, 1).getValue(); 
-  rowData[1] = (user && user.nama) ? user.nama : "Unknown (Edited)";
-  
-  sheet.getRange(rowIndex, 1, 1, rowData.length).setValues([rowData]);
-  
-  sheet.getRange(rowIndex, TIDB_ID_COL).setValue(idToUpdate || "");
-  sheet.getRange(rowIndex, TIDB_JSON_COL).setValue(JSON.stringify(data));
-
-  if (data.is_closing === true) sheet.getRange(rowIndex, 1, 1, rowData.length).setBackground("#FFF2CC");
-  else sheet.getRange(rowIndex, 1, 1, rowData.length).setBackground(null);
-  SpreadsheetApp.flush();
-  return { status: 'success', message: 'Data Zone F Berhasil Diupdate!' };
-}
-
-function deleteRejectZoneF(data, user, userLine) {
-  const ss = SpreadsheetApp.openById(getDbIdByLine(userLine));
-  const sheet = ss.getSheetByName(SHEET_DL_REJECT_F);
-  if (!sheet) return { status: 'error', message: `Sheet Missing!` };
-  
-  var idToDelete = data.original_id || data.id;
-  var rowIndex = getRowByTidbId(sheet, idToDelete, data, userLine); 
-  if (rowIndex !== -1) {
-    sheet.deleteRow(rowIndex);
-  } else {
-    queuePendingDelete(userLine, SHEET_DL_REJECT_F, idToDelete);
-  }
-  SpreadsheetApp.flush();
-  return { status: 'success', message: 'Data berhasil dihapus!' };
-}
+function updateRejectZoneF(data, user, userLine) { return saveRejectZoneF(data, user, userLine); }
+function deleteRejectZoneF(data, user, userLine) { return { status: 'success', message: 'Delete dilewati di GAS (Opsi 1 Batch Log Out)' }; }
 
 function constructDowntimeArray(data, user, hasLot) {
   var sourceName = (user && user.nama) ? user.nama : "Unknown";
@@ -445,74 +339,20 @@ function saveDT(data, user, userLine, sheetName, hasLot) {
   const ss = SpreadsheetApp.openById(getDbIdByLine(userLine));
   const sheet = ss.getSheetByName(sheetName);
   if (!sheet) return { status: 'error', message: `${sheetName} Missing!` };
-  var idToSave = data.original_id || data.id;
-  if (idToSave) {
-    var existingRow = getRowByTidbId(sheet, idToSave, data, userLine);
-    if (existingRow !== -1) return updateDT(data, user, userLine, sheetName, hasLot);
-  }
   
   var rowData = constructDowntimeArray(data, user, hasLot);
   var targetRow = getRealLastDataRow(sheet, 2);
   sheet.getRange(targetRow, 1, 1, rowData.length).setValues([rowData]);
-  
-  sheet.getRange(targetRow, TIDB_ID_COL).setValue(idToSave || "");
-  sheet.getRange(targetRow, TIDB_JSON_COL).setValue(JSON.stringify(data));
   SpreadsheetApp.flush();
   return { status: 'success', message: 'Downtime Saved!' };
 }
 
-function updateDowntimeZoneC(data, user, userLine) { return updateDT(data, user, userLine, SHEET_DL_DOWNTIME_C, false); }
-function updateDowntimeZoneF(data, user, userLine) { return updateDT(data, user, userLine, SHEET_DL_DOWNTIME_F, true); }
+function updateDowntimeZoneC(data, user, userLine) { return saveDT(data, user, userLine, SHEET_DL_DOWNTIME_C, false); }
+function updateDowntimeZoneF(data, user, userLine) { return saveDT(data, user, userLine, SHEET_DL_DOWNTIME_F, true); }
+function updateDT(data, user, userLine, sheetName, hasLot) { return saveDT(data, user, userLine, sheetName, hasLot); }
 
-function updateDT(data, user, userLine, sheetName, hasLot) {
-  const ss = SpreadsheetApp.openById(getDbIdByLine(userLine));
-  const sheet = ss.getSheetByName(sheetName);
-  if (!sheet) return { status: 'error', message: `${sheetName} Missing!` };
-  
-  var idToUpdate = data.original_id || data.id;
-  var rowIndex = getRowByTidbId(sheet, idToUpdate, data, userLine); 
-  if (rowIndex === -1) return saveDT(data, user, userLine, sheetName, hasLot);
-
-  var rowData = constructDowntimeArray(data, user, hasLot);
-  rowData[0] = sheet.getRange(rowIndex, 1).getValue();
-  rowData[1] = (user && user.nama) ? user.nama : "Unknown (Edited)";
-  
-  sheet.getRange(rowIndex, 1, 1, rowData.length).setValues([rowData]);
-  sheet.getRange(rowIndex, TIDB_ID_COL).setValue(idToUpdate || "");
-  sheet.getRange(rowIndex, TIDB_JSON_COL).setValue(JSON.stringify(data));
-  SpreadsheetApp.flush();
-  return { status: 'success', message: 'Downtime Berhasil Diupdate!' };
-}
-
-function deleteDowntimeZoneC(data, user, userLine) {
-  const ss = SpreadsheetApp.openById(getDbIdByLine(userLine));
-  const sheet = ss.getSheetByName(SHEET_DL_DOWNTIME_C); 
-  if (!sheet) return { status: 'error', message: `Sheet Missing!` };
-
-  var idToDelete = data.original_id || data.id;
-  var rowIndex = getRowByTidbId(sheet, idToDelete, data, userLine); 
-  if (rowIndex !== -1) {
-    sheet.deleteRow(rowIndex);
-  } else {
-    queuePendingDelete(userLine, SHEET_DL_DOWNTIME_C, idToDelete);
-  }
-  return { status: 'success', message: 'Data downtime C berhasil dihapus!' };
-}
-
-function deleteDowntimeZoneF(data, user, userLine) {
-  const ss = SpreadsheetApp.openById(getDbIdByLine(userLine));
-  const sheet = ss.getSheetByName(SHEET_DL_DOWNTIME_F); 
-  if (!sheet) return { status: 'error', message: `Sheet Missing!` };
-
-  var idToDelete = data.original_id || data.id;
-  var rowIndex = getRowByTidbId(sheet, idToDelete, data, userLine); 
-  if (rowIndex !== -1) {
-    sheet.deleteRow(rowIndex);
-  } else {
-    queuePendingDelete(userLine, SHEET_DL_DOWNTIME_F, idToDelete);
-  }
-  return { status: 'success', message: 'Data downtime berhasil dihapus!' };
-}
+function deleteDowntimeZoneC(data, user, userLine) { return { status: 'success', message: 'Delete dilewati di GAS (Opsi 1 Batch Log Out)' }; }
+function deleteDowntimeZoneF(data, user, userLine) { return { status: 'success', message: 'Delete dilewati di GAS (Opsi 1 Batch Log Out)' }; }
 
 function getTodayData(userLine, sheetName, totalCols, dateColIndex, dataStartRow) {
   const targetId = getDbIdByLine(userLine);
@@ -792,11 +632,7 @@ function handleSendFeedback(data, user) {
  * 3. Memastikan sinkronisasi data yang telah di-delete dari sistem terupdate otomatis di Google Spreadsheet.
  */
 function autoSyncAndClean1Min() {
-  // 1. Proses Antrean Deletion & Saves
-  processPendingDeletes();
-  processPendingSaves();
-
-  // 2. Pembersihan Duplikat ID TiDB pada Sheet OEE & Downtime
+  // Pembersihan Duplikat ID TiDB pada Sheet OEE & Downtime
   const lines = ["1", "2", "3", "4"];
   const sheetNames = [SHEET_DL_REJECT_C, SHEET_DL_REJECT_F, SHEET_DL_DOWNTIME_C, SHEET_DL_DOWNTIME_F];
   
@@ -811,7 +647,6 @@ function autoSyncAndClean1Min() {
         if (lastRow < START_ROW_DATA) continue;
         
         const numRows = lastRow - START_ROW_DATA + 1;
-        const idsCV = sheet.getRange(START_ROW_DATA, TIDB_ID_COL, numRows, 1).getValues();
         const idsA = sheet.getRange(START_ROW_DATA, 1, numRows, 1).getValues();
         
         const seenIds = new Set();
@@ -819,7 +654,7 @@ function autoSyncAndClean1Min() {
         
         // Cek dari bawah ke atas (data terbaru di bawah)
         for (let i = numRows - 1; i >= 0; i--) {
-          let id = String(idsCV[i][0] || idsA[i][0] || "").trim();
+          let id = String(idsA[i][0] || "").trim();
           
           if (id && !isNaN(Number(id)) && Number(id) > 0) {
             if (seenIds.has(id)) {
@@ -842,95 +677,6 @@ function autoSyncAndClean1Min() {
   }
 }
 
-function queuePendingDelete(userLine, sheetName, idToDelete) {
-  if (!idToDelete || idToDelete === "saved") return;
-  try {
-    const props = PropertiesService.getScriptProperties();
-    const queueStr = props.getProperty("PENDING_DELETES") || "[]";
-    const queue = JSON.parse(queueStr);
-    if (!queue.some(item => String(item.id) === String(idToDelete) && item.sheet === sheetName)) {
-      queue.push({ line: userLine, sheet: sheetName, id: idToDelete, timestamp: new Date().getTime(), retries: 0 });
-      props.setProperty("PENDING_DELETES", JSON.stringify(queue));
-    }
-  } catch (e) { console.error("Failed to queue delete:", e); }
-}
-
-function processPendingDeletes() {
-  try {
-    const props = PropertiesService.getScriptProperties();
-    const queueStr = props.getProperty("PENDING_DELETES") || "[]";
-    let queue = JSON.parse(queueStr);
-    if (!queue || queue.length === 0) return;
-    
-    const remainingQueue = [];
-    for (let i = 0; i < queue.length; i++) {
-      const item = queue[i];
-      if (new Date().getTime() - item.timestamp > 86400000) continue;
-      
-      const ss = SpreadsheetApp.openById(getDbIdByLine(item.line));
-      const sheet = ss.getSheetByName(item.sheet);
-      if (!sheet) continue;
-      
-      const rowIndex = getRowByTidbId(sheet, item.id);
-      if (rowIndex !== -1) {
-        sheet.deleteRow(rowIndex);
-      } else {
-        item.retries = (item.retries || 0) + 1;
-        if (item.retries < 10) remainingQueue.push(item);
-      }
-    }
-    props.setProperty("PENDING_DELETES", JSON.stringify(remainingQueue));
-  } catch (e) { console.error("Error processing delete queue:", e); }
-}
-
-function queuePendingSave(userLine, action, data, user) {
-  if (!data) return;
-  try {
-    const props = PropertiesService.getScriptProperties();
-    const queueStr = props.getProperty("PENDING_SAVES") || "[]";
-    const queue = JSON.parse(queueStr);
-    var targetId = data.original_id || data.id || (data.no_batch + "_" + data.tanggal + "_" + data.shift);
-    const filtered = queue.filter(item => {
-      var itemId = item.data.original_id || item.data.id || (item.data.no_batch + "_" + item.data.tanggal + "_" + item.data.shift);
-      return String(itemId) !== String(targetId) || item.action !== action;
-    });
-    filtered.push({ line: userLine, action: action, data: data, user: user, timestamp: new Date().getTime(), retries: 0 });
-    props.setProperty("PENDING_SAVES", JSON.stringify(filtered));
-  } catch (e) { console.error("Failed to queue save:", e); }
-}
-
-function processPendingSaves() {
-  try {
-    const props = PropertiesService.getScriptProperties();
-    const queueStr = props.getProperty("PENDING_SAVES") || "[]";
-    let queue = JSON.parse(queueStr);
-    if (!queue || queue.length === 0) return;
-    
-    const remainingQueue = [];
-    const now = new Date().getTime();
-    for (let i = 0; i < queue.length; i++) {
-      const item = queue[i];
-      // Buang antrean yang lebih lama dari 1 jam (3600000 ms) atau data kadaluwarsa/stuck seperti ID 1690
-      if (now - item.timestamp > 3600000) continue;
-      if (item.data && (item.data.original_id == 1690 || item.data.id == 1690 || item.data.no_batch == "1D1A6G014")) continue;
-      
-      try {
-        if (item.action === "submit_reject_c") saveRejectZoneC(item.data, item.user, item.line);
-        else if (item.action === "submit_reject_f") saveRejectZoneF(item.data, item.user, item.line);
-        else if (item.action === "submit_downtime_c") saveDowntimeZoneC(item.data, item.user, item.line);
-        else if (item.action === "submit_downtime_f") saveDowntimeZoneF(item.data, item.user, item.line);
-        else if (item.action === "update_reject_c") updateRejectZoneC(item.data, item.user, item.line);
-        else if (item.action === "update_reject_f") updateRejectZoneF(item.data, item.user, item.line);
-        else if (item.action === "update_downtime_c") updateDowntimeZoneC(item.data, item.user, item.line);
-        else if (item.action === "update_downtime_f") updateDowntimeZoneF(item.data, item.user, item.line);
-      } catch (err) {
-        item.retries = (item.retries || 0) + 1;
-        if (item.retries < 5) remainingQueue.push(item);
-      }
-    }
-    props.setProperty("PENDING_SAVES", JSON.stringify(remainingQueue));
-  } catch (e) { console.error("Error processPendingSaves:", e); }
-}
 
 // ==================== FUNGSI PEMBERSIH ANTREAN (RUN MANUAL JIKA PERLU) ====================
 /**
