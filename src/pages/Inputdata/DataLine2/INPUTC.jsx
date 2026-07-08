@@ -1416,18 +1416,21 @@ export default function InputC() {
       ]);
 
       const now = new Date();
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(now.getDate() - 30);
-      thirtyDaysAgo.setHours(0, 0, 0, 0);
+      const currentYear = now.getFullYear();
+      const currentMonth = now.getMonth() + 1;
 
-      const filterLast30Days = (row) => {
-        return true;
+      const filterCurrentMonth = (row) => {
+        if (!row || !row.tanggal) return false;
+        const ymd = parseToYMD(row.tanggal);
+        if (!ymd) return false;
+        const [year, month] = ymd.split('-').map(Number);
+        return year === currentYear && month === currentMonth;
       };
 
       let mappedOEE = [];
       let mappedOEEIds = [];
       if (resOEE?.status === 'success' && Array.isArray(resOEE.data)) {
-        mappedOEE = resOEE.data.filter(filterLast30Days).reverse().map((row) => {
+        mappedOEE = resOEE.data.filter(filterCurrentMonth).reverse().map((row) => {
           mappedOEEIds.push(row.id);
           const r = [
             row.no_batch ?? '', parseToYMD(row.tanggal), row.shift ?? '', row.group ?? '', row.reject_botol ?? '', row.reject_preform ?? '',
@@ -1447,7 +1450,7 @@ export default function InputC() {
       let mappedDT = [];
       let mappedDTIds = [];
       if (resDT?.status === 'success' && Array.isArray(resDT.data)) {
-        mappedDT = resDT.data.filter(filterLast30Days).reverse().map((row) => {
+        mappedDT = resDT.data.filter(filterCurrentMonth).reverse().map((row) => {
           mappedDTIds.push(row.id);
           const r = [
             parseToYMD(row.tanggal), row.shift ?? '', row.group ?? '', row.no_batch ?? '', row.start_h ?? '', row.start_m ?? '',
@@ -1515,6 +1518,7 @@ export default function InputC() {
           onCopy={(e) => handleCopy(e, 'oee')}
           onPaste={(e) => handlePaste(e, 'oee')}
           className="bg-white border border-slate-300 shadow-lg mb-10 rounded overflow-hidden focus:outline-none focus:ring-2 focus:ring-emerald-500"
+          style={{ contentVisibility: 'auto', containIntrinsicSize: '680px' }}
         >
           <div className="overflow-x-auto max-h-[680px]">
             <table className="border-collapse w-max min-w-full text-left">
@@ -1629,6 +1633,7 @@ export default function InputC() {
           onCopy={(e) => handleCopy(e, 'dt')}
           onPaste={(e) => handlePaste(e, 'dt')}
           className="bg-white border border-slate-300 shadow-lg rounded overflow-hidden mb-12 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          style={{ contentVisibility: 'auto', containIntrinsicSize: '500px' }}
         >
           <div className="overflow-x-auto max-h-[500px]">
             <table className="border-collapse w-max min-w-full text-left">

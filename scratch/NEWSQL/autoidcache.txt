@@ -1,0 +1,141 @@
+-- ============================================================================
+-- SCRIPT SQL PENANGANAN MASALAH ID (AUTO_INCREMENT JUMP) DI TIDB
+-- ============================================================================
+-- PENJELASAN ERROR TIDB:
+-- "Can't Alter AUTO_ID_CACHE between 1 and non-1, the underlying implementation is different"
+--
+-- Di TiDB, tabel yang sudah dibuat dengan AUTO_ID_CACHE default (30.000 / non-1)
+-- TIDAK BISA diubah langsung menjadi 1 menggunakan perintah ALTER TABLE karena 
+-- arsitektur penyimpanan dan alokator ID internalnya berbeda secara mendasar.
+--
+-- SOLUSI YANG TERSEDIA:
+--
+-- OPSI A (SANGAT DIANJURKAN - CEPAT & AMAN):
+-- Cukup rapikan (re-sequence) ID lama Anda dengan OPSI A di bawah ini.
+-- Karena tampilan di Frontend (UI Foreman Line 1 - 4) sudah kami perbarui menjadi
+-- nomor urut sekuensial mutlak (1, 2, 3...), meskipun ID di dalam database TiDB 
+-- meloncat di kemudian hari, operator/user TIDAK AKAN melihat lompatan tersebut.
+--
+-- OPSI B (RECREATE TABLE - JIKA MUTLAK INGIN AUTO_ID_CACHE = 1 DI DB):
+-- Jika Anda tetap ingin angka ID di dalam database TiDB tidak meloncat 30.000, 
+-- satu-satunya cara resmi di TiDB adalah membuat tabel baru dengan AUTO_ID_CACHE = 1,
+-- menyalin data dari tabel lama, lalu mengganti namanya (lihat OPSI B di bawah).
+-- ============================================================================
+
+USE test; -- Ganti dengan nama database Anda jika berbeda
+
+-- ============================================================================
+-- OPSI A: MERAPIKAN & MENGURUTKAN ULANG ID LAMA (RE-SEQUENCE ID)
+-- ============================================================================
+-- Jalankan perintah ini untuk merapikan nomor ID lama yang terlanjur melompat
+-- (misal 30881) agar kembali urut rapi dari 1, 2, 3... hingga data terakhir.
+-- Untuk data baru selanjutnya, database akan otomatis melanjutkan dari ID terakhir.
+
+-- 1. downtime_line1_zonec
+SET @count = 0;
+UPDATE downtime_line1_zonec SET id = (@count := @count + 1) ORDER BY id;
+ALTER TABLE downtime_line1_zonec AUTO_INCREMENT = 1;
+
+-- 2. downtime_line1_zonef
+SET @count = 0;
+UPDATE downtime_line1_zonef SET id = (@count := @count + 1) ORDER BY id;
+ALTER TABLE downtime_line1_zonef AUTO_INCREMENT = 1;
+
+-- 3. downtime_line2_zonec
+SET @count = 0;
+UPDATE downtime_line2_zonec SET id = (@count := @count + 1) ORDER BY id;
+ALTER TABLE downtime_line2_zonec AUTO_INCREMENT = 1;
+
+-- 4. downtime_line2_zonef
+SET @count = 0;
+UPDATE downtime_line2_zonef SET id = (@count := @count + 1) ORDER BY id;
+ALTER TABLE downtime_line2_zonef AUTO_INCREMENT = 1;
+
+-- 5. downtime_line3_zonec
+SET @count = 0;
+UPDATE downtime_line3_zonec SET id = (@count := @count + 1) ORDER BY id;
+ALTER TABLE downtime_line3_zonec AUTO_INCREMENT = 1;
+
+-- 6. downtime_line3_zonef
+SET @count = 0;
+UPDATE downtime_line3_zonef SET id = (@count := @count + 1) ORDER BY id;
+ALTER TABLE downtime_line3_zonef AUTO_INCREMENT = 1;
+
+-- 7. downtime_line4_zonec
+SET @count = 0;
+UPDATE downtime_line4_zonec SET id = (@count := @count + 1) ORDER BY id;
+ALTER TABLE downtime_line4_zonec AUTO_INCREMENT = 1;
+
+-- 8. downtime_line4_zonef
+SET @count = 0;
+UPDATE downtime_line4_zonef SET id = (@count := @count + 1) ORDER BY id;
+ALTER TABLE downtime_line4_zonef AUTO_INCREMENT = 1;
+
+-- 9. oee_line1_zonec
+SET @count = 0;
+UPDATE oee_line1_zonec SET id = (@count := @count + 1) ORDER BY id;
+ALTER TABLE oee_line1_zonec AUTO_INCREMENT = 1;
+
+-- 10. oee_line1_zonef
+SET @count = 0;
+UPDATE oee_line1_zonef SET id = (@count := @count + 1) ORDER BY id;
+ALTER TABLE oee_line1_zonef AUTO_INCREMENT = 1;
+
+-- 11. oee_line2_zonec
+SET @count = 0;
+UPDATE oee_line2_zonec SET id = (@count := @count + 1) ORDER BY id;
+ALTER TABLE oee_line2_zonec AUTO_INCREMENT = 1;
+
+-- 12. oee_line2_zonef
+SET @count = 0;
+UPDATE oee_line2_zonef SET id = (@count := @count + 1) ORDER BY id;
+ALTER TABLE oee_line2_zonef AUTO_INCREMENT = 1;
+
+-- 13. oee_line3_zonec
+SET @count = 0;
+UPDATE oee_line3_zonec SET id = (@count := @count + 1) ORDER BY id;
+ALTER TABLE oee_line3_zonec AUTO_INCREMENT = 1;
+
+-- 14. oee_line3_zonef
+SET @count = 0;
+UPDATE oee_line3_zonef SET id = (@count := @count + 1) ORDER BY id;
+ALTER TABLE oee_line3_zonef AUTO_INCREMENT = 1;
+
+-- 15. oee_line4_zonec
+SET @count = 0;
+UPDATE oee_line4_zonec SET id = (@count := @count + 1) ORDER BY id;
+ALTER TABLE oee_line4_zonec AUTO_INCREMENT = 1;
+
+-- 16. oee_line4_zonef
+SET @count = 0;
+UPDATE oee_line4_zonef SET id = (@count := @count + 1) ORDER BY id;
+ALTER TABLE oee_line4_zonef AUTO_INCREMENT = 1;
+
+
+-- ============================================================================
+-- OPSI B: CARA RESMI MENGUBAH AUTO_ID_CACHE = 1 DI TIDB (RECREATE TABLE)
+-- ============================================================================
+-- CATATAN: Jalankan bagian ini HANYA jika Anda ingin mengubah struktur database
+-- secara mutlak agar TiDB tidak lagi mengalokasikan cache 30.000 ID.
+-- Karena di TiDB atribut AUTO_ID_CACHE = 1 tidak bisa di-alter pada tabel lama,
+-- Anda harus membuat tabel baru, menyalin data, dan mengganti namanya.
+--
+-- Contoh di bawah untuk tabel downtime_line1_zonec (lakukan pola yang sama
+-- untuk 15 tabel lainnya jika memang dibutuhkan):
+
+/*
+-- 1. Buat tabel baru dengan spesifikasi AUTO_ID_CACHE = 1
+CREATE TABLE downtime_line1_zonec_new LIKE downtime_line1_zonec;
+ALTER TABLE downtime_line1_zonec_new AUTO_ID_CACHE = 1;
+
+-- 2. Salin seluruh data dari tabel lama ke tabel baru
+INSERT INTO downtime_line1_zonec_new SELECT * FROM downtime_line1_zonec;
+
+-- 3. Hapus tabel lama dan ubah nama tabel baru menjadi nama asli
+DROP TABLE downtime_line1_zonec;
+RENAME TABLE downtime_line1_zonec_new TO downtime_line1_zonec;
+*/
+
+-- ============================================================================
+-- SELESAI
+-- ============================================================================

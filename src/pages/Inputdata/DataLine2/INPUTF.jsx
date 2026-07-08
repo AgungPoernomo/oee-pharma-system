@@ -1341,18 +1341,21 @@ export default function InputF() {
       ]);
 
       const now = new Date();
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(now.getDate() - 30);
-      thirtyDaysAgo.setHours(0, 0, 0, 0);
+      const currentYear = now.getFullYear();
+      const currentMonth = now.getMonth() + 1;
 
-      const filterLast30Days = (row) => {
-        return true;
+      const filterCurrentMonth = (row) => {
+        if (!row || !row.tanggal) return false;
+        const ymd = parseToYMD(row.tanggal);
+        if (!ymd) return false;
+        const [year, month] = ymd.split('-').map(Number);
+        return year === currentYear && month === currentMonth;
       };
 
       let mappedOEE = [];
       let mappedOEEIds = [];
       if (resOEE?.status === 'success' && Array.isArray(resOEE.data)) {
-        const filteredOEE = [...resOEE.data].reverse().filter(filterLast30Days);
+        const filteredOEE = [...resOEE.data].reverse().filter(filterCurrentMonth);
         mappedOEE = filteredOEE.map((row) => {
           mappedOEEIds.push(row.id);
           const arr = Array(55).fill('');
@@ -1410,7 +1413,7 @@ export default function InputF() {
       let mappedDT = [];
       let mappedDTIds = [];
       if (resDT?.status === 'success' && Array.isArray(resDT.data)) {
-        const filteredDT = [...resDT.data].reverse().filter(filterLast30Days);
+        const filteredDT = [...resDT.data].reverse().filter(filterCurrentMonth);
         mappedDT = filteredDT.map((row) => {
           mappedDTIds.push(row.id);
           return [
@@ -1465,7 +1468,7 @@ export default function InputF() {
           </h1>
         </div>
 
-        <div className="bg-white border-2 border-slate-300 shadow-xl mb-12 rounded overflow-hidden p-1">
+        <div className="bg-white border-2 border-slate-300 shadow-xl mb-12 rounded overflow-hidden p-1" style={{ contentVisibility: 'auto', containIntrinsicSize: '700px' }}>
           <div className="w-full h-[700px] overflow-auto select-none" ref={oeeGridRef} tabIndex={0} onCopy={(e) => handleCopy(e, 'oee')} onPaste={(e) => handlePaste(e, 'oee')}>
             <table className="w-max min-w-full border-collapse text-xs table-fixed">
               <thead className="bg-slate-100 text-slate-700 font-semibold shadow-sm sticky top-0 z-40">
@@ -1578,7 +1581,7 @@ export default function InputF() {
           </h2>
         </div>
 
-        <div className="bg-white border-2 border-slate-300 shadow-xl rounded overflow-hidden p-1 mb-10">
+        <div className="bg-white border-2 border-slate-300 shadow-xl rounded overflow-hidden p-1 mb-10" style={{ contentVisibility: 'auto', containIntrinsicSize: '700px' }}>
           <div className="w-full h-[700px] overflow-auto select-none" ref={dtGridRef} tabIndex={0} onCopy={(e) => handleCopy(e, 'dt')} onPaste={(e) => handlePaste(e, 'dt')}>
             <table className="w-max min-w-full border-collapse text-xs table-fixed">
               <thead className="bg-slate-100 text-slate-700 font-semibold shadow-sm sticky top-0 z-40">

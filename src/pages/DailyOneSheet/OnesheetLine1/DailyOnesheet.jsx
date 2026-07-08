@@ -23,8 +23,8 @@ const highlightLabels = [
 const isHighlightRow = (label) => highlightLabels.includes(label);
 
 const calculateZoneMetrics = (volume) => {
-    let speed = 11500;
-    let teoriBatch = 23076;
+    let speed = 8000;
+    let teoriBatch = 11538;
 
     if (volume === '100 ML') { speed = 8000; teoriBatch = 56880; }
     else if (volume === '250 ML') { speed = 8000; teoriBatch = 21509; }
