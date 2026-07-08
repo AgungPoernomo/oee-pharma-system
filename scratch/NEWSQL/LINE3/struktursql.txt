@@ -3,6 +3,7 @@ USE test;
 -- ==========================================
 -- DOWNTIME LINE 3 ZONE C
 -- ==========================================
+DROP TABLE IF EXISTS downtime_line3_zonec;
 CREATE TABLE downtime_line3_zonec (
     id INT AUTO_INCREMENT PRIMARY KEY,
     tanggal DATE,
@@ -22,11 +23,12 @@ CREATE TABLE downtime_line3_zonec (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_dt_c_tanggal (tanggal)
-);
+) AUTO_ID_CACHE = 1;
 
 -- ==========================================
 -- DOWNTIME LINE 3 ZONE F
 -- ==========================================
+DROP TABLE IF EXISTS downtime_line3_zonef;
 CREATE TABLE downtime_line3_zonef (
     id INT AUTO_INCREMENT PRIMARY KEY,
     tanggal DATE,
@@ -46,11 +48,12 @@ CREATE TABLE downtime_line3_zonef (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_dt_f_tanggal (tanggal)
-);
+) AUTO_ID_CACHE = 1;
 
 -- ==========================================
 -- OEE LINE 3 ZONE C
 -- ==========================================
+DROP TABLE IF EXISTS oee_line3_zonec;
 CREATE TABLE oee_line3_zonec (
     id INT AUTO_INCREMENT PRIMARY KEY,
     no_batch VARCHAR(50),
@@ -105,11 +108,12 @@ CREATE TABLE oee_line3_zonec (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_oee_c_tanggal (tanggal),
     INDEX idx_oee_c_batch (no_batch)
-);
+) AUTO_ID_CACHE = 1;
 
 -- ==========================================
 -- OEE LINE 3 ZONE F
 -- ==========================================
+DROP TABLE IF EXISTS oee_line3_zonef;
 CREATE TABLE oee_line3_zonef (
     id INT AUTO_INCREMENT PRIMARY KEY,
     no_batch VARCHAR(50),
@@ -171,4 +175,4 @@ CREATE TABLE oee_line3_zonef (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_oee_f_tanggal (tanggal),
     INDEX idx_oee_f_batch (no_batch)
-);
+) AUTO_ID_CACHE = 1;

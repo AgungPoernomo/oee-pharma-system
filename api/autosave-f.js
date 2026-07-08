@@ -80,7 +80,7 @@ export default async function handler(req, res) {
             tableName: tableName
           })
         );
-        await Promise.allSettled(gasPromises);
+        Promise.allSettled(gasPromises).catch(err => console.error("GAS Delete Background Error:", err));
       }
 
       return res.status(200).json({ status: 'success', deleted: deletedCount, ids: deletedIds });
@@ -118,12 +118,12 @@ export default async function handler(req, res) {
       const gasUser = { ...(user || {}), line: lineNum };
       const backupData = { ...data, original_id: firstId };
       if (process.env.GAS_URL) {
-        await sendToGAS(process.env.GAS_URL, {
+        sendToGAS(process.env.GAS_URL, {
           action: action,
           data: backupData,
           user: gasUser,
           tableName: tableName
-        });
+        }).catch(err => console.error("GAS Save Background Error:", err));
       }
 
       return res.status(200).json({ status: 'success', original_id: firstId, ids: insertedIds });

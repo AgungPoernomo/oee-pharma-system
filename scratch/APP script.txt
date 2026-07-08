@@ -56,8 +56,8 @@ function getRowByTidbId(sheet, tidbId, data, userLine) {
   var numRows = lastRow - START_ROW_DATA + 1;
   
   var colBatch = 3;
-  var colTgl = (String(userLine) === "3") ? 4 : 5;
-  var colShift = (String(userLine) === "3") ? 5 : 6;
+  var colTgl = (String(userLine) === "3" || String(userLine) === "1") ? 4 : 5;
+  var colShift = (String(userLine) === "3" || String(userLine) === "1") ? 5 : 6;
   
   var maxCol = Math.max(colBatch, colTgl, colShift);
   var values = sheet.getRange(START_ROW_DATA, 1, numRows, maxCol).getValues();
@@ -118,107 +118,6 @@ function getRealLastDataRow(sheet, minRow) {
   return minRow;
 }
 
-// ==================== FUNGSI BARU UNTUK DYNAMIC SYNC TABLE ====================
-function handleDynamicSync(payload) {
-  var action = payload.action || '';
-  var data = payload.data || {};
-  var user = payload.user || {};
-  var tableName = payload.tableName || 'OEE_Backup';
-  
-  // Tentukan Spreadsheet ID berdasarkan userLine atau tableName
-  var userLine = (user && (user.line || user.plant)) || "2";
-  var tblLower = String(tableName).toLowerCase();
-  if (tblLower.indexOf('line1') !== -1) userLine = "1";
-  else if (tblLower.indexOf('line2') !== -1) userLine = "2";
-  else if (tblLower.indexOf('line3') !== -1) userLine = "3";
-  else if (tblLower.indexOf('line4') !== -1) userLine = "4";
-
-  var ss = SpreadsheetApp.openById(getDbIdByLine(userLine));
-  
-  // Map nama tabel ke nama sheet standar Google Spreadsheet
-  var targetSheetName = tableName;
-  var actLower = String(action).toLowerCase();
-  if (actLower.indexOf('reject_c') !== -1 || (tblLower.indexOf('oee') !== -1 && tblLower.indexOf('zonec') !== -1)) targetSheetName = SHEET_DL_REJECT_C;
-  else if (actLower.indexOf('reject_f') !== -1 || (tblLower.indexOf('oee') !== -1 && tblLower.indexOf('zonef') !== -1)) targetSheetName = SHEET_DL_REJECT_F;
-  else if (actLower.indexOf('downtime_c') !== -1 || (tblLower.indexOf('downtime') !== -1 && tblLower.indexOf('zonec') !== -1)) targetSheetName = SHEET_DL_DOWNTIME_C;
-  else if (actLower.indexOf('downtime_f') !== -1 || (tblLower.indexOf('downtime') !== -1 && tblLower.indexOf('zonef') !== -1)) targetSheetName = SHEET_DL_DOWNTIME_F;
-
-  var sheet = ss.getSheetByName(targetSheetName) || ss.getSheetByName(tableName);
-  
-  // Jika sheet belum ada, buat sheet baru
-  if (!sheet) {
-    sheet = ss.insertSheet(tableName);
-    var headers = ['original_id', 'last_updated', 'user_nama'];
-    for (var key in data) {
-      if (headers.indexOf(key) === -1) headers.push(key);
-    }
-    sheet.appendRow(headers);
-    sheet.getRange(1, 1, 1, headers.length).setFontWeight('bold').setBackground('#f1f5f9');
-  }
-  
-  var originalId = data.original_id;
-  var dataRange = sheet.getDataRange();
-  var values = dataRange.getValues();
-  var headerRow = values[0] || [];
-  
-  // Cari baris berdasarkan original_id (kolom A atau kolom CV/100)
-  var rowIndex = -1;
-  if (originalId) {
-    for (var i = 1; i < values.length; i++) {
-      if (String(values[i][0]) === String(originalId) || (values[i][99] && String(values[i][99]) === String(originalId))) {
-        rowIndex = i + 1;
-        break;
-      }
-    }
-  }
-  
-  if (action.indexOf('delete_') === 0) {
-    if (rowIndex !== -1) {
-      sheet.deleteRow(rowIndex);
-      return { status: 'success', message: 'Row deleted from GAS' };
-    } else {
-      return { status: 'ignored', message: 'Row ID not found to delete' };
-    }
-  }
-  
-  for (var key in data) {
-    if (headerRow.indexOf(key) === -1) {
-      headerRow.push(key);
-      sheet.getRange(1, headerRow.length).setValue(key).setFontWeight('bold').setBackground('#f1f5f9');
-    }
-  }
-  if (headerRow.indexOf('last_updated') === -1) {
-    headerRow.push('last_updated');
-    sheet.getRange(1, headerRow.length).setValue('last_updated').setFontWeight('bold').setBackground('#f1f5f9');
-  }
-  if (headerRow.indexOf('user_nama') === -1) {
-    headerRow.push('user_nama');
-    sheet.getRange(1, headerRow.length).setValue('user_nama').setFontWeight('bold').setBackground('#f1f5f9');
-  }
-  
-  var rowToInsert = [];
-  for (var j = 0; j < headerRow.length; j++) {
-    var colName = headerRow[j];
-    if (colName === 'last_updated') {
-      rowToInsert.push(new Date().toLocaleString());
-    } else if (colName === 'user_nama') {
-      rowToInsert.push(user.nama || 'System');
-    } else {
-      rowToInsert.push(data[colName] !== undefined && data[colName] !== null ? data[colName] : '');
-    }
-  }
-  
-  if (rowIndex !== -1) {
-    sheet.getRange(rowIndex, 1, 1, rowToInsert.length).setValues([rowToInsert]);
-  } else {
-    var targetRow = getRealLastDataRow(sheet, 2);
-    sheet.getRange(targetRow, 1, 1, rowToInsert.length).setValues([rowToInsert]);
-  }
-  
-  return { status: 'success', message: 'GAS backup synced to line ' + userLine };
-}
-// ============================================================================
-
 function doPost(e) {
   const lock = LockService.getScriptLock();
   lock.waitLock(30000);
@@ -227,12 +126,6 @@ function doPost(e) {
     const action = params.action || "";
     const userLine = params.user ? (params.user.line || params.user.plant || "2") : "2"; 
     let result = {};
-
-    // MENDETEKSI SCRIPT BARU: Jika action adalah 'dynamic_sync'
-    if (action === 'dynamic_sync') {
-      result = handleDynamicSync(params);
-      return responseJSON(result);
-    }
 
     switch (action) {
       case "register": result = handleRegister(params.data); break;
@@ -243,9 +136,9 @@ function doPost(e) {
       case "update_foto": result = handleUpdateFoto(params.data); break;
       case "send_feedback": result = handleSendFeedback(params.data, params.user); break;
 
-      case "get_pending_approvals": result = handleGetPendingApprovals(); break;
-      case "approve_user": result = handleApproveUser(params.data); break;
-      case "check_approval_status": result = handleCheckApprovalStatus(params.data); break;
+      case "get_pending_approvals": result = getPendingApprovals(); break;
+      case "approve_user": result = approveUser(params.data); break;
+      case "check_approval_status": result = checkApprovalStatus(params.data); break;
       case "get_onesheet_data": result = getOnesheetData(params.data, params.user, userLine); break;
       
       case "submit_reject_c": result = saveRejectZoneC(params.data, params.user, userLine); break; 
@@ -266,15 +159,8 @@ function doPost(e) {
       case "get_today_downtime_c": result = getTodayData(userLine, SHEET_DL_DOWNTIME_C, 16, 2, 2); break;
       case "get_today_downtime_f": result = getTodayData(userLine, SHEET_DL_DOWNTIME_F, 17, 2, 2); break;
 
-      case "submit_oee": result = handleSubmitData(params.data, params.user); break;
-      case "streamRealTimeData": result = streamRealTimeData(params.payload, params.user, userLine); break;
-
       default:
-        if (params.tableName) {
-          result = handleDynamicSync(params);
-        } else {
-          result = { status: "error", message: "Action tidak dikenal: " + action };
-        }
+        result = { status: "error", message: "Action tidak dikenal: " + action };
     }
     return responseJSON(result);
   } catch (error) {
@@ -318,35 +204,41 @@ function constructRejectCArray(data, user, isClosing, r, userLine) {
     ];
   }
 
-  // LINE 1, 2, 4 (Blow / Washing / Filling / Preform)
-  var yield_batch = data.yield_batch ? (parseFloat(data.yield_batch) / 100) : "";
-  var tglKriteria = "\"" + tglIndo + "\""; 
-  var shiftKriteria = "\"" + String(data.shift).trim() + "\"";
-  var kriteria_absolut = "D:D; " + tglKriteria + "; E:E; " + shiftKriteria;
-  
-  var formula_cnt   = isClosing ? "=SUMIFS(K:K; " + kriteria_absolut + ")" : ""; 
-  var formula_good  = isClosing ? "=SUMIFS(Y:Y; " + kriteria_absolut + ")" : ""; 
-  var formula_yield = isClosing ? "=IFERROR(AVERAGEIFS(AA:AA; " + kriteria_absolut + "); 0)" : ""; 
-  var formula_avail = isClosing ? "=SUMIFS(AO:AO; " + kriteria_absolut + ")" : ""; 
-  var formula_prep  = isClosing ? "=SUMIFS(BF:BF; " + kriteria_absolut + ")" : ""; 
-  var formula_jeda  = isClosing ? "=SUMIFS(BS:BS; " + kriteria_absolut + ")" : ""; 
+  // KHUSUS LINE 1 (INPUTC - Blow / Washing / Filling / Preform)
+  if (String(userLine) === "1") {
+    return [
+      new Date(), (user && user.nama) ? user.nama : "Unknown", 
+      raw(data.no_batch), tglIndo, raw(data.shift), raw(data.group), 
+      raw(data.volume_botol ?? data.vol_botol), 
+      raw(data.reject_botol ?? data.rej_botol), raw(data.reject_preform ?? data.rej_preform), raw(data.reject_blow ?? data.rej_blow), 
+      raw(data.cnt_start), raw(data.cnt_end), raw(data.cnt_sub), raw(data.utuh), raw(data.jml_batch ?? data.jumlah_batch), 
+      raw(data.r_washing), raw(data.r_vk ?? data.rej_vk), raw(data.r_vl ?? data.rej_vl), raw(data.r_nocap ?? data.rej_nocap), raw(data.r_sealnok ?? data.rej_sealnok), raw(data.r_others ?? data.rej_others), raw(data.r_sub ?? data.rej_sub ?? data.sub_fill_seal), 
+      raw(data.s_ipc ?? data.samp_ipc), raw(data.s_others ?? data.samp_others), raw(data.s_sub ?? data.sub_samples), 
+      raw(data.trf_st ?? data.trf_to_st), 
+      raw(data.pre_in ?? data.preform_in), raw(data.pre_bocor), raw(data.pre_nocap), raw(data.pre_vol), raw(data.pre_thermo), raw(data.pre_lain), raw(data.pre_rej_total), raw(data.pre_out), 
+      raw(data.av_sh ?? data.at_sh), raw(data.av_sm ?? data.at_sm), raw(data.av_eh ?? data.at_eh), raw(data.av_em ?? data.at_em), raw(data.av_sub ?? data.at_sub), raw(data.total_avail_shift ?? data.total_per_shift ?? data.total_avail), 
+      raw(data.run_sh ?? data.rt_sh ?? data.rework_sh), raw(data.run_sm ?? data.rt_sm ?? data.rework_sm), raw(data.run_eh ?? data.rt_eh ?? data.rework_eh), raw(data.run_em ?? data.rt_em ?? data.rework_em), raw(data.run_sub ?? data.rt_sub ?? data.rework_sub), 
+      raw(data.lc_sh ?? data.clear_sh), raw(data.lc_sm ?? data.clear_sm), raw(data.lc_eh ?? data.clear_eh), raw(data.lc_em ?? data.clear_em), raw(data.lc_sub ?? data.clear_sub)
+    ];
+  }
 
+  // LINE 2, 4 (Blow / Washing / Filling / Preform) - Murni Backup Data Tanpa Perhitungan/Rumus
   return [
     new Date(), (user && user.nama) ? user.nama : "Unknown", 
     raw(data.no_batch), tglIndo, raw(data.shift), raw(data.group), raw(data.reject_blow), raw(data.volume_botol), 
-    raw(data.cnt_start), raw(data.cnt_end), raw(data.cnt_sub), raw(data.utuh), raw(data.jml_batch), formula_cnt, 
+    raw(data.cnt_start), raw(data.cnt_end), raw(data.cnt_sub), raw(data.utuh), raw(data.jml_batch), raw(data.total_cnt_shift), 
     raw(data.r_washing), raw(data.r_vk), raw(data.r_vl), raw(data.r_nocap), raw(data.r_sealnok), raw(data.r_others), raw(data.r_sub), 
-    raw(data.s_ipc), raw(data.s_others), raw(data.s_sub), raw(data.trf_st), formula_good, 
-    yield_batch, formula_yield, 
+    raw(data.s_ipc), raw(data.s_others), raw(data.s_sub), raw(data.trf_st), raw(data.total_good_shift), 
+    raw(data.yield_batch), raw(data.yield_shift), 
     raw(data.pre_in), raw(data.pre_bocor), raw(data.pre_nocap), raw(data.pre_vol), raw(data.pre_thermo), raw(data.pre_lain), raw(data.pre_rej_total), raw(data.pre_out), 
-    raw(data.av_sh), raw(data.av_sm), raw(data.av_eh), raw(data.av_em), raw(data.av_sub), formula_avail, 
+    raw(data.av_sh), raw(data.av_sm), raw(data.av_eh), raw(data.av_em), raw(data.av_sub), raw(data.total_avail_shift), 
     raw(data.prep_mat_sh), raw(data.prep_mat_sm), raw(data.prep_mat_eh), raw(data.prep_mat_em), raw(data.prep_mat_sub), 
     raw(data.prep_setup_sh), raw(data.prep_setup_sm), raw(data.prep_setup_eh), raw(data.prep_setup_em), raw(data.prep_setup_sub), 
     raw(data.prep_flush_sh), raw(data.prep_flush_sm), raw(data.prep_flush_eh), raw(data.prep_flush_em), raw(data.prep_flush_sub), 
-    raw(data.p_total), formula_prep, 
+    raw(data.p_total), raw(data.total_prep_shift), 
     raw(data.run_sh), raw(data.run_sm), raw(data.run_eh), raw(data.run_em), raw(data.run_sub), 
     raw(data.lc_sh), raw(data.lc_sm), raw(data.lc_eh), raw(data.lc_em), raw(data.lc_sub), 
-    raw(data.total_prep_clear), raw(data.jeda_batch), formula_jeda, 
+    raw(data.total_prep_clear), raw(data.jeda_batch), raw(data.total_jeda_shift), 
     
     raw(data.reject_botol), raw(data.reject_preform)
   ];
@@ -365,15 +257,13 @@ function saveRejectZoneC(data, user, userLine) {
   
   var rowData = constructRejectCArray(data, user, data.is_closing, startRow, userLine);
   sheet.getRange(startRow, 1, 1, rowData.length).setValues([rowData]);
-  if (String(userLine) !== "3") {
-    sheet.getRange(startRow, 27, 1, 2).setNumberFormat("0.00%");
-  }
   
   // Real-Time Sync Backup (ID TiDB & JSON Payload)
   sheet.getRange(startRow, TIDB_ID_COL).setValue(idToSave || "");
   sheet.getRange(startRow, TIDB_JSON_COL).setValue(JSON.stringify(data));
 
   if (data.is_closing === true) sheet.getRange(startRow, 1, 1, rowData.length).setBackground("#FFF2CC");
+  SpreadsheetApp.flush();
   return { status: 'success', message: 'Data Zone C Tersimpan!' };
 }
 
@@ -392,16 +282,13 @@ function updateRejectZoneC(data, user, userLine) {
   rowData[1] = (user && user.nama) ? user.nama : "Unknown (Edited)"; 
   
   sheet.getRange(rowIndex, 1, 1, rowData.length).setValues([rowData]);
-  if (String(userLine) !== "3") {
-    sheet.getRange(rowIndex, 27, 1, 2).setNumberFormat("0.00%");
-  }
   
   sheet.getRange(rowIndex, TIDB_ID_COL).setValue(idToUpdate || "");
   sheet.getRange(rowIndex, TIDB_JSON_COL).setValue(JSON.stringify(data));
 
   if (data.is_closing === true) sheet.getRange(rowIndex, 1, 1, rowData.length).setBackground("#FFF2CC");
   else sheet.getRange(rowIndex, 1, 1, rowData.length).setBackground(null); 
-  
+  SpreadsheetApp.flush();
   return { status: 'success', message: 'Data OEE Zone C Berhasil Diupdate!' };
 }
 
@@ -440,37 +327,43 @@ function constructRejectFArray(data, user, isClosing, r, userLine) {
     ];
   }
 
-  // LINE 1, 2, 4 (Visual Inspection & Packing Standard)
-  var yield_batch = data.yield_batch ? (parseFloat(data.yield_batch) / 100) : "";
-  var tglKriteria = "\"" + tglIndo + "\""; 
-  var shiftKriteria = "\"" + String(data.shift).trim() + "\"";
-  var kriteria_absolut = "E:E; " + tglKriteria + "; F:F; " + shiftKriteria;
-  
-  var formula_vi    = isClosing ? "=SUMIFS(T:T; " + kriteria_absolut + ")" : "";
-  var formula_fg    = isClosing ? "=SUMIFS(AF:AF; " + kriteria_absolut + ")" : "";
-  var formula_yield = isClosing ? "=IFERROR(AVERAGEIFS(AJ:AJ; " + kriteria_absolut + "); 0)" : "";
-  var formula_avail = isClosing ? "=SUMIFS(AP:AP; " + kriteria_absolut + ")" : "";
-  var formula_jeda  = isClosing ? "=SUMIFS(BN:BN; " + kriteria_absolut + ")" : "";
+  // KHUSUS LINE 1 (INPUTF - Visual Inspection / Packing)
+  if (String(userLine) === "1") {
+    return [
+      new Date(), (user && user.nama) ? user.nama : "Unknown", 
+      raw(data.no_batch), raw(data.lot_no ?? data.lot), tglIndo, raw(data.shift), raw(data.group), 
+      raw(data.volume_botol ?? data.vol_botol), 
+      raw(data.steril_in ?? data.input_steril), raw(data.steril_bocor), raw(data.steril_h_patah_ring), raw(data.steril_h_patah_lidah), raw(data.steril_h_patah_leleh), raw(data.steril_no_hanger), raw(data.steril_rej_total ?? data.reject_before_steril), raw(data.steril_sample), raw(data.steril_out ?? data.output_chamber), 
+      raw(data.vi_start), raw(data.vi_end), raw(data.vi_sub ?? data.vi_sub_total), 
+      raw(data.vi_partikel ?? data.vi_partikel_menempel ?? data.rej_partikel_menempel), raw(data.vi_kotik ?? data.vi_lelehan ?? data.rej_lelehan), raw(data.vi_rej_total ?? data.vi_total ?? data.total_reject_vi), raw(data.vi_hasil_baik ?? data.hasil_baik_vi), raw(data.vi_tf_packing ?? data.transfer_ke_packing), 
+      raw(data.pack_reject), raw(data.pack_hasil_baik ?? data.hasil_baik_packing), raw(data.pack_s_qc ?? data.qc_sample), raw(data.pack_s_others), raw(data.pack_fg ?? data.finished_goods), raw(data.pack_utuh ?? data.utuh), raw(data.pack_jml_batch ?? data.jumlah_batch ?? data.jml_batch), 
+      raw(data.av_sh ?? data.at_sh), raw(data.av_sm ?? data.at_sm), raw(data.av_eh ?? data.at_eh), raw(data.av_em ?? data.at_em), raw(data.av_sub ?? data.at_sub), raw(data.total_avail_shift ?? data.total_at ?? data.total_per_shift), 
+      raw(data.run_sh ?? data.rt_sh ?? data.rework_sh), raw(data.run_sm ?? data.rt_sm ?? data.rework_sm), raw(data.run_eh ?? data.rt_eh ?? data.rework_eh), raw(data.run_em ?? data.rt_em ?? data.rework_em), raw(data.run_sub ?? data.rt_sub ?? data.rework_sub), 
+      raw(data.clear_sh ?? data.lc_sh), raw(data.clear_sm ?? data.lc_sm), raw(data.clear_eh ?? data.lc_eh), raw(data.clear_em ?? data.lc_em), raw(data.clear_sub ?? data.lc_sub), 
+      raw(data.process_total ?? data.total_prep_clear)
+    ];
+  }
 
+  // LINE 2, 4 (Visual Inspection & Packing Standard) - Murni Backup Data Tanpa Perhitungan/Rumus
   return [
     new Date(), (user && user.nama) ? user.nama : "Unknown", 
     raw(data.no_batch), raw(data.lot_no), tglIndo, raw(data.shift), raw(data.group), raw(data.volume_botol), 
     raw(data.steril_in), raw(data.steril_bocor), raw(data.steril_h_patah_ring), raw(data.steril_h_patah_lidah), raw(data.steril_h_patah_leleh), raw(data.steril_no_hanger), raw(data.steril_rej_total), raw(data.steril_sample), raw(data.steril_out), 
     raw(data.vi_start), raw(data.vi_end), raw(data.vi_sub), 
-    formula_vi, 
+    raw(data.total_vi_shift), 
     raw(data.vi_partikel || data.vi_partikel_menempel), raw(data.vi_kotik || data.vi_lelehan), raw(data.vi_rej_total || data.vi_total), raw(data.vi_hasil_baik), raw(data.vi_sample_qc), raw(data.vi_tf_packing), 
     raw(data.pack_reject), raw(data.pack_hasil_baik), raw(data.pack_s_qc), raw(data.pack_s_others), raw(data.pack_fg), raw(data.pack_utuh), raw(data.pack_jml_batch), 
-    formula_fg, 
-    yield_batch, 
-    formula_yield, 
+    raw(data.total_fg_shift), 
+    raw(data.yield_batch), 
+    raw(data.yield_shift), 
     raw(data.av_sh), raw(data.av_sm), raw(data.av_eh), raw(data.av_em), raw(data.av_sub), 
-    formula_avail, 
+    raw(data.total_avail_shift), 
     raw(data.p_mat_sh), raw(data.p_mat_sm), raw(data.p_mat_eh), raw(data.p_mat_em), raw(data.prep_sub), 
     raw(data.run_sh), raw(data.run_sm), raw(data.run_eh), raw(data.run_em), raw(data.run_sub), 
     raw(data.rework_sh), raw(data.rework_sm), raw(data.rework_eh), raw(data.rework_em), raw(data.rework_sub), 
     raw(data.clear_sh), raw(data.clear_sm), raw(data.clear_eh), raw(data.clear_em), raw(data.clear_sub), 
     raw(data.process_total), raw(data.total_prep_clear), raw(data.jeda_batch), 
-    formula_jeda 
+    raw(data.total_jeda_shift)
   ];
 }
 
@@ -488,14 +381,12 @@ function saveRejectZoneF(data, user, userLine) {
   var rowData = constructRejectFArray(data, user, data.is_closing, startRow, userLine);
   
   sheet.getRange(startRow, 1, 1, rowData.length).setValues([rowData]);
-  if (String(userLine) !== "3") {
-    sheet.getRange(startRow, 36, 1, 2).setNumberFormat("0.00%"); 
-  }
   
   sheet.getRange(startRow, TIDB_ID_COL).setValue(idToSave || "");
   sheet.getRange(startRow, TIDB_JSON_COL).setValue(JSON.stringify(data));
 
   if (data.is_closing === true) sheet.getRange(startRow, 1, 1, rowData.length).setBackground("#FFF2CC");
+  SpreadsheetApp.flush();
   return { status: 'success', message: 'Data Zone F Tersimpan!' };
 }
 
@@ -513,16 +404,13 @@ function updateRejectZoneF(data, user, userLine) {
   rowData[1] = (user && user.nama) ? user.nama : "Unknown (Edited)";
   
   sheet.getRange(rowIndex, 1, 1, rowData.length).setValues([rowData]);
-  if (String(userLine) !== "3") {
-    sheet.getRange(rowIndex, 36, 1, 2).setNumberFormat("0.00%");
-  }
   
   sheet.getRange(rowIndex, TIDB_ID_COL).setValue(idToUpdate || "");
   sheet.getRange(rowIndex, TIDB_JSON_COL).setValue(JSON.stringify(data));
 
   if (data.is_closing === true) sheet.getRange(rowIndex, 1, 1, rowData.length).setBackground("#FFF2CC");
   else sheet.getRange(rowIndex, 1, 1, rowData.length).setBackground(null);
-  
+  SpreadsheetApp.flush();
   return { status: 'success', message: 'Data Zone F Berhasil Diupdate!' };
 }
 
@@ -569,6 +457,7 @@ function saveDT(data, user, userLine, sheetName, hasLot) {
   
   sheet.getRange(targetRow, TIDB_ID_COL).setValue(idToSave || "");
   sheet.getRange(targetRow, TIDB_JSON_COL).setValue(JSON.stringify(data));
+  SpreadsheetApp.flush();
   return { status: 'success', message: 'Downtime Saved!' };
 }
 
@@ -591,6 +480,7 @@ function updateDT(data, user, userLine, sheetName, hasLot) {
   sheet.getRange(rowIndex, 1, 1, rowData.length).setValues([rowData]);
   sheet.getRange(rowIndex, TIDB_ID_COL).setValue(idToUpdate || "");
   sheet.getRange(rowIndex, TIDB_JSON_COL).setValue(JSON.stringify(data));
+  SpreadsheetApp.flush();
   return { status: 'success', message: 'Downtime Berhasil Diupdate!' };
 }
 
@@ -622,28 +512,6 @@ function deleteDowntimeZoneF(data, user, userLine) {
     queuePendingDelete(userLine, SHEET_DL_DOWNTIME_F, idToDelete);
   }
   return { status: 'success', message: 'Data downtime berhasil dihapus!' };
-}
-
-function saveBulkDowntimeZoneC(dataArray, user, userLine) {
-  const ss = SpreadsheetApp.openById(getDbIdByLine(userLine));
-  const sheet = ss.getSheetByName(SHEET_DL_DOWNTIME_C);
-  if (!sheet) return { status: 'error', message: 'Sheet Missing!' };
-
-  for (let i = 0; i < dataArray.length; i++) {
-    saveDT(dataArray[i], user, userLine, SHEET_DL_DOWNTIME_C, false);
-  }
-  return { status: 'success', message: `${dataArray.length} Downtime Tersimpan!` };
-}
-
-function saveBulkDowntimeZoneF(dataArray, user, userLine) {
-  const ss = SpreadsheetApp.openById(getDbIdByLine(userLine));
-  const sheet = ss.getSheetByName(SHEET_DL_DOWNTIME_F);
-  if (!sheet) return { status: 'error', message: 'Sheet Missing!' };
-
-  for (let i = 0; i < dataArray.length; i++) {
-    saveDT(dataArray[i], user, userLine, SHEET_DL_DOWNTIME_F, true);
-  }
-  return { status: 'success', message: `${dataArray.length} Downtime Tersimpan!` };
 }
 
 function getTodayData(userLine, sheetName, totalCols, dateColIndex, dataStartRow) {
@@ -716,7 +584,6 @@ function handleVerification(data) {
 function handleLogin(data) { const ss = SpreadsheetApp.openById(ID_DB_MASTER); const sheet = ss.getSheetByName(SHEET_APP_MASTER); const lastRow = getLastRowInColumn(sheet, "A"); if (lastRow < START_ROW_DATA) return { status: "error", message: "User tidak ditemukan." }; const users = sheet.getRange(START_ROW_DATA, 1, lastRow - (START_ROW_DATA - 1), 8).getValues(); for (let i = 0; i < users.length; i++) { const u = users[i]; if (String(u[0]) === String(data.id_karyawan) && String(u[6]) === String(data.password)) { return { status: "success", user: { id: u[0], nama: u[1], jabatan: u[2], line: u[3], plant: u[3], zone: u[4], foto: u[5] } }; } } return { status: "error", message: "ID atau Password salah." }; }
 function handleUpdatePassword(data) { const ss = SpreadsheetApp.openById(ID_DB_MASTER); const sheet = ss.getSheetByName(SHEET_APP_MASTER); const lastRow = getLastRowInColumn(sheet, "A"); const users = sheet.getRange(START_ROW_DATA, 1, lastRow - (START_ROW_DATA - 1), 8).getValues(); for (let i = 0; i < users.length; i++) { if (String(users[i][0]) === String(data.id) && String(users[i][6]) === String(data.oldPassword)) { sheet.getRange(i + START_ROW_DATA, 7).setValue(data.newPassword); return { status: "success", message: "Password berhasil diubah!" }; } } return { status: "error", message: "Password lama salah." }; }
 function getValidationData() { const ss = SpreadsheetApp.openById(ID_DB_MASTER); const sheet = ss.getSheetByName(SHEET_VALIDASI); const data = sheet.getDataRange().getValues(); const headers = data[0]; let result = {}; for (let col = 0; col < headers.length; col++) { let key = String(headers[col]).trim(); if (!key) continue; const list = []; for (let row = 1; row < data.length; row++) { let cellValue = data[row][col]; if (cellValue !== "" && cellValue !== null) list.push(cellValue); } result[key] = list; } return { status: "success", data: result }; }
-function handleSubmitData(data, user) { const ss = SpreadsheetApp.openById(ID_DB_LINE_2); const sheet = ss.getSheetByName(SHEET_DATA_LAKE_DT); if (!sheet) return { status: "error", message: "Sheet 'data_lake_DT' tidak ditemukan" }; const startT = data.start_time ? data.start_time.split(":") : ["00","00"]; const endT = data.end_time ? data.end_time.split(":") : ["00","00"]; const newRow = [ new Date(), user.nama, data.tanggal, user.plant || data.plant || "-", user.zone, data.shift, data.group, data.batch, "'" + startT[0], "'" + startT[1], "'" + endT[0], "'" + endT[1], data.type, data.root_cause, data.proses, data.unit, data.kasus ]; sheet.appendRow(newRow); return { status: "success", message: "Data Legacy tersimpan." }; }
 
 function getPendingApprovals() {
   const ss = SpreadsheetApp.openById(ID_DB_MASTER);
@@ -899,31 +766,18 @@ function handleUpdateFoto(data) {
   return { status: "error", message: "Gagal: User tidak ditemukan di sistem." };
 }
 
-function streamRealTimeData(payload, user, userLine) {
-  var sheetName = payload.sheetName; 
-  var rowData = payload.data;       
-  
+function handleSendFeedback(data, user) {
   try {
-    var targetId = getDbIdByLine(userLine);
-    var ss = SpreadsheetApp.openById(targetId);
-    var sheet = ss.getSheetByName(sheetName);
-    
-    if (!sheet) {
-      return { status: "error", message: "Sheet " + sheetName + " tidak ditemukan." };
-    }
-    
-    var timestamp = new Date();
-    var sourceName = (user && user.nama) ? user.nama : "Unknown";
-    
-    var fullRow = [timestamp, sourceName].concat(rowData);
-    
-    var targetRow = getRealLastDataRow(sheet, 2);
-    sheet.getRange(targetRow, 1, 1, fullRow.length).setValues([fullRow]);
-    
-    return { status: "success", message: "Data berhasil dialirkan ke " + sheetName };
-    
-  } catch (error) {
-    return { status: "error", message: error.toString() };
+    var to = "agungdwicahyo2001@gmail.com";
+    var subject = "[OEE Feedback] " + (data.type || "Masukan") + " dari " + (user && user.nama ? user.nama : "Unknown");
+    var body = "Pengirim: " + (user && user.nama ? user.nama : "Unknown") + " (ID: " + (user && user.id ? user.id : "-") + ", Line: " + (user && user.line ? user.line : "-") + ")\n\n" +
+               "Tipe: " + (data.type || "Masukan") + "\n\n" +
+               "Pesan:\n" + (data.text || "");
+    MailApp.sendEmail(to, subject, body);
+    return { status: "success", message: "Feedback berhasil dikirim!" };
+  } catch (e) {
+    console.error("Error send feedback:", e);
+    return { status: "success", message: "Feedback dicatat di sistem!" };
   }
 }
 
@@ -1053,9 +907,12 @@ function processPendingSaves() {
     if (!queue || queue.length === 0) return;
     
     const remainingQueue = [];
+    const now = new Date().getTime();
     for (let i = 0; i < queue.length; i++) {
       const item = queue[i];
-      if (new Date().getTime() - item.timestamp > 86400000) continue;
+      // Buang antrean yang lebih lama dari 1 jam (3600000 ms) atau data kadaluwarsa/stuck seperti ID 1690
+      if (now - item.timestamp > 3600000) continue;
+      if (item.data && (item.data.original_id == 1690 || item.data.id == 1690 || item.data.no_batch == "1D1A6G014")) continue;
       
       try {
         if (item.action === "submit_reject_c") saveRejectZoneC(item.data, item.user, item.line);
@@ -1073,4 +930,17 @@ function processPendingSaves() {
     }
     props.setProperty("PENDING_SAVES", JSON.stringify(remainingQueue));
   } catch (e) { console.error("Error processPendingSaves:", e); }
+}
+
+// ==================== FUNGSI PEMBERSIH ANTREAN (RUN MANUAL JIKA PERLU) ====================
+/**
+ * Jalankan fungsi ini 1x di editor Google Apps Script untuk menghapus seluruh antrean
+ * data tertunda (PENDING_SAVES dan PENDING_DELETES) yang tersangkut dari pengujian lama.
+ */
+function clearAllPendingQueues() {
+  const props = PropertiesService.getScriptProperties();
+  props.deleteProperty("PENDING_SAVES");
+  props.deleteProperty("PENDING_DELETES");
+  console.log("Seluruh antrean PENDING_SAVES dan PENDING_DELETES berhasil dibersihkan!");
+  return "Antrean bersih!";
 }

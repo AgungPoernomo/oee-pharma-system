@@ -3,6 +3,7 @@ USE test;
 -- ==========================================
 -- DOWNTIME LINE 1 ZONE C
 -- ==========================================
+DROP TABLE IF EXISTS downtime_line1_zonec;
 CREATE TABLE downtime_line1_zonec (
     id INT AUTO_INCREMENT PRIMARY KEY,
     tanggal DATE,
@@ -22,11 +23,12 @@ CREATE TABLE downtime_line1_zonec (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_dt1_c_tanggal (tanggal)
-);
+) AUTO_ID_CACHE = 1;
 
 -- ==========================================
 -- DOWNTIME LINE 1 ZONE F
 -- ==========================================
+DROP TABLE IF EXISTS downtime_line1_zonef;
 CREATE TABLE downtime_line1_zonef (
     id INT AUTO_INCREMENT PRIMARY KEY,
     tanggal DATE,
@@ -46,11 +48,12 @@ CREATE TABLE downtime_line1_zonef (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_dt1_f_tanggal (tanggal)
-);
+) AUTO_ID_CACHE = 1;
 
 -- ==========================================
 -- OEE LINE 1 ZONE C
 -- ==========================================
+DROP TABLE IF EXISTS oee_line1_zonec;
 CREATE TABLE oee_line1_zonec (
     id INT AUTO_INCREMENT PRIMARY KEY,
     no_batch VARCHAR(50),
@@ -114,69 +117,70 @@ CREATE TABLE oee_line1_zonec (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_oee1_c_tanggal (tanggal),
     INDEX idx_oee1_c_batch (no_batch)
-);
+) AUTO_ID_CACHE = 1;
 
 -- ==========================================
 -- OEE LINE 1 ZONE F
 -- ==========================================
+DROP TABLE IF EXISTS oee_line1_zonef;
 CREATE TABLE oee_line1_zonef (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    no_batch VARCHAR(50),
-    lot_no VARCHAR(50),
-    tanggal DATE,
-    shift VARCHAR(10),
-    `group` VARCHAR(10),
-    volume_botol VARCHAR(20),
-    
-    steril_in INT DEFAULT 0,
-    steril_bocor INT DEFAULT 0,
-    steril_h_patah_ring INT DEFAULT 0,
-    steril_h_patah_lidah INT DEFAULT 0,
-    steril_h_patah_leleh INT DEFAULT 0,
-    steril_no_hanger INT DEFAULT 0,
-    steril_rej_total INT DEFAULT 0,
-    steril_sample INT DEFAULT 0,
-    steril_out INT DEFAULT 0,
-    
-    vi_start INT DEFAULT 0,
-    vi_end INT DEFAULT 0,
-    vi_sub INT DEFAULT 0,
-    vi_partikel INT DEFAULT 0,
-    vi_kotik INT DEFAULT 0,
-    vi_rej_total INT DEFAULT 0,
-    vi_hasil_baik INT DEFAULT 0,
-    vi_tf_packing INT DEFAULT 0,
-    
-    pack_reject INT DEFAULT 0,
-    pack_hasil_baik INT DEFAULT 0,
-    pack_s_qc INT DEFAULT 0,
-    pack_s_others INT DEFAULT 0,
-    pack_fg INT DEFAULT 0,
-    pack_utuh VARCHAR(5),
-    pack_jml_batch DECIMAL(10, 2) DEFAULT 0,
-    
-    av_sh INT DEFAULT 0,
-    av_sm INT DEFAULT 0,
-    av_eh INT DEFAULT 0,
-    av_em INT DEFAULT 0,
-    av_sub INT DEFAULT 0,
-    total_avail_shift INT DEFAULT 0,
-    
-    run_sh INT DEFAULT 0,
-    run_sm INT DEFAULT 0,
-    run_eh INT DEFAULT 0,
-    run_em INT DEFAULT 0,
-    run_sub INT DEFAULT 0,
-    
-    clear_sh INT DEFAULT 0,
-    clear_sm INT DEFAULT 0,
-    clear_eh INT DEFAULT 0,
-    clear_em INT DEFAULT 0,
-    clear_sub INT DEFAULT 0,
-    process_total INT DEFAULT 0,
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        no_batch VARCHAR(50),
+        lot_no VARCHAR(50),
+        tanggal DATE,
+        shift VARCHAR(10),
+        `group` VARCHAR(10),
+        volume_botol VARCHAR(20),
+        
+        steril_in INT DEFAULT 0,
+        steril_bocor INT DEFAULT 0,
+        steril_h_patah_ring INT DEFAULT 0,
+        steril_h_patah_lidah INT DEFAULT 0,
+        steril_h_patah_leleh INT DEFAULT 0,
+        steril_no_hanger INT DEFAULT 0,
+        steril_rej_total INT DEFAULT 0,
+        steril_sample INT DEFAULT 0,
+        steril_out INT DEFAULT 0,
+        
+        vi_start INT DEFAULT 0,
+        vi_end INT DEFAULT 0,
+        vi_sub INT DEFAULT 0,
+        vi_partikel INT DEFAULT 0,
+        vi_kotik INT DEFAULT 0,
+        vi_rej_total INT DEFAULT 0,
+        vi_hasil_baik INT DEFAULT 0,
+        vi_tf_packing INT DEFAULT 0,
+        
+        pack_reject INT DEFAULT 0,
+        pack_hasil_baik INT DEFAULT 0,
+        pack_s_qc INT DEFAULT 0,
+        pack_s_others INT DEFAULT 0,
+        pack_fg INT DEFAULT 0,
+        pack_utuh VARCHAR(5),
+        pack_jml_batch DECIMAL(10, 2) DEFAULT 0,
+        
+        av_sh INT DEFAULT 0,
+        av_sm INT DEFAULT 0,
+        av_eh INT DEFAULT 0,
+        av_em INT DEFAULT 0,
+        av_sub INT DEFAULT 0,
+        total_avail_shift INT DEFAULT 0,
+        
+        run_sh INT DEFAULT 0,
+        run_sm INT DEFAULT 0,
+        run_eh INT DEFAULT 0,
+        run_em INT DEFAULT 0,
+        run_sub INT DEFAULT 0,
+        
+        clear_sh INT DEFAULT 0,
+        clear_sm INT DEFAULT 0,
+        clear_eh INT DEFAULT 0,
+        clear_em INT DEFAULT 0,
+        clear_sub INT DEFAULT 0,
+        process_total INT DEFAULT 0,
     
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_oee1_f_tanggal (tanggal),
     INDEX idx_oee1_f_batch (no_batch)
-);
+) AUTO_ID_CACHE = 1;
