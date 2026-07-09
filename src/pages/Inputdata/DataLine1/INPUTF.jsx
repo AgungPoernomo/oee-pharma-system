@@ -1356,21 +1356,18 @@ export default function InputF() {
       const currentYear = now.getFullYear();
       const currentMonth = now.getMonth() + 1;
 
-      const filterRecentOrCurrentMonth = (row) => {
+      const filterCurrentMonth = (row) => {
         if (!row || !row.tanggal) return false;
         const ymd = parseToYMD(row.tanggal);
         if (!ymd) return false;
         const [year, month] = ymd.split('-').map(Number);
-        if (year === currentYear && month === currentMonth) return true;
-        const rowDate = new Date(ymd);
-        const diffDays = (now - rowDate) / (1000 * 60 * 60 * 24);
-        return diffDays >= -2 && diffDays <= 35;
+        return year === currentYear && month === currentMonth;
       };
 
       let mappedOEE = [];
       let mappedOEEIds = [];
       if (resOEE?.status === 'success' && Array.isArray(resOEE.data)) {
-        const filteredOEE = [...resOEE.data].reverse().filter(filterRecentOrCurrentMonth);
+        const filteredOEE = [...resOEE.data].reverse().filter(filterCurrentMonth);
         mappedOEE = filteredOEE.map((row) => {
           mappedOEEIds.push(row.id);
           const arr = Array(52).fill('');
@@ -1428,7 +1425,7 @@ export default function InputF() {
       let mappedDT = [];
       let mappedDTIds = [];
       if (resDT?.status === 'success' && Array.isArray(resDT.data)) {
-        const filteredDT = [...resDT.data].reverse().filter(filterRecentOrCurrentMonth);
+        const filteredDT = [...resDT.data].reverse().filter(filterCurrentMonth);
         mappedDT = filteredDT.map((row) => {
           mappedDTIds.push(row.id);
           return [
