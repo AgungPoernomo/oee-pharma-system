@@ -1337,18 +1337,44 @@ export default function InputF() {
 
   useEffect(() => {
     if (!oeeGridRef.current) return;
-    const tbody = oeeGridRef.current.getElementsByTagName('tbody')[0];
-    const rowEl = tbody?.rows?.[oeeSelection.endRow];
-    const td = rowEl?.cells?.[oeeSelection.endCol];
-    scrollCellIntoView(td, oeeGridRef.current);
+    const grid = oeeGridRef.current;
+    
+    const ROW_HEIGHT = 29;
+    const HEADER_HEIGHT = 65;
+    const rowTop = (oeeSelection.endRow * ROW_HEIGHT) + HEADER_HEIGHT;
+    const rowBottom = rowTop + ROW_HEIGHT;
+    
+    if (rowTop < grid.scrollTop + HEADER_HEIGHT) {
+      grid.scrollTop = Math.max(0, rowTop - HEADER_HEIGHT);
+    } else if (rowBottom > grid.scrollTop + grid.clientHeight) {
+      grid.scrollTop = rowBottom - grid.clientHeight;
+    }
+
+    requestAnimationFrame(() => {
+      const td = grid.querySelector(`td[data-row="${oeeSelection.endRow}"][data-col="${oeeSelection.endCol}"]`);
+      if (td) scrollCellIntoView(td, grid);
+    });
   }, [oeeSelection.endRow, oeeSelection.endCol]);
 
   useEffect(() => {
     if (!dtGridRef.current) return;
-    const tbody = dtGridRef.current.getElementsByTagName('tbody')[0];
-    const rowEl = tbody?.rows?.[dtSelection.endRow];
-    const td = rowEl?.cells?.[dtSelection.endCol];
-    scrollCellIntoView(td, dtGridRef.current);
+    const grid = dtGridRef.current;
+    
+    const ROW_HEIGHT = 29;
+    const HEADER_HEIGHT = 45;
+    const rowTop = (dtSelection.endRow * ROW_HEIGHT) + HEADER_HEIGHT;
+    const rowBottom = rowTop + ROW_HEIGHT;
+    
+    if (rowTop < grid.scrollTop + HEADER_HEIGHT) {
+      grid.scrollTop = Math.max(0, rowTop - HEADER_HEIGHT);
+    } else if (rowBottom > grid.scrollTop + grid.clientHeight) {
+      grid.scrollTop = rowBottom - grid.clientHeight;
+    }
+
+    requestAnimationFrame(() => {
+      const td = grid.querySelector(`td[data-row="${dtSelection.endRow}"][data-col="${dtSelection.endCol}"]`);
+      if (td) scrollCellIntoView(td, grid);
+    });
   }, [dtSelection.endRow, dtSelection.endCol]);
 
   const loadDataServer = useCallback(async () => {
