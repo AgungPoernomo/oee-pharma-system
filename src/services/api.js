@@ -91,37 +91,27 @@ export const submitOEEData = async (payload, explicitUser = null) => {
 
 // Buka src/services/api.js, ganti bagian ini saja:
 
-export const fetchTodayRejectC = async (user = null) => {
-  const response = await fetch('/api/fetch-data', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: "get_today_reject_c", user: getCurrentUser(user) })
-  });
-  return await response.json();
-};
+async function fetchHelper(actionName, user) {
+  try {
+    const response = await fetch('/api/fetch-data', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: actionName, user: getCurrentUser(user) })
+    });
+    const result = await response.json();
+    if (!response.ok || result.status === 'error') {
+      console.error(`[Fetch API Error (${actionName})]:`, result.message || response.statusText, result);
+    }
+    return result;
+  } catch (err) {
+    console.error(`[Fetch Network Error (${actionName})]:`, err.message);
+    return { status: "error", message: err.message, data: [] };
+  }
+}
 
-export const fetchTodayDowntimeC = async (user = null) => {
-  const response = await fetch('/api/fetch-data', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: "get_today_downtime_c", user: getCurrentUser(user) })
-  });
-  return await response.json();
-};
-
-export const fetchTodayRejectF = async (user = null) => {
-  const response = await fetch('/api/fetch-data', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: "get_today_reject_f", user: getCurrentUser(user) })
-  });
-  return await response.json();
-};
-
-export const fetchTodayDowntimeF = async (user = null) => {
-  const response = await fetch('/api/fetch-data', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: "get_today_downtime_f", user: getCurrentUser(user) })
-  });
-  return await response.json();
-};
+export const fetchTodayRejectC = async (user = null) => await fetchHelper("get_today_reject_c", user);
+export const fetchTodayDowntimeC = async (user = null) => await fetchHelper("get_today_downtime_c", user);
+export const fetchTodayRejectF = async (user = null) => await fetchHelper("get_today_reject_f", user);
+export const fetchTodayDowntimeF = async (user = null) => await fetchHelper("get_today_downtime_f", user);
 
 export const getPendingApprovals = async () => {
   return await sendRequest({ action: 'get_pending_approvals' });

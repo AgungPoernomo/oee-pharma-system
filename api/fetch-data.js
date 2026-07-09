@@ -54,6 +54,6 @@ export default async function handler(req, res) {
     return res.status(400).json({ status: 'error', message: 'Action not mapped' });
   } catch (error) {
     console.error('Fetch Error:', error);
-    return res.status(500).json({ status: 'error', message: error.message });
+    return res.status(500).json({ status: 'error', message: error.message, code: error.code || 'UNKNOWN' });
   }
 }
