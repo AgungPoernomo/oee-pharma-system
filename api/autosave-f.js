@@ -4,20 +4,36 @@ async function sendToGAS(url, payload, tableName, rowId) {
   if (!url) return;
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 25000);
       const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+        redirect: 'follow'
       });
+      clearTimeout(timeoutId);
       if (res.ok) {
-        if (rowId && tableName) {
+        // Validasi response body — GAS bisa return HTTP 200 tapi status: "error"
+        let gasOk = true;
+        try {
+          const text = await res.text();
+          const json = JSON.parse(text);
+          if (json.status === 'error') {
+            console.warn(`[GAS Sync] GAS returned error: ${json.message}`);
+            gasOk = false;
+          }
+        } catch (_) { /* response bukan JSON, anggap OK */ }
+        if (gasOk && rowId && tableName) {
           await db.query(`UPDATE ${tableName} SET synced_to_gas = 1 WHERE id = ?`, [rowId]).catch(() => {});
         }
         break;
       }
     } catch (err) {
-      console.warn(`[Background GAS Sync Attempt ${attempt} Error]:`, err.message);
-      if (attempt < 3) await new Promise(r => setTimeout(r, 1000 * attempt));
+      const isTimeout = err.name === 'AbortError';
+      console.warn(`[GAS Sync Attempt ${attempt}${isTimeout ? ' TIMEOUT' : ''}]:`, err.message);
+      if (attempt < 3) await new Promise(r => setTimeout(r, 1500 * attempt));
     }
   }
 }

@@ -125,7 +125,8 @@ function doGet(e) {
     var line = (e && e.parameter && e.parameter.line) ? e.parameter.line : null;
     return responseJSON(syncAllTablesFromTiDbViaJDBC(line));
   }
-  return responseJSON({ status: "success", message: "Google Apps Script OEE System Running. Gunakan ?action=sync_jdbc untuk trigger JDBC backup." });
+  if (action === "get_validation_data") return responseJSON(getValidationData());
+  return responseJSON({ status: "success", message: "Server OEE V15 (TiDB & JDBC Backup Ready)" });
 }
 
 function doPost(e) {
@@ -165,26 +166,27 @@ function doPost(e) {
       case "update_downtime_f": result = updateDowntimeZoneF(params.data, params.user, userLine); break;
       case "delete_downtime_f": result = deleteDowntimeZoneF(params.data, params.user, userLine); break;
 
-      case "get_today_reject_c": result = getTodayData(userLine, SHEET_DL_REJECT_C, 74, 3, 4); break;
-      case "get_today_reject_f": result = getTodayData(userLine, SHEET_DL_REJECT_F, 67, 4, 4); break;
-      case "get_today_downtime_c": result = getTodayData(userLine, SHEET_DL_DOWNTIME_C, 16, 2, 2); break;
-      case "get_today_downtime_f": result = getTodayData(userLine, SHEET_DL_DOWNTIME_F, 17, 2, 2); break;
+      case "get_today_reject_c": result = getTodayData(userLine, SHEET_DL_REJECT_C, 0, 3, 4); break;
+      case "get_today_reject_f": result = getTodayData(userLine, SHEET_DL_REJECT_F, 0, 4, 4); break;
+      case "get_today_downtime_c": result = getTodayData(userLine, SHEET_DL_DOWNTIME_C, 0, 2, 2); break;
+      case "get_today_downtime_f": result = getTodayData(userLine, SHEET_DL_DOWNTIME_F, 0, 2, 2); break;
 
       default:
         result = { status: "error", message: "Action tidak dikenal: " + action };
     }
     return responseJSON(result);
   } catch (error) {
-    return responseJSON({ status: "error", message: error.toString() });
+    var errMsg = "[doPost Error]";
+    try { errMsg += " Action: " + JSON.parse(e.postData.contents).action; } catch(x) {}
+    errMsg += " | " + error.toString();
+    if (error.stack) errMsg += " | Stack: " + error.stack.substring(0, 200);
+    return responseJSON({ status: "error", message: errMsg });
   } finally {
     lock.releaseLock();
   }
 }
 
-function doGet(e) {
-  if (e.parameter.action === "get_validation_data") return responseJSON(getValidationData());
-  return responseJSON({ status: "success", message: "Server OEE V14 (TiDB & Dynamic Sync Ready)" });
-}
+// doGet sudah didefinisikan di atas (baris 122). Duplikat dihapus.
 
 function upsertOrAppendRow(sheet, rowData, startRowVal, explicitTidbId) {
   var tidbId = explicitTidbId ? String(explicitTidbId).trim() : "";
@@ -481,7 +483,10 @@ function updateRejectZoneF(data, user, userLine) { return saveRejectZoneF(data, 
 function deleteRejectZoneF(data, user, userLine) { return { status: 'success', message: 'Delete dilewati di GAS (Opsi 1 Batch Log Out)' }; }
 
 function constructDTArray(data, user, isClosing, startRowVal, userLine) {
-  return constructDowntimeArray(data, user, false);
+  // Tentukan hasLot berdasarkan userLine: Line 1 downtime Zone F TIDAK pakai lot, Line 2/3/4 pakai lot
+  var isLine1 = String(userLine).trim() === "1" || String(userLine).toUpperCase().includes("LINE 1") || String(userLine).toUpperCase().includes("LINE1");
+  var hasLot = !isLine1;
+  return constructDowntimeArray(data, user, hasLot);
 }
 
 function constructDowntimeArray(data, user, hasLot) {
@@ -531,15 +536,20 @@ function getTodayData(userLine, sheetName, totalCols, dateColIndex, dataStartRow
   const targetId = getDbIdByLine(userLine);
   const ss = SpreadsheetApp.openById(targetId);
   const sheet = ss.getSheetByName(sheetName);
+  if (!sheet) return { status: "success", data: [] };
   const lastRow = sheet.getLastRow();
   
   if (lastRow < dataStartRow) return { status: "success", data: [] };
+
+  // BUG-06 FIX: Gunakan jumlah kolom aktual dari sheet jika totalCols = 0 atau lebih kecil dari kolom sheet
+  var actualCols = sheet.getLastColumn() || 1;
+  var useCols = (totalCols && totalCols > 0) ? Math.min(totalCols, actualCols) : actualCols;
 
   const limit = 5000; 
   const startRow = Math.max(dataStartRow, lastRow - limit + 1);
   const numRows = lastRow - startRow + 1;
 
-  const data = sheet.getRange(startRow, 1, numRows, totalCols).getDisplayValues();
+  const data = sheet.getRange(startRow, 1, numRows, useCols).getDisplayValues();
   
   for(var i = 0; i < data.length; i++) {
      data[i].push(startRow + i); 
@@ -849,7 +859,7 @@ function syncSingleTableViaJDBC(conn, tableName, sheetName, lineNum, startRowVal
     }
     
     if (rowData && rowData.length > 0) {
-      upsertOrAppendRow(sheet, rowData, startRowVal);
+      upsertOrAppendRow(sheet, rowData, startRowVal, rowObj.id);
       if (rowObj.id && !isNaN(Number(rowObj.id))) {
         syncedIds.push(Number(rowObj.id));
       }
