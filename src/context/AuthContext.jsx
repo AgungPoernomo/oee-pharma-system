@@ -41,25 +41,21 @@ export const AuthProvider = ({ children }) => {
     'F_DATA_OEE_L4','F_DATA_DT_L4','F_IDS_OEE_L4','F_IDS_DT_L4',
   ];
 
-  const logout = async () => {
-    // [OPSI 1 TRIGGER BACKUP LOG OUT]: Kirim data akhir shift dari TiDB ke Google Spreadsheet
+  const logout = () => {
+    // [INSTANT LOGOUT + BACKGROUND BACKUP]: Kirim di background tanpa memblokir operator keluar sistem (< 10ms)
     if (user) {
-      try {
-        await fetch('/api/sync-on-logout', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ user }),
-          keepalive: true
-        });
-      } catch (err) {
-        console.error("Sync on logout error:", err);
-      }
+      fetch('/api/sync-on-logout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user }),
+        keepalive: true
+      }).catch(err => console.error("Background sync on logout error:", err));
     }
     setUser(null);
     localStorage.removeItem("oee_user");
     // [BUG-01 FIX] Bersihkan semua cache data grid agar data tidak bocor ke user berikutnya
     GRID_CACHE_KEYS.forEach(k => localStorage.removeItem(k));
-    // Gunakan window.location agar state benar-benar bersih
+    // Gunakan window.location agar state benar-benar bersih sekejap mata
     window.location.href = '/login'; 
   };
 

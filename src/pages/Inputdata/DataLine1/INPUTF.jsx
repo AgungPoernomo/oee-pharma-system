@@ -1358,11 +1358,8 @@ export default function InputF() {
         if (!row || !row.tanggal) return false;
         const ymd = parseToYMD(row.tanggal);
         if (!ymd) return false;
-        const [year, month, day] = ymd.split('-').map(Number);
-        if (year === currentYear && month === currentMonth) return true;
-        const rowDate = new Date(year, month - 1, day);
-        const diffDays = (now - rowDate) / (1000 * 60 * 60 * 24);
-        return diffDays >= 0 && diffDays <= 35;
+        const [year, month] = ymd.split('-').map(Number);
+        return year === currentYear && month === currentMonth;
       };
 
       let mappedOEE = [];

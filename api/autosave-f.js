@@ -1,5 +1,21 @@
 import db from './db.js';
 
+async function sendToGAS(url, payload, tableName, rowId) {
+  if (!url) return;
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (res.ok && rowId && tableName) {
+      await db.query(`UPDATE ${tableName} SET synced_to_gas = 1 WHERE id = ?`, [rowId]);
+    }
+  } catch (err) {
+    console.warn("[Background GAS Sync Error]:", err.message);
+  }
+}
+
 // [BUG-05 FIX] Cache dengan TTL 5 menit agar perubahan skema tabel (ALTER TABLE) langsung terdeteksi
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const columnCache = {}; // { tableName: { cols: Set, ts: number } }
@@ -113,17 +129,16 @@ export default async function handler(req, res) {
           dbPayload.synced_to_gas = 0;
           const [result] = await db.query(`INSERT INTO ${tableName} SET ?`, [dbPayload]);
           insertedIds.push(result.insertId);
+          sendToGAS(process.env.GAS_URL, { action, data: { ...dbPayload, id: result.insertId }, user: { ...user, line: lineNum }, tableName }, tableName, result.insertId).catch(err => void err);
         } else {
           dbPayload.synced_to_gas = 0;
           await db.query(`UPDATE ${tableName} SET ? WHERE id = ?`, [dbPayload, Number(currentId)]);
           insertedIds.push(Number(currentId));
+          sendToGAS(process.env.GAS_URL, { action, data: { ...dbPayload, id: Number(currentId) }, user: { ...user, line: lineNum }, tableName }, tableName, Number(currentId)).catch(err => void err);
         }
       }
 
       const firstId = insertedIds.length > 0 ? insertedIds[0] : null;
-
-      // [OPSI 1 SCHEDULED BACKUP]: sendToGAS dinonaktifkan pada saat Cell Blur operasional.
-      // Pengiriman data ke GAS dilakukan saat Log Out (via endpoint /api/sync-on-logout).
 
       return res.status(200).json({ status: 'success', original_id: firstId, ids: insertedIds });
     }

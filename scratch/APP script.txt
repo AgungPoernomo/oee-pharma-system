@@ -206,9 +206,23 @@ function upsertOrAppendRow(sheet, rowData, startRowVal) {
   return newRow;
 }
 
+function normalizeDateStr(val) {
+  if (!val) return "";
+  if (val instanceof Date) {
+    if (isNaN(val.getTime())) return "";
+    var y = val.getFullYear();
+    var m = ("0" + (val.getMonth() + 1)).slice(-2);
+    var d = ("0" + val.getDate()).slice(-2);
+    return y + "-" + m + "-" + d;
+  }
+  var str = String(val).replace(/^'/, "").trim();
+  if (str.includes("T")) str = str.split("T")[0];
+  return str;
+}
+
 function findRowByBusinessKeys(sheet, rowData, startRowVal, numRows) {
   var sheetName = sheet.getName().toUpperCase();
-  var maxCols = Math.min(8, sheet.getLastColumn() || 8);
+  var maxCols = Math.min(15, sheet.getLastColumn() || 15);
   var values = sheet.getRange(startRowVal, 1, numRows, maxCols).getValues();
   
   if (sheetName.includes("DOWNTIME")) {
@@ -219,7 +233,7 @@ function findRowByBusinessKeys(sheet, rowData, startRowVal, numRows) {
     var idxSh = isHasLot ? 7 : 6;
     var idxSm = isHasLot ? 8 : 7;
     
-    var tTgl = String(rowData[idxTgl] || "").replace(/^'/, "").trim();
+    var tTgl = normalizeDateStr(rowData[idxTgl]);
     var tShift = String(rowData[idxShift] || "").trim().toLowerCase();
     var tBatch = String(rowData[idxBatch] || "").trim().toLowerCase();
     var tSh = String(rowData[idxSh] || "").trim();
@@ -228,7 +242,7 @@ function findRowByBusinessKeys(sheet, rowData, startRowVal, numRows) {
     if (!tTgl || !tShift) return -1;
     
     for (var i = numRows - 1; i >= 0; i--) {
-      var rTgl = String(values[i][idxTgl] || "").replace(/^'/, "").trim();
+      var rTgl = normalizeDateStr(values[i][idxTgl]);
       var rShift = String(values[i][idxShift] || "").trim().toLowerCase();
       var rBatch = String(values[i][idxBatch] || "").trim().toLowerCase();
       var rSh = String(values[i][idxSh] || "").trim();
@@ -245,14 +259,14 @@ function findRowByBusinessKeys(sheet, rowData, startRowVal, numRows) {
     var idxShift = isF ? 5 : 4;
     
     var tBatch = String(rowData[idxBatch] || "").trim().toLowerCase();
-    var tTgl = String(rowData[idxTgl] || "").replace(/^'/, "").trim();
+    var tTgl = normalizeDateStr(rowData[idxTgl]);
     var tShift = String(rowData[idxShift] || "").trim().toLowerCase();
     
     if (!tBatch || !tTgl || !tShift) return -1;
     
     for (var i = numRows - 1; i >= 0; i--) {
       var rBatch = String(values[i][idxBatch] || "").trim().toLowerCase();
-      var rTgl = String(values[i][idxTgl] || "").replace(/^'/, "").trim();
+      var rTgl = normalizeDateStr(values[i][idxTgl]);
       var rShift = String(values[i][idxShift] || "").trim().toLowerCase();
       
       if (rBatch === tBatch && rTgl === tTgl && rShift === tShift) {
