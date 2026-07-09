@@ -83,7 +83,11 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ message: 'Method Not Allowed' });
 
-  const { action, data, user } = req.body;
+  let body = req.body || {};
+  if (typeof body === 'string') {
+    try { body = JSON.parse(body); } catch (e) { body = {}; }
+  }
+  const { action, data, user } = body;
   const rawLine = user?.line || user?.plant || "4";
   const lineNum = rawLine.match(/\d+/) ? rawLine.match(/\d+/)[0] : "4";
 
