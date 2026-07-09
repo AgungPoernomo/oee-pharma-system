@@ -30,7 +30,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ status: 'success', data: rows });
     }
     else if (action === 'get_onesheet_data') {
-      const tanggal = req.body.data?.tanggal;
+      const tanggal = body.data?.tanggal;
       if (!tanggal) return res.status(400).json({ status: 'error', message: 'Tanggal is required' });
 
       const q1 = db.query(`SELECT * FROM oee_line${lineNum}_zonec WHERE tanggal = ? ORDER BY id ASC`, [tanggal]);
