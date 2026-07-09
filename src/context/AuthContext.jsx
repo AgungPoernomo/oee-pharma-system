@@ -27,14 +27,19 @@ export const AuthProvider = ({ children }) => {
     localStorage.setItem("oee_user", JSON.stringify(userData));
   };
 
-  const logout = () => {
+  const logout = async () => {
     // [OPSI 1 TRIGGER BACKUP LOG OUT]: Kirim data akhir shift dari TiDB ke Google Spreadsheet
     if (user) {
-      fetch('/api/sync-on-logout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user })
-      }).catch(err => console.error("Sync on logout error:", err));
+      try {
+        await fetch('/api/sync-on-logout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user }),
+          keepalive: true
+        });
+      } catch (err) {
+        console.error("Sync on logout error:", err);
+      }
     }
     setUser(null);
     localStorage.removeItem("oee_user");

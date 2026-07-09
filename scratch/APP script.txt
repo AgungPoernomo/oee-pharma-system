@@ -169,13 +169,33 @@ function doGet(e) {
   return responseJSON({ status: "success", message: "Server OEE V14 (TiDB & Dynamic Sync Ready)" });
 }
 
+function upsertOrAppendRow(sheet, rowData, startRowVal) {
+  var id = String(rowData[0] || "").trim();
+  if (id && !isNaN(Number(id)) && Number(id) > 0) {
+    var lastRow = sheet.getLastRow();
+    if (lastRow >= startRowVal) {
+      var ids = sheet.getRange(startRowVal, 1, lastRow - startRowVal + 1, 1).getValues();
+      for (var i = 0; i < ids.length; i++) {
+        if (String(ids[i][0] || "").trim() === id) {
+          var targetRow = startRowVal + i;
+          sheet.getRange(targetRow, 1, 1, rowData.length).setValues([rowData]);
+          return targetRow;
+        }
+      }
+    }
+  }
+  var newRow = getRealLastDataRow(sheet, startRowVal);
+  sheet.getRange(newRow, 1, 1, rowData.length).setValues([rowData]);
+  return newRow;
+}
+
 function constructRejectCArray(data, user, isClosing, r, userLine) {
   var tglIndo = formatTglIndo(data.tanggal);
   
   // KHUSUS LINE 3 (INPUTC - Cutting / Filling Seal)
   if (String(userLine) === "3") {
     return [
-      new Date(), (user && user.nama) ? user.nama : "Unknown", 
+      raw(data.id || new Date()), (user && user.nama) ? user.nama : "Unknown", 
       raw(data.no_batch), tglIndo, raw(data.shift), raw(data.group), 
       raw(data.vol_botol ?? data.volume_botol), 
       raw(data.cnt_start), raw(data.cnt_end), raw(data.cnt_sub), raw(data.utuh), raw(data.jml_batch), 
@@ -192,7 +212,7 @@ function constructRejectCArray(data, user, isClosing, r, userLine) {
   // KHUSUS LINE 1 (INPUTC - Blow / Washing / Filling / Preform)
   if (String(userLine) === "1") {
     return [
-      new Date(), (user && user.nama) ? user.nama : "Unknown", 
+      raw(data.id || new Date()), (user && user.nama) ? user.nama : "Unknown", 
       raw(data.no_batch), tglIndo, raw(data.shift), raw(data.group), 
       raw(data.volume_botol ?? data.vol_botol), 
       raw(data.reject_botol ?? data.rej_botol), raw(data.reject_preform ?? data.rej_preform), raw(data.reject_blow ?? data.rej_blow), 
@@ -209,7 +229,7 @@ function constructRejectCArray(data, user, isClosing, r, userLine) {
 
   // LINE 2, 4 (Blow / Washing / Filling / Preform) - Murni Backup Data Tanpa Perhitungan/Rumus
   return [
-    new Date(), (user && user.nama) ? user.nama : "Unknown", 
+    raw(data.id || new Date()), (user && user.nama) ? user.nama : "Unknown", 
     raw(data.no_batch), tglIndo, raw(data.shift), raw(data.group), raw(data.reject_blow), raw(data.volume_botol), 
     raw(data.cnt_start), raw(data.cnt_end), raw(data.cnt_sub), raw(data.utuh), raw(data.jml_batch), raw(data.total_cnt_shift), 
     raw(data.r_washing), raw(data.r_vk), raw(data.r_vl), raw(data.r_nocap), raw(data.r_sealnok), raw(data.r_others), raw(data.r_sub), 
@@ -234,11 +254,10 @@ function saveRejectZoneC(data, user, userLine) {
   const sheet = ss.getSheetByName(SHEET_DL_REJECT_C);
   if (!sheet) return { status: 'error', message: `Sheet Missing!` };
   
-  var startRow = getRealLastDataRow(sheet, 4);
-  var rowData = constructRejectCArray(data, user, data.is_closing, startRow, userLine);
-  sheet.getRange(startRow, 1, 1, rowData.length).setValues([rowData]);
+  var rowData = constructRejectCArray(data, user, data.is_closing, 4, userLine);
+  var targetRow = upsertOrAppendRow(sheet, rowData, 4);
 
-  if (data.is_closing === true) sheet.getRange(startRow, 1, 1, rowData.length).setBackground("#FFF2CC");
+  if (data.is_closing === true) sheet.getRange(targetRow, 1, 1, rowData.length).setBackground("#FFF2CC");
   SpreadsheetApp.flush();
   return { status: 'success', message: 'Data Zone C Tersimpan!' };
 }
@@ -269,7 +288,7 @@ function constructRejectFArray(data, user, isClosing, r, userLine) {
   // KHUSUS LINE 1 (INPUTF - Visual Inspection / Packing)
   if (String(userLine) === "1") {
     return [
-      new Date(), (user && user.nama) ? user.nama : "Unknown", 
+      raw(data.id || new Date()), (user && user.nama) ? user.nama : "Unknown", 
       raw(data.no_batch), raw(data.lot_no ?? data.lot), tglIndo, raw(data.shift), raw(data.group), 
       raw(data.volume_botol ?? data.vol_botol), 
       raw(data.steril_in ?? data.input_steril), raw(data.steril_bocor), raw(data.steril_h_patah_ring), raw(data.steril_h_patah_lidah), raw(data.steril_h_patah_leleh), raw(data.steril_no_hanger), raw(data.steril_rej_total ?? data.reject_before_steril), raw(data.steril_sample), raw(data.steril_out ?? data.output_chamber), 
@@ -285,7 +304,7 @@ function constructRejectFArray(data, user, isClosing, r, userLine) {
 
   // LINE 2, 4 (Visual Inspection & Packing Standard) - Murni Backup Data Tanpa Perhitungan/Rumus
   return [
-    new Date(), (user && user.nama) ? user.nama : "Unknown", 
+    raw(data.id || new Date()), (user && user.nama) ? user.nama : "Unknown", 
     raw(data.no_batch), raw(data.lot_no), tglIndo, raw(data.shift), raw(data.group), raw(data.volume_botol), 
     raw(data.steril_in), raw(data.steril_bocor), raw(data.steril_h_patah_ring), raw(data.steril_h_patah_lidah), raw(data.steril_h_patah_leleh), raw(data.steril_no_hanger), raw(data.steril_rej_total), raw(data.steril_sample), raw(data.steril_out), 
     raw(data.vi_start), raw(data.vi_end), raw(data.vi_sub), 
@@ -311,12 +330,10 @@ function saveRejectZoneF(data, user, userLine) {
   const sheet = ss.getSheetByName(SHEET_DL_REJECT_F);
   if (!sheet) return { status: 'error', message: `Sheet Missing!` };
   
-  var startRow = sheet.getLastRow() + 1;
-  var rowData = constructRejectFArray(data, user, data.is_closing, startRow, userLine);
-  
-  sheet.appendRow(rowData);
+  var rowData = constructRejectFArray(data, user, data.is_closing, 4, userLine);
+  var targetRow = upsertOrAppendRow(sheet, rowData, 4);
 
-  if (data.is_closing === true) sheet.getRange(startRow, 1, 1, rowData.length).setBackground("#FFF2CC");
+  if (data.is_closing === true) sheet.getRange(targetRow, 1, 1, rowData.length).setBackground("#FFF2CC");
   SpreadsheetApp.flush();
   return { status: 'success', message: 'Data Zone F Tersimpan!' };
 }
@@ -333,7 +350,7 @@ function constructDowntimeArray(data, user, hasLot) {
     tglVal = tglVal.toISOString().split('T')[0];
   }
   var tglIndo = formatTglIndo(tglVal);
-  var rowData = [ new Date(), sourceName, raw(tglIndo), raw(data.shift), raw(data.group), raw(data.no_batch) ];
+  var rowData = [ raw(data.id || new Date()), sourceName, raw(tglIndo), raw(data.shift), raw(data.group), raw(data.no_batch) ];
   if (hasLot) rowData.push(raw(data.lot));
   rowData.push(raw(data.start_h), raw(data.start_m), raw(data.end_h), raw(data.end_m), raw(data.duration), raw(data.plan_unplan), raw(data.root_cause), raw(data.proses), raw(data.unit), raw(data.kasus));
   return rowData;
@@ -351,7 +368,7 @@ function saveDT(data, user, userLine, sheetName, hasLot) {
   if (!sheet) return { status: 'error', message: `${sheetName} Missing!` };
   
   var rowData = constructDowntimeArray(data, user, hasLot);
-  var targetRow = getRealLastDataRow(sheet, 2);
+  var targetRow = upsertOrAppendRow(sheet, rowData, 2);
   sheet.getRange(targetRow, 1, 1, rowData.length).setValues([rowData]);
   SpreadsheetApp.flush();
   return { status: 'success', message: 'Downtime Saved!' };

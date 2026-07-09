@@ -56,9 +56,19 @@ export default async function handler(req, res) {
         } catch (colErr) { void colErr; }
 
         // Pilih data shift terakhir yang BELUM tersinkronisasi ke Google Spreadsheet (synced_to_gas IS NULL atau 0)
-        const [rows] = await db.query(
-          `SELECT * FROM ${config.tableName} WHERE (synced_to_gas IS NULL OR synced_to_gas = 0) AND tanggal >= SUBDATE(CURDATE(), 1) ORDER BY id ASC`
-        );
+        let sqlQuery = `SELECT * FROM ${config.tableName} WHERE (synced_to_gas IS NULL OR synced_to_gas = 0) AND tanggal >= SUBDATE(CURDATE(), 1)`;
+        const queryParams = [];
+        if (user?.shift && String(user.shift).trim() !== "") {
+          sqlQuery += ` AND shift = ?`;
+          queryParams.push(String(user.shift).trim());
+        }
+        if (user?.group && String(user.group).trim() !== "") {
+          sqlQuery += ` AND \`group\` = ?`;
+          queryParams.push(String(user.group).trim());
+        }
+        sqlQuery += ` ORDER BY id ASC`;
+
+        const [rows] = await db.query(sqlQuery, queryParams);
 
         for (const rowData of rows) {
           if (rowData.tanggal && typeof rowData.tanggal === 'string' && rowData.tanggal.includes('T')) {
