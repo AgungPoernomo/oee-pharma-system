@@ -1,9 +1,6 @@
 import mysql from 'mysql2/promise';
 
-// Membaca dotenv hanya jika di local environment
-if (process.env.NODE_ENV !== 'production') {
-  import('dotenv').then(dotenv => dotenv.config());
-}
+import 'dotenv/config';
 
 const pool = mysql.createPool({
   host: process.env.TIDB_HOST,

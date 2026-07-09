@@ -170,14 +170,17 @@ function doGet(e) {
 }
 
 function upsertOrAppendRow(sheet, rowData, startRowVal) {
-  // [BUG-06 FIX] Pastikan id adalah integer positif dari TiDB — tolak Date, string, 0, dll.
   var rawId = rowData[0];
   var id = (rawId !== null && rawId !== undefined && rawId !== "" && !(rawId instanceof Date))
     ? String(rawId).trim() : "";
-  if (id && /^\d+$/.test(id) && Number(id) > 0) {
-    var lastRow = sheet.getLastRow();
-    if (lastRow >= startRowVal) {
-      var ids = sheet.getRange(startRowVal, 1, lastRow - startRowVal + 1, 1).getValues();
+  var lastRow = sheet.getLastRow();
+  
+  if (lastRow >= startRowVal) {
+    var numRows = lastRow - startRowVal + 1;
+    
+    // 1. Cek Prioritas 1: Pencarian berdasarkan ID TiDB di Kolom A
+    if (id && /^\d+$/.test(id) && Number(id) > 0) {
+      var ids = sheet.getRange(startRowVal, 1, numRows, 1).getValues();
       for (var i = 0; i < ids.length; i++) {
         var cellId = String(ids[i][0] || "").trim();
         if (cellId === id) {
@@ -187,10 +190,77 @@ function upsertOrAppendRow(sheet, rowData, startRowVal) {
         }
       }
     }
+
+    // 2. Cek Prioritas 2 (Fallback Idempotent): Jika ID TiDB tidak cocok/belum ada di sheet (karena jaringan rto / data lama),
+    //    cocokkan berdasarkan Business Unique Keys (Tanggal + Shift + No Batch / Start Jam) agar TIDAK DUPLIKAT
+    var targetRowFallback = findRowByBusinessKeys(sheet, rowData, startRowVal, numRows);
+    if (targetRowFallback !== -1) {
+      sheet.getRange(targetRowFallback, 1, 1, rowData.length).setValues([rowData]);
+      return targetRowFallback;
+    }
   }
+
+  // 3. Jika benar-benar baru, barulah tambahkan di baris baru di bawah (Append)
   var newRow = getRealLastDataRow(sheet, startRowVal);
   sheet.getRange(newRow, 1, 1, rowData.length).setValues([rowData]);
   return newRow;
+}
+
+function findRowByBusinessKeys(sheet, rowData, startRowVal, numRows) {
+  var sheetName = sheet.getName().toUpperCase();
+  var maxCols = Math.min(8, sheet.getLastColumn() || 8);
+  var values = sheet.getRange(startRowVal, 1, numRows, maxCols).getValues();
+  
+  if (sheetName.includes("DOWNTIME")) {
+    var isHasLot = rowData.length > 16;
+    var idxTgl = 2;
+    var idxShift = 3;
+    var idxBatch = 5;
+    var idxSh = isHasLot ? 7 : 6;
+    var idxSm = isHasLot ? 8 : 7;
+    
+    var tTgl = String(rowData[idxTgl] || "").replace(/^'/, "").trim();
+    var tShift = String(rowData[idxShift] || "").trim().toLowerCase();
+    var tBatch = String(rowData[idxBatch] || "").trim().toLowerCase();
+    var tSh = String(rowData[idxSh] || "").trim();
+    var tSm = String(rowData[idxSm] || "").trim();
+    
+    if (!tTgl || !tShift) return -1;
+    
+    for (var i = numRows - 1; i >= 0; i--) {
+      var rTgl = String(values[i][idxTgl] || "").replace(/^'/, "").trim();
+      var rShift = String(values[i][idxShift] || "").trim().toLowerCase();
+      var rBatch = String(values[i][idxBatch] || "").trim().toLowerCase();
+      var rSh = String(values[i][idxSh] || "").trim();
+      var rSm = String(values[i][idxSm] || "").trim();
+      
+      if (rTgl === tTgl && rShift === tShift && rBatch === tBatch && rSh === tSh && rSm === tSm) {
+        return startRowVal + i;
+      }
+    }
+  } else if (sheetName.includes("REJECT")) {
+    var isF = sheetName.includes("_F");
+    var idxBatch = 2;
+    var idxTgl = isF ? 4 : 3;
+    var idxShift = isF ? 5 : 4;
+    
+    var tBatch = String(rowData[idxBatch] || "").trim().toLowerCase();
+    var tTgl = String(rowData[idxTgl] || "").replace(/^'/, "").trim();
+    var tShift = String(rowData[idxShift] || "").trim().toLowerCase();
+    
+    if (!tBatch || !tTgl || !tShift) return -1;
+    
+    for (var i = numRows - 1; i >= 0; i--) {
+      var rBatch = String(values[i][idxBatch] || "").trim().toLowerCase();
+      var rTgl = String(values[i][idxTgl] || "").replace(/^'/, "").trim();
+      var rShift = String(values[i][idxShift] || "").trim().toLowerCase();
+      
+      if (rBatch === tBatch && rTgl === tTgl && rShift === tShift) {
+        return startRowVal + i;
+      }
+    }
+  }
+  return -1;
 }
 
 function constructRejectCArray(data, user, isClosing, r, userLine) {
@@ -373,7 +443,6 @@ function saveDT(data, user, userLine, sheetName, hasLot) {
   
   var rowData = constructDowntimeArray(data, user, hasLot);
   var targetRow = upsertOrAppendRow(sheet, rowData, 2);
-  sheet.getRange(targetRow, 1, 1, rowData.length).setValues([rowData]);
   SpreadsheetApp.flush();
   return { status: 'success', message: 'Downtime Saved!' };
 }
@@ -598,44 +667,4 @@ function getOnesheetData(user, payload) {
   } catch (error) {
     return { status: "error", message: "Gagal menarik data Onesheet: " + error.toString() };
   }
-}
-
-function handleUpdateFoto(data) {
-  const ss = SpreadsheetApp.openById(ID_DB_MASTER);
-  const sheet = ss.getSheetByName(SHEET_APP_MASTER);
-  const lastRow = getLastRowInColumn(sheet, "A");
-  
-  const users = sheet.getRange(START_ROW_DATA, 1, lastRow - (START_ROW_DATA - 1), 8).getValues();
-  
-  for (let i = 0; i < users.length; i++) {
-    if (String(users[i][0]) === String(data.id)) {
-      let finalFotoData = "-";
-      let driveLink = "-";
-      
-      if (data.foto && data.foto.length > 100) {
-        try {
-          const parts = data.foto.split(",");
-          const base64Data = parts[1] || parts[0]; 
-          
-          const decodedBlob = Utilities.newBlob(Utilities.base64Decode(base64Data), "image/jpeg", data.id + "_profile_" + new Date().getTime() + ".jpg");
-          let folder;
-          try { folder = DriveApp.getFolderById(ID_FOLDER_FOTO); } catch(e) { folder = DriveApp.getRootFolder(); }
-          const file = folder.createFile(decodedBlob);
-          file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-          
-          driveLink = "https://drive.google.com/uc?export=view&id=" + file.getId();
-          finalFotoData = data.foto; 
-          
-        } catch (e) { 
-          return { status: "error", message: "Gagal memproses gambar: " + e.toString() };
-        }
-      }
-      
-      sheet.getRange(i + START_ROW_DATA, 6).setValue(finalFotoData);
-      sheet.getRange(i + START_ROW_DATA, 8).setValue(driveLink);
-      
-      return { status: "success", message: "Foto profil berhasil diperbarui ke database!", foto: finalFotoData };
-    }
-  }
-  return { status: "error", message: "Gagal: User tidak ditemukan di sistem." };
 }

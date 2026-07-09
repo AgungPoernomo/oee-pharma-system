@@ -146,7 +146,7 @@ const calculateOEERow = (row) => {
   setV(39, timeDiff(35, 36, 37, 38));
   setV(45, timeDiff(41, 42, 43, 44));
   let lc = timeDiff(46, 47, 48, 49);
-  setV(50, lc); setV(52, lc); setV(53, lc);
+  setV(50, lc);
 
   let rSub = v(45); let lSub = v(50);
   if (rSub > 0 || lSub > 0) setV(51, rSub + lSub);
@@ -667,14 +667,17 @@ export default function InputF() {
       const isKeyComplete = 
         isValidKey(rowData[2]) &&
         isValidKey(rowData[0]) &&
-        isValidKey(rowData[3]) &&
-        isValidKey(rowData[35]) &&
-        isValidKey(rowData[36]) &&
-        isValidKey(rowData[37]) &&
-        isValidKey(rowData[38]);
+        isValidKey(rowData[3]);
+
+      const isRowEmpty = 
+        !isValidKey(rowData[2]) &&
+        !isValidKey(rowData[0]) &&
+        !isValidKey(rowData[3]) &&
+        !isValidKey(rowData[6]) &&
+        !isValidKey(rowData[7]);
 
       if (!isKeyComplete) {
-        if (original_id) {
+        if (original_id && isRowEmpty) {
           await sendAutoSave({ action: 'delete_reject_f', data: { original_id }, user });
           oeeIds.current[rIdx] = null;
           localStorage.setItem(LS_IDS_OEE, JSON.stringify(oeeIds.current));
@@ -751,15 +754,17 @@ export default function InputF() {
       const isValidKey = (val) => val !== '' && val !== null && val !== undefined && String(val).trim() !== '';
       const isKeyComplete = 
         isValidKey(rowData[0]) &&
-        isValidKey(rowData[3]) &&
-        isValidKey(rowData[1]) &&
-        isValidKey(rowData[4]) &&
-        isValidKey(rowData[5]) &&
-        isValidKey(rowData[6]) &&
-        isValidKey(rowData[7]);
+        isValidKey(rowData[1]);
+
+      const isRowEmpty = 
+        !isValidKey(rowData[0]) &&
+        !isValidKey(rowData[3]) &&
+        !isValidKey(rowData[1]) &&
+        !isValidKey(rowData[10]) &&
+        !isValidKey(rowData[13]);
 
       if (!isKeyComplete) {
-        if (original_id) {
+        if (original_id && isRowEmpty) {
           await sendAutoSave({ action: 'delete_downtime_f', data: { original_id }, user });
           dtIds.current[rIdx] = null;
           localStorage.setItem(LS_IDS_DT, JSON.stringify(dtIds.current));
@@ -1349,21 +1354,24 @@ export default function InputF() {
       const currentYear = now.getFullYear();
       const currentMonth = now.getMonth() + 1;
 
-      const filterCurrentMonth = (row) => {
+      const filterRecentOrCurrentMonth = (row) => {
         if (!row || !row.tanggal) return false;
         const ymd = parseToYMD(row.tanggal);
         if (!ymd) return false;
-        const [year, month] = ymd.split('-').map(Number);
-        return year === currentYear && month === currentMonth;
+        const [year, month, day] = ymd.split('-').map(Number);
+        if (year === currentYear && month === currentMonth) return true;
+        const rowDate = new Date(year, month - 1, day);
+        const diffDays = (now - rowDate) / (1000 * 60 * 60 * 24);
+        return diffDays >= 0 && diffDays <= 35;
       };
 
       let mappedOEE = [];
       let mappedOEEIds = [];
       if (resOEE?.status === 'success' && Array.isArray(resOEE.data)) {
-        const filteredOEE = [...resOEE.data].reverse().filter(filterCurrentMonth);
+        const filteredOEE = [...resOEE.data].reverse().filter(filterRecentOrCurrentMonth);
         mappedOEE = filteredOEE.map((row) => {
           mappedOEEIds.push(row.id);
-          const arr = Array(55).fill('');
+          const arr = Array(52).fill('');
           arr[0] = row.no_batch ?? '';
           arr[1] = row.lot_no ?? '';
           arr[2] = parseToYMD(row.tanggal);
@@ -1418,7 +1426,7 @@ export default function InputF() {
       let mappedDT = [];
       let mappedDTIds = [];
       if (resDT?.status === 'success' && Array.isArray(resDT.data)) {
-        const filteredDT = [...resDT.data].reverse().filter(filterCurrentMonth);
+        const filteredDT = [...resDT.data].reverse().filter(filterRecentOrCurrentMonth);
         mappedDT = filteredDT.map((row) => {
           mappedDTIds.push(row.id);
           return [

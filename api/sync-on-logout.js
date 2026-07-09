@@ -55,8 +55,9 @@ export default async function handler(req, res) {
           }
         } catch (colErr) { void colErr; }
 
-        // Pilih data shift terakhir yang BELUM tersinkronisasi ke Google Spreadsheet (synced_to_gas IS NULL atau 0)
-        let sqlQuery = `SELECT * FROM ${config.tableName} WHERE (synced_to_gas IS NULL OR synced_to_gas = 0) AND tanggal >= SUBDATE(CURDATE(), 1)`;
+        // [LOGOUT BACKUP]: Pilih HANYA data yang belum tersinkronisasi (synced_to_gas IS NULL atau 0) dalam 30 hari terakhir.
+        // Data lama yang sudah ada di GAS telah ditandai = 1. Data baru/editan selanjutnya akan di-set ke 0 oleh autosave-c/f.
+        let sqlQuery = `SELECT * FROM ${config.tableName} WHERE (synced_to_gas IS NULL OR synced_to_gas = 0) AND tanggal >= SUBDATE(CURDATE(), 30)`;
         const queryParams = [];
         // [BUG-03 FIX] Hanya filter shift/group jika user benar-benar memiliki field tersebut (non-empty)
         const userShift = user?.shift !== undefined && user?.shift !== null ? String(user.shift).trim() : "";

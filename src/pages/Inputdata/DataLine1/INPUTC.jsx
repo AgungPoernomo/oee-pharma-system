@@ -725,14 +725,17 @@ export default function InputC() {
       const isKeyComplete = 
         isValidKey(rowData[C.TANGGAL]) &&
         isValidKey(rowData[C.NO_BATCH]) &&
-        isValidKey(rowData[C.SHIFT]) &&
-        isValidKey(rowData[C.AT_SH]) &&
-        isValidKey(rowData[C.AT_SM]) &&
-        isValidKey(rowData[C.AT_EH]) &&
-        isValidKey(rowData[C.AT_EM]);
+        isValidKey(rowData[C.SHIFT]);
+
+      const isRowEmpty = 
+        !isValidKey(rowData[C.TANGGAL]) &&
+        !isValidKey(rowData[C.NO_BATCH]) &&
+        !isValidKey(rowData[C.SHIFT]) &&
+        !isValidKey(rowData[C.REJ_BOTOL]) &&
+        !isValidKey(rowData[C.REJ_PREFORM]);
 
       if (!isKeyComplete) {
-        if (original_id) {
+        if (original_id && isRowEmpty) {
           await sendAutoSave({ action: 'delete_reject_c', data: { original_id }, user });
           oeeIds.current[rIdx] = null;
           localStorage.setItem(LS_IDS_OEE, JSON.stringify(oeeIds.current));
@@ -810,15 +813,17 @@ export default function InputC() {
       const isValidKey = (val) => val !== '' && val !== null && val !== undefined && String(val).trim() !== '';
       const isKeyComplete = 
         isValidKey(rowData[DC.TANGGAL]) &&
-        isValidKey(rowData[DC.NO_BATCH]) &&
-        isValidKey(rowData[DC.SHIFT]) &&
-        isValidKey(rowData[DC.SH]) &&
-        isValidKey(rowData[DC.SM]) &&
-        isValidKey(rowData[DC.EH]) &&
-        isValidKey(rowData[DC.EM]);
+        isValidKey(rowData[DC.SHIFT]);
+
+      const isRowEmpty = 
+        !isValidKey(rowData[DC.TANGGAL]) &&
+        !isValidKey(rowData[DC.NO_BATCH]) &&
+        !isValidKey(rowData[DC.SHIFT]) &&
+        !isValidKey(rowData[DC.ROOT]) &&
+        !isValidKey(rowData[DC.KASUS]);
 
       if (!isKeyComplete) {
-        if (original_id) {
+        if (original_id && isRowEmpty) {
           await sendAutoSave({ action: 'delete_downtime_c', data: { original_id }, user });
           dtIds.current[rIdx] = null;
           localStorage.setItem(LS_IDS_DT, JSON.stringify(dtIds.current));
@@ -1424,18 +1429,21 @@ export default function InputC() {
       const currentYear = now.getFullYear();
       const currentMonth = now.getMonth() + 1;
 
-      const filterCurrentMonth = (row) => {
+      const filterRecentOrCurrentMonth = (row) => {
         if (!row || !row.tanggal) return false;
         const ymd = parseToYMD(row.tanggal);
         if (!ymd) return false;
-        const [year, month] = ymd.split('-').map(Number);
-        return year === currentYear && month === currentMonth;
+        const [year, month, day] = ymd.split('-').map(Number);
+        if (year === currentYear && month === currentMonth) return true;
+        const rowDate = new Date(year, month - 1, day);
+        const diffDays = (now - rowDate) / (1000 * 60 * 60 * 24);
+        return diffDays >= 0 && diffDays <= 35;
       };
 
       let mappedOEE = [];
       let mappedOEEIds = [];
       if (resOEE?.status === 'success' && Array.isArray(resOEE.data)) {
-        mappedOEE = resOEE.data.filter(filterCurrentMonth).reverse().map((row) => {
+        mappedOEE = resOEE.data.filter(filterRecentOrCurrentMonth).reverse().map((row) => {
           mappedOEEIds.push(row.id);
           const r = [
             row.no_batch ?? '', parseToYMD(row.tanggal), row.shift ?? '', row.group ?? '', row.reject_botol ?? '', row.reject_preform ?? '',
@@ -1455,7 +1463,7 @@ export default function InputC() {
       let mappedDT = [];
       let mappedDTIds = [];
       if (resDT?.status === 'success' && Array.isArray(resDT.data)) {
-        mappedDT = resDT.data.filter(filterCurrentMonth).reverse().map((row) => {
+        mappedDT = resDT.data.filter(filterRecentOrCurrentMonth).reverse().map((row) => {
           mappedDTIds.push(row.id);
           const r = [
             parseToYMD(row.tanggal), row.shift ?? '', row.group ?? '', row.no_batch ?? '', row.start_h ?? '', row.start_m ?? '',
