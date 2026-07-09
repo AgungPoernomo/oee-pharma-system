@@ -681,7 +681,7 @@ export default function InputF() {
         original_id: oeeIds.current[rIdx] || null,
         no_batch: rowData[0],
         lot_no: rowData[1],
-        tanggal: rowData[2],
+        tanggal: parseToYMD(rowData[2]) || rowData[2],
         shift: rowData[3],
         group: rowData[4],
         volume_botol: rowData[5],
@@ -764,7 +764,7 @@ export default function InputF() {
 
       const payloadData = {
         original_id: dtIds.current[rIdx] || null,
-        tanggal: rowData[0],
+        tanggal: parseToYMD(rowData[0]) || rowData[0],
         shift: rowData[1],
         group: rowData[2],
         no_batch: rowData[3],

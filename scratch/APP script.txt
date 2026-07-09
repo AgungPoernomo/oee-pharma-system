@@ -326,14 +326,24 @@ function deleteRejectZoneF(data, user, userLine) { return { status: 'success', m
 
 function constructDowntimeArray(data, user, hasLot) {
   var sourceName = (user && user.nama) ? user.nama : "Unknown";
-  var rowData = [ new Date(), sourceName, raw(data.tanggal), raw(data.shift), raw(data.group), raw(data.no_batch) ];
+  var tglVal = data.tanggal;
+  if (tglVal && typeof tglVal === 'string' && tglVal.includes('T')) {
+    tglVal = tglVal.split('T')[0];
+  } else if (tglVal && typeof tglVal === 'object' && tglVal.toISOString) {
+    tglVal = tglVal.toISOString().split('T')[0];
+  }
+  var tglIndo = formatTglIndo(tglVal);
+  var rowData = [ new Date(), sourceName, raw(tglIndo), raw(data.shift), raw(data.group), raw(data.no_batch) ];
   if (hasLot) rowData.push(raw(data.lot));
   rowData.push(raw(data.start_h), raw(data.start_m), raw(data.end_h), raw(data.end_m), raw(data.duration), raw(data.plan_unplan), raw(data.root_cause), raw(data.proses), raw(data.unit), raw(data.kasus));
   return rowData;
 }
 
 function saveDowntimeZoneC(data, user, userLine) { return saveDT(data, user, userLine, SHEET_DL_DOWNTIME_C, false); }
-function saveDowntimeZoneF(data, user, userLine) { return saveDT(data, user, userLine, SHEET_DL_DOWNTIME_F, true); }
+function saveDowntimeZoneF(data, user, userLine) {
+  var isLine1 = String(userLine).trim() === "1" || String(userLine).toUpperCase().includes("LINE 1") || String(userLine).toUpperCase().includes("LINE1");
+  return saveDT(data, user, userLine, SHEET_DL_DOWNTIME_F, !isLine1);
+}
 
 function saveDT(data, user, userLine, sheetName, hasLot) {
   const ss = SpreadsheetApp.openById(getDbIdByLine(userLine));
@@ -348,7 +358,10 @@ function saveDT(data, user, userLine, sheetName, hasLot) {
 }
 
 function updateDowntimeZoneC(data, user, userLine) { return saveDT(data, user, userLine, SHEET_DL_DOWNTIME_C, false); }
-function updateDowntimeZoneF(data, user, userLine) { return saveDT(data, user, userLine, SHEET_DL_DOWNTIME_F, true); }
+function updateDowntimeZoneF(data, user, userLine) {
+  var isLine1 = String(userLine).trim() === "1" || String(userLine).toUpperCase().includes("LINE 1") || String(userLine).toUpperCase().includes("LINE1");
+  return saveDT(data, user, userLine, SHEET_DL_DOWNTIME_F, !isLine1);
+}
 function updateDT(data, user, userLine, sheetName, hasLot) { return saveDT(data, user, userLine, sheetName, hasLot); }
 
 function deleteDowntimeZoneC(data, user, userLine) { return { status: 'success', message: 'Delete dilewati di GAS (Opsi 1 Batch Log Out)' }; }
@@ -604,21 +617,6 @@ function handleUpdateFoto(data) {
     }
   }
   return { status: "error", message: "Gagal: User tidak ditemukan di sistem." };
-}
-
-function handleSendFeedback(data, user) {
-  try {
-    var to = "agungdwicahyo2001@gmail.com";
-    var subject = "[OEE Feedback] " + (data.type || "Masukan") + " dari " + (user && user.nama ? user.nama : "Unknown");
-    var body = "Pengirim: " + (user && user.nama ? user.nama : "Unknown") + " (ID: " + (user && user.id ? user.id : "-") + ", Line: " + (user && user.line ? user.line : "-") + ")\n\n" +
-               "Tipe: " + (data.type || "Masukan") + "\n\n" +
-               "Pesan:\n" + (data.text || "");
-    MailApp.sendEmail(to, subject, body);
-    return { status: "success", message: "Feedback berhasil dikirim!" };
-  } catch (e) {
-    console.error("Error send feedback:", e);
-    return { status: "success", message: "Feedback dicatat di sistem!" };
-  }
 }
 
 // ==================== FUNGSI TRIGGER WAKTU 1 MENIT (TIME-DRIVEN TRIGGER) ====================

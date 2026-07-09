@@ -48,12 +48,24 @@ export default async function handler(req, res) {
 
     for (const config of tableConfigs) {
       try {
-        // Ambil data yang dikerjakan pada hari ini atau shift terakhir (24 jam terakhir)
+        try {
+          const [colRows] = await db.query(`SHOW COLUMNS FROM ${config.tableName} LIKE 'synced_to_gas'`);
+          if (colRows.length === 0) {
+            await db.query(`ALTER TABLE ${config.tableName} ADD COLUMN synced_to_gas TINYINT(1) DEFAULT 0`);
+          }
+        } catch (colErr) { void colErr; }
+
+        // Pilih data shift terakhir yang BELUM tersinkronisasi ke Google Spreadsheet (synced_to_gas IS NULL atau 0)
         const [rows] = await db.query(
-          `SELECT * FROM ${config.tableName} WHERE tanggal >= SUBDATE(CURDATE(), 1) ORDER BY id ASC`
+          `SELECT * FROM ${config.tableName} WHERE (synced_to_gas IS NULL OR synced_to_gas = 0) AND tanggal >= SUBDATE(CURDATE(), 1) ORDER BY id ASC`
         );
 
         for (const rowData of rows) {
+          if (rowData.tanggal && typeof rowData.tanggal === 'string' && rowData.tanggal.includes('T')) {
+            rowData.tanggal = rowData.tanggal.split('T')[0];
+          } else if (rowData.tanggal && typeof rowData.tanggal === 'object' && rowData.tanggal.toISOString) {
+            rowData.tanggal = rowData.tanggal.toISOString().split('T')[0];
+          }
           const gasUser = { ...user, line: lineNum };
           await sendToGAS(gasUrl, {
             action: config.action,
@@ -61,6 +73,7 @@ export default async function handler(req, res) {
             user: gasUser,
             tableName: config.tableName
           });
+          await db.query(`UPDATE ${config.tableName} SET synced_to_gas = 1 WHERE id = ?`, [rowData.id]);
           totalSynced++;
         }
       } catch (tableErr) {

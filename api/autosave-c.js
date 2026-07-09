@@ -4,8 +4,17 @@ const columnCache = {};
 async function getValidColumns(tableName) {
   if (!columnCache[tableName]) {
     try {
-      const [colRows] = await db.query(`SHOW COLUMNS FROM ${tableName}`);
-      columnCache[tableName] = new Set(colRows.map(c => c.Field));
+      let [colRows] = await db.query(`SHOW COLUMNS FROM ${tableName}`);
+      let cols = colRows.map(c => c.Field);
+      if (!cols.includes('synced_to_gas')) {
+        try {
+          await db.query(`ALTER TABLE ${tableName} ADD COLUMN synced_to_gas TINYINT(1) DEFAULT 0`);
+          cols.push('synced_to_gas');
+        } catch (alterErr) {
+          console.warn(`[Database] ADD COLUMN synced_to_gas info on ${tableName}:`, alterErr.message);
+        }
+      }
+      columnCache[tableName] = new Set(cols);
     } catch (e) {
       console.error(`Gagal SHOW COLUMNS untuk ${tableName}:`, e.message);
       return null;
@@ -17,11 +26,15 @@ async function getValidColumns(tableName) {
 function cleanItem(item, validCols) {
   const cleaned = {};
   Object.keys(item || {}).forEach(key => {
-    if (key === 'id' || key === 'original_id' || key === 'is_closing' || key === 'rowId' || key === 'draftId') return;
+    if (key === 'id' || key === 'original_id' || key === 'is_closing' || key === 'rowId' || key === 'draftId' || key === 'synced_to_gas') return;
     if (!validCols || validCols.has(key)) {
       let val = item[key];
       if (val === '' || val === undefined || val === null) {
         val = null;
+      } else if (key === 'tanggal' && typeof val === 'string' && val.includes('T')) {
+        val = val.split('T')[0];
+      } else if (key === 'tanggal' && typeof val === 'object' && val.toISOString) {
+        val = val.toISOString().split('T')[0];
       }
       cleaned[key] = val;
     }
@@ -93,9 +106,11 @@ export default async function handler(req, res) {
         }
 
         if (!currentId) {
+          dbPayload.synced_to_gas = 0;
           const [result] = await db.query(`INSERT INTO ${tableName} SET ?`, [dbPayload]);
           insertedIds.push(result.insertId);
         } else {
+          dbPayload.synced_to_gas = 0;
           await db.query(`UPDATE ${tableName} SET ? WHERE id = ?`, [dbPayload, Number(currentId)]);
           insertedIds.push(Number(currentId));
         }

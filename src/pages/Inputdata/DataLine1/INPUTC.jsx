@@ -738,7 +738,7 @@ export default function InputC() {
       const payloadData = {
         original_id: oeeIds.current[rIdx] || null,
         no_batch: rowData[C.NO_BATCH],
-        tanggal: rowData[C.TANGGAL],
+        tanggal: parseToYMD(rowData[C.TANGGAL]) || rowData[C.TANGGAL],
         shift: rowData[C.SHIFT],
         group: rowData[C.GROUP],
         reject_botol: rowData[C.REJ_BOTOL],
@@ -823,7 +823,7 @@ export default function InputC() {
 
       const payloadData = {
         original_id: dtIds.current[rIdx] || null,
-        tanggal: rowData[DC.TANGGAL],
+        tanggal: parseToYMD(rowData[DC.TANGGAL]) || rowData[DC.TANGGAL],
         shift: rowData[DC.SHIFT],
         group: rowData[DC.GRUP],
         no_batch: rowData[DC.NO_BATCH],
