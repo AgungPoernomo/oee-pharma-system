@@ -11,12 +11,14 @@ const VOLUMES = ["100 ML", "250 ML", "500 ML", "1000 ML", "100 ML PAR"];
 
 const parseToYMD = (val) => {
   if (!val) return '';
-  const str = String(val).replace(/'/g, '').trim();
-  if (str.includes('/')) {
-    const parts = str.split('/');
-    if (parts.length === 3) {
-      return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
-    }
+  const str = String(val).replace(/['"]/g, '').trim();
+  if (/^\d{4}[-/.]\d{1,2}[-/.]\d{1,2}/.test(str)) {
+    const parts = str.split(/[-/.]/);
+    return `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].split(' ')[0].padStart(2, '0')}`;
+  }
+  if (/^\d{1,2}[-/.]\d{1,2}[-/.]\d{4}/.test(str)) {
+    const parts = str.split(/[-/.]/);
+    return `${parts[2].split(' ')[0]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
   }
   try {
     const d = new Date(str);
@@ -24,7 +26,7 @@ const parseToYMD = (val) => {
   } catch (err) {
     void err;
   }
-  return '';
+  return str.substring(0, 10);
 };
 
 const incrementBatchNumber = (str, step) => {
@@ -1359,7 +1361,10 @@ export default function InputF() {
         const ymd = parseToYMD(row.tanggal);
         if (!ymd) return false;
         const [year, month] = ymd.split('-').map(Number);
-        return year === currentYear && month === currentMonth;
+        if (year === currentYear && month === currentMonth) return true;
+        const rowDate = new Date(ymd);
+        const diffDays = (now - rowDate) / (1000 * 60 * 60 * 24);
+        return diffDays >= -2 && diffDays <= 35;
       };
 
       let mappedOEE = [];

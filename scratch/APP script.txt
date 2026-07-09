@@ -112,6 +112,15 @@ function getRealLastDataRow(sheet, minRow) {
   return minRow;
 }
 
+function doGet(e) {
+  var action = (e && e.parameter && e.parameter.action) ? e.parameter.action : "";
+  if (action === "sync_jdbc") {
+    var line = (e && e.parameter && e.parameter.line) ? e.parameter.line : null;
+    return responseJSON(syncAllTablesFromTiDbViaJDBC(line));
+  }
+  return responseJSON({ status: "success", message: "Google Apps Script OEE System Running. Gunakan ?action=sync_jdbc untuk trigger JDBC backup." });
+}
+
 function doPost(e) {
   const lock = LockService.getScriptLock();
   lock.waitLock(30000);
@@ -122,6 +131,7 @@ function doPost(e) {
     let result = {};
 
     switch (action) {
+      case "sync_jdbc": result = syncAllTablesFromTiDbViaJDBC(params.line || userLine); break;
       case "register": result = handleRegister(params.data); break;
       case "verify": result = handleVerification(params.data); break;
       case "login": result = handleLogin(params.data); break;
@@ -681,4 +691,141 @@ function getOnesheetData(user, payload) {
   } catch (error) {
     return { status: "error", message: "Gagal menarik data Onesheet: " + error.toString() };
   }
+}
+
+// ========================================================================
+// FITUR BARU: BACKUP OTOMATIS VIA JDBC (JAVASCRIPT DATABASE CONNECTIVITY)
+// ========================================================================
+
+/**
+ * Konfigurasi koneksi JDBC dari Google Apps Script ke TiDB / MySQL Cloud.
+ * Atur PropertiesService di Google Apps Script (File -> Project Properties -> Script Properties)
+ * atau sesuaikan nilai default di bawah ini sesuai parameter database TiDB Anda.
+ */
+function getTiDbJdbcConnection() {
+  var props = PropertiesService.getScriptProperties();
+  var dbHost = props.getProperty("TIDB_HOST") || "gateway01.ap-southeast-1.prod.aws.tidbcloud.com";
+  var dbPort = props.getProperty("TIDB_PORT") || "4000";
+  var dbName = props.getProperty("TIDB_DATABASE") || "oee_system";
+  var dbUser = props.getProperty("TIDB_USER") || "root";
+  var dbPass = props.getProperty("TIDB_PASSWORD") || "";
+  
+  var url = "jdbc:mysql://" + dbHost + ":" + dbPort + "/" + dbName + "?useSSL=true";
+  return Jdbc.getConnection(url, dbUser, dbPass);
+}
+
+/**
+ * Fungsi Utama (Master Trigger GAS): Menarik data dari TiDB via JDBC
+ * dan langsung memformat serta menyimpannya secara rapi & bebas duplikat ke Google Spreadsheet.
+ * Bisa dijalankan otomatis oleh Time-Driven Trigger GAS (misal tiap jam / tiap malam)
+ * atau dipanggil via Web App Trigger (?action=sync_jdbc&line=1).
+ */
+function syncAllTablesFromTiDbViaJDBC(filterLine) {
+  var conn = null;
+  var totalRowsSynced = 0;
+  var logDetails = [];
+  
+  try {
+    conn = getTiDbJdbcConnection();
+    var linesToSync = filterLine ? [String(filterLine)] : ["1", "2", "3", "4"];
+    var zones = ["c", "f"];
+    var types = ["oee", "downtime"];
+    
+    for (var l = 0; l < linesToSync.length; l++) {
+      var lineNum = linesToSync[l];
+      for (var z = 0; z < zones.length; z++) {
+        var zone = zones[z];
+        for (var t = 0; t < types.length; t++) {
+          var type = types[t];
+          var tableName = type + "_line" + lineNum + "_zone" + zone;
+          var sheetName = (type === "oee" ? "DL_REJECT_" : "DL_DOWNTIME_") + zone.toUpperCase();
+          var startRowVal = (type === "oee" ? 4 : 2);
+          
+          try {
+            var syncedCount = syncSingleTableViaJDBC(conn, tableName, sheetName, lineNum, startRowVal, type, zone);
+            totalRowsSynced += syncedCount;
+            logDetails.push({ table: tableName, synced: syncedCount, status: "success" });
+          } catch (tblErr) {
+            logDetails.push({ table: tableName, synced: 0, status: "error", error: tblErr.toString() });
+          }
+        }
+      }
+    }
+    
+    if (conn && !conn.isClosed()) conn.close();
+    return {
+      status: "success",
+      message: "Sinkronisasi JDBC selesai. Total " + totalRowsSynced + " baris berhasil dibackup ke Google Spreadsheet.",
+      totalRowsSynced: totalRowsSynced,
+      details: logDetails
+    };
+  } catch (err) {
+    if (conn && !conn.isClosed()) {
+      try { conn.close(); } catch (e) { void e; }
+    }
+    return { status: "error", message: "Koneksi JDBC Gagal: " + err.toString(), details: logDetails };
+  }
+}
+
+function syncSingleTableViaJDBC(conn, tableName, sheetName, lineNum, startRowVal, type, zone) {
+  var ss = SpreadsheetApp.openById(getDbIdByLine(lineNum));
+  var sheet = ss.getSheetByName(sheetName);
+  if (!sheet) return 0;
+  
+  // 1. Tarik baris yang belum tersinkronisasi (synced_to_gas = 0 / NULL) ATAU data 7 hari terakhir
+  var sql = "SELECT * FROM " + tableName + " WHERE (synced_to_gas IS NULL OR synced_to_gas = 0) OR tanggal >= SUBDATE(CURDATE(), 7) ORDER BY id ASC LIMIT 500";
+  var stmt = conn.createStatement();
+  var rs = stmt.executeQuery(sql);
+  var rsMetaData = rs.getMetaData();
+  var numCols = rsMetaData.getColumnCount();
+  
+  var syncedIds = [];
+  var count = 0;
+  
+  while (rs.next()) {
+    var rowObj = {};
+    for (var col = 1; col <= numCols; col++) {
+      var colName = rsMetaData.getColumnName(col);
+      rowObj[colName] = rs.getObject(col);
+    }
+    
+    var mockUser = { nama: rowObj.operator || rowObj.created_by || "System JDBC", line: lineNum };
+    var rowData = [];
+    
+    if (type === "oee" && zone === "c") {
+      rowData = constructRejectCArray(rowObj, mockUser, false, startRowVal, lineNum);
+    } else if (type === "oee" && zone === "f") {
+      rowData = constructRejectFArray(rowObj, mockUser, false, startRowVal, lineNum);
+    } else if (type === "downtime" && zone === "c") {
+      rowData = constructDTArray(rowObj, mockUser, false, startRowVal, lineNum);
+    } else if (type === "downtime" && zone === "f") {
+      rowData = constructDTArray(rowObj, mockUser, false, startRowVal, lineNum);
+    }
+    
+    if (rowData && rowData.length > 0) {
+      upsertOrAppendRow(sheet, rowData, startRowVal);
+      if (rowObj.id && !isNaN(Number(rowObj.id))) {
+        syncedIds.push(Number(rowObj.id));
+      }
+      count++;
+    }
+  }
+  
+  rs.close();
+  stmt.close();
+  SpreadsheetApp.flush();
+  
+  // 2. Setel synced_to_gas = 1 di TiDB via JDBC bagi semua baris yang telah diamankan
+  if (syncedIds.length > 0) {
+    var batchSize = 100;
+    for (var i = 0; i < syncedIds.length; i += batchSize) {
+      var chunk = syncedIds.slice(i, i + batchSize);
+      var updateSql = "UPDATE " + tableName + " SET synced_to_gas = 1 WHERE id IN (" + chunk.join(",") + ")";
+      var updateStmt = conn.createStatement();
+      updateStmt.executeUpdate(updateSql);
+      updateStmt.close();
+    }
+  }
+  
+  return count;
 }

@@ -10,19 +10,19 @@ export default async function handler(req, res) {
   try {
     // [BUG-04 FIX] Batasi query 90 hari terakhir untuk mencegah OOM dan lambat saat database makin besar
     if (action === 'get_today_reject_c') {
-      const [rows] = await db.query(`SELECT * FROM oee_line${lineNum}_zonec WHERE tanggal >= DATE_SUB(CURDATE(), INTERVAL 90 DAY) ORDER BY id DESC`);
+      const [rows] = await db.query(`SELECT * FROM oee_line${lineNum}_zonec ORDER BY id DESC LIMIT 1000`);
       return res.status(200).json({ status: 'success', data: rows });
     }
     else if (action === 'get_today_downtime_c') {
-      const [rows] = await db.query(`SELECT * FROM downtime_line${lineNum}_zonec WHERE tanggal >= DATE_SUB(CURDATE(), INTERVAL 90 DAY) ORDER BY id DESC`);
+      const [rows] = await db.query(`SELECT * FROM downtime_line${lineNum}_zonec ORDER BY id DESC LIMIT 1000`);
       return res.status(200).json({ status: 'success', data: rows });
     }
     else if (action === 'get_today_reject_f') {
-      const [rows] = await db.query(`SELECT * FROM oee_line${lineNum}_zonef WHERE tanggal >= DATE_SUB(CURDATE(), INTERVAL 90 DAY) ORDER BY id DESC`);
+      const [rows] = await db.query(`SELECT * FROM oee_line${lineNum}_zonef ORDER BY id DESC LIMIT 1000`);
       return res.status(200).json({ status: 'success', data: rows });
     }
     else if (action === 'get_today_downtime_f') {
-      const [rows] = await db.query(`SELECT * FROM downtime_line${lineNum}_zonef WHERE tanggal >= DATE_SUB(CURDATE(), INTERVAL 90 DAY) ORDER BY id DESC`);
+      const [rows] = await db.query(`SELECT * FROM downtime_line${lineNum}_zonef ORDER BY id DESC LIMIT 1000`);
       return res.status(200).json({ status: 'success', data: rows });
     }
     else if (action === 'get_onesheet_data') {
