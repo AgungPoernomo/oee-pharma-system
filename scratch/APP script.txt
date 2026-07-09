@@ -34,6 +34,13 @@ function getRowByTidbId(sheet, tidbId, data, userLine) {
     var lastRow = sheet.getLastRow();
     if (lastRow >= START_ROW_DATA) {
       var numRows = lastRow - START_ROW_DATA + 1;
+      var lastCol = Math.max(1, sheet.getLastColumn());
+      var rangeLast = sheet.getRange(START_ROW_DATA, lastCol, numRows, 1).getValues();
+      for (var i = numRows - 1; i >= 0; i--) {
+        if (String(rangeLast[i][0]).trim() === String(tidbId).trim()) {
+          return i + START_ROW_DATA;
+        }
+      }
       var rangeA = sheet.getRange(START_ROW_DATA, 1, numRows, 1).getValues();
       for (var i = numRows - 1; i >= 0; i--) {
         if (String(rangeA[i][0]).trim() === String(tidbId).trim()) {
@@ -179,21 +186,39 @@ function doGet(e) {
   return responseJSON({ status: "success", message: "Server OEE V14 (TiDB & Dynamic Sync Ready)" });
 }
 
-function upsertOrAppendRow(sheet, rowData, startRowVal) {
-  var rawId = rowData[0];
-  var id = (rawId !== null && rawId !== undefined && rawId !== "" && !(rawId instanceof Date))
-    ? String(rawId).trim() : "";
+function upsertOrAppendRow(sheet, rowData, startRowVal, explicitTidbId) {
+  var tidbId = explicitTidbId ? String(explicitTidbId).trim() : "";
+  if (!tidbId || isNaN(Number(tidbId)) || Number(tidbId) <= 0) {
+    var lastElem = rowData[rowData.length - 1];
+    if (lastElem && !isNaN(Number(lastElem)) && Number(lastElem) > 0) {
+      tidbId = String(lastElem).trim();
+    } else {
+      var rawId = rowData[0];
+      if (rawId !== null && rawId !== undefined && rawId !== "" && !(rawId instanceof Date) && !isNaN(Number(rawId)) && Number(rawId) > 0) {
+        tidbId = String(rawId).trim();
+      }
+    }
+  }
+
   var lastRow = sheet.getLastRow();
-  
   if (lastRow >= startRowVal) {
     var numRows = lastRow - startRowVal + 1;
     
-    // 1. Cek Prioritas 1: Pencarian berdasarkan ID TiDB di Kolom A
-    if (id && /^\d+$/.test(id) && Number(id) > 0) {
-      var ids = sheet.getRange(startRowVal, 1, numRows, 1).getValues();
-      for (var i = 0; i < ids.length; i++) {
-        var cellId = String(ids[i][0] || "").trim();
-        if (cellId === id) {
+    // 1. Cek Prioritas 1: Pencarian berdasarkan ID TiDB (cek di Kolom Terakhir DAN Kolom A agar kompatibel dengan data lama)
+    if (tidbId && /^\d+$/.test(tidbId) && Number(tidbId) > 0) {
+      var lastCols = sheet.getRange(startRowVal, rowData.length, numRows, 1).getValues();
+      for (var i = 0; i < lastCols.length; i++) {
+        var cellId = String(lastCols[i][0] || "").trim();
+        if (cellId === tidbId) {
+          var targetRow = startRowVal + i;
+          sheet.getRange(targetRow, 1, 1, rowData.length).setValues([rowData]);
+          return targetRow;
+        }
+      }
+      var colA = sheet.getRange(startRowVal, 1, numRows, 1).getValues();
+      for (var i = 0; i < colA.length; i++) {
+        var cellId = String(colA[i][0] || "").trim();
+        if (cellId === tidbId) {
           var targetRow = startRowVal + i;
           sheet.getRange(targetRow, 1, 1, rowData.length).setValues([rowData]);
           return targetRow;
@@ -201,8 +226,8 @@ function upsertOrAppendRow(sheet, rowData, startRowVal) {
       }
     }
 
-    // 2. Cek Prioritas 2 (Fallback Idempotent): Jika ID TiDB tidak cocok/belum ada di sheet (karena jaringan rto / data lama),
-    //    cocokkan berdasarkan Business Unique Keys (Tanggal + Shift + No Batch / Start Jam) agar TIDAK DUPLIKAT
+    // 2. Cek Prioritas 2 (Fallback Idempotent): Jika ID TiDB belum terdaftar (misal saat edit sebelum ID ditangkap atau fallback),
+    //    cocokkan berdasarkan Business Unique Keys agar TIDAK DUPLIKAT
     var targetRowFallback = findRowByBusinessKeys(sheet, rowData, startRowVal, numRows);
     if (targetRowFallback !== -1) {
       sheet.getRange(targetRowFallback, 1, 1, rowData.length).setValues([rowData]);
@@ -210,7 +235,7 @@ function upsertOrAppendRow(sheet, rowData, startRowVal) {
     }
   }
 
-  // 3. Jika benar-benar baru, barulah tambahkan di baris baru di bawah (Append)
+  // 3. Jika benar-benar baru, tambahkan di baris baru di bawah (Append)
   var newRow = getRealLastDataRow(sheet, startRowVal);
   sheet.getRange(newRow, 1, 1, rowData.length).setValues([rowData]);
   return newRow;
@@ -232,7 +257,7 @@ function normalizeDateStr(val) {
 
 function findRowByBusinessKeys(sheet, rowData, startRowVal, numRows) {
   var sheetName = sheet.getName().toUpperCase();
-  var maxCols = Math.min(15, sheet.getLastColumn() || 15);
+  var maxCols = Math.min(18, sheet.getLastColumn() || 18);
   var values = sheet.getRange(startRowVal, 1, numRows, maxCols).getValues();
   
   if (sheetName.includes("DOWNTIME")) {
@@ -242,12 +267,18 @@ function findRowByBusinessKeys(sheet, rowData, startRowVal, numRows) {
     var idxBatch = 5;
     var idxSh = isHasLot ? 7 : 6;
     var idxSm = isHasLot ? 8 : 7;
+    var idxDur = isHasLot ? 11 : 10;
+    var idxRoot = isHasLot ? 13 : 12;
+    var idxUnit = isHasLot ? 15 : 14;
     
     var tTgl = normalizeDateStr(rowData[idxTgl]);
     var tShift = String(rowData[idxShift] || "").trim().toLowerCase();
     var tBatch = String(rowData[idxBatch] || "").trim().toLowerCase();
     var tSh = String(rowData[idxSh] || "").trim();
     var tSm = String(rowData[idxSm] || "").trim();
+    var tDur = String(rowData[idxDur] || "").trim();
+    var tRoot = String(rowData[idxRoot] || "").trim().toLowerCase();
+    var tUnit = String(rowData[idxUnit] || "").trim().toLowerCase();
     
     if (!tTgl || !tShift) return -1;
     
@@ -255,11 +286,17 @@ function findRowByBusinessKeys(sheet, rowData, startRowVal, numRows) {
       var rTgl = normalizeDateStr(values[i][idxTgl]);
       var rShift = String(values[i][idxShift] || "").trim().toLowerCase();
       var rBatch = String(values[i][idxBatch] || "").trim().toLowerCase();
-      var rSh = String(values[i][idxSh] || "").trim();
-      var rSm = String(values[i][idxSm] || "").trim();
       
-      if (rTgl === tTgl && rShift === tShift && rBatch === tBatch && rSh === tSh && rSm === tSm) {
-        return startRowVal + i;
+      if (rTgl === tTgl && rShift === tShift && rBatch === tBatch) {
+        var rSh = String(values[i][idxSh] || "").trim();
+        var rSm = String(values[i][idxSm] || "").trim();
+        var rDur = String(values[i][idxDur] || "").trim();
+        var rRoot = String(values[i][idxRoot] || "").trim().toLowerCase();
+        var rUnit = String(values[i][idxUnit] || "").trim().toLowerCase();
+        
+        if ((rSh === tSh && rSm === tSm) || (tDur !== "" && rDur === tDur) || (tRoot !== "" && rRoot === tRoot && tUnit !== "" && rUnit === tUnit)) {
+          return startRowVal + i;
+        }
       }
     }
   } else if (sheetName.includes("REJECT")) {
@@ -309,8 +346,9 @@ function constructRejectCArray(data, user, isClosing, r, userLine) {
 
   // KHUSUS LINE 1 (INPUTC - Blow / Washing / Filling / Preform)
   if (String(userLine) === "1") {
+    var tidbIdStr = (data.id && !isNaN(Number(data.id))) ? String(data.id).trim() : "";
     return [
-      raw(data.id || ''), (user && user.nama) ? user.nama : "Unknown", 
+      new Date(), (user && user.nama) ? user.nama : "Unknown", 
       raw(data.no_batch), tglIndo, raw(data.shift), raw(data.group), 
       raw(data.volume_botol ?? data.vol_botol), 
       raw(data.reject_botol ?? data.rej_botol), raw(data.reject_preform ?? data.rej_preform), raw(data.reject_blow ?? data.rej_blow), 
@@ -321,7 +359,8 @@ function constructRejectCArray(data, user, isClosing, r, userLine) {
       raw(data.pre_in ?? data.preform_in), raw(data.pre_bocor), raw(data.pre_nocap), raw(data.pre_vol), raw(data.pre_thermo), raw(data.pre_lain), raw(data.pre_rej_total), raw(data.pre_out), 
       raw(data.av_sh ?? data.at_sh), raw(data.av_sm ?? data.at_sm), raw(data.av_eh ?? data.at_eh), raw(data.av_em ?? data.at_em), raw(data.av_sub ?? data.at_sub), raw(data.total_avail_shift ?? data.total_per_shift ?? data.total_avail), 
       raw(data.run_sh ?? data.rt_sh ?? data.rework_sh), raw(data.run_sm ?? data.rt_sm ?? data.rework_sm), raw(data.run_eh ?? data.rt_eh ?? data.rework_eh), raw(data.run_em ?? data.rt_em ?? data.rework_em), raw(data.run_sub ?? data.rt_sub ?? data.rework_sub), 
-      raw(data.lc_sh ?? data.clear_sh), raw(data.lc_sm ?? data.clear_sm), raw(data.lc_eh ?? data.clear_eh), raw(data.lc_em ?? data.clear_em), raw(data.lc_sub ?? data.clear_sub)
+      raw(data.lc_sh ?? data.clear_sh), raw(data.lc_sm ?? data.clear_sm), raw(data.lc_eh ?? data.clear_eh), raw(data.lc_em ?? data.clear_em), raw(data.lc_sub ?? data.clear_sub),
+      tidbIdStr
     ];
   }
 
@@ -353,7 +392,7 @@ function saveRejectZoneC(data, user, userLine) {
   if (!sheet) return { status: 'error', message: `Sheet Missing!` };
   
   var rowData = constructRejectCArray(data, user, data.is_closing, 4, userLine);
-  var targetRow = upsertOrAppendRow(sheet, rowData, 4);
+  var targetRow = upsertOrAppendRow(sheet, rowData, 4, data.id);
 
   if (data.is_closing === true) sheet.getRange(targetRow, 1, 1, rowData.length).setBackground("#FFF2CC");
   SpreadsheetApp.flush();
@@ -385,8 +424,9 @@ function constructRejectFArray(data, user, isClosing, r, userLine) {
 
   // KHUSUS LINE 1 (INPUTF - Visual Inspection / Packing)
   if (String(userLine) === "1") {
+    var tidbIdStr = (data.id && !isNaN(Number(data.id))) ? String(data.id).trim() : "";
     return [
-      raw(data.id || ''), (user && user.nama) ? user.nama : "Unknown", 
+      new Date(), (user && user.nama) ? user.nama : "Unknown", 
       raw(data.no_batch), raw(data.lot_no ?? data.lot), tglIndo, raw(data.shift), raw(data.group), 
       raw(data.volume_botol ?? data.vol_botol), 
       raw(data.steril_in ?? data.input_steril), raw(data.steril_bocor), raw(data.steril_h_patah_ring), raw(data.steril_h_patah_lidah), raw(data.steril_h_patah_leleh), raw(data.steril_no_hanger), raw(data.steril_rej_total ?? data.reject_before_steril), raw(data.steril_sample), raw(data.steril_out ?? data.output_chamber), 
@@ -396,7 +436,8 @@ function constructRejectFArray(data, user, isClosing, r, userLine) {
       raw(data.av_sh ?? data.at_sh), raw(data.av_sm ?? data.at_sm), raw(data.av_eh ?? data.at_eh), raw(data.av_em ?? data.at_em), raw(data.av_sub ?? data.at_sub), raw(data.total_avail_shift ?? data.total_at ?? data.total_per_shift), 
       raw(data.run_sh ?? data.rt_sh ?? data.rework_sh), raw(data.run_sm ?? data.rt_sm ?? data.rework_sm), raw(data.run_eh ?? data.rt_eh ?? data.rework_eh), raw(data.run_em ?? data.rt_em ?? data.rework_em), raw(data.run_sub ?? data.rt_sub ?? data.rework_sub), 
       raw(data.clear_sh ?? data.lc_sh), raw(data.clear_sm ?? data.lc_sm), raw(data.clear_eh ?? data.lc_eh), raw(data.clear_em ?? data.lc_em), raw(data.clear_sub ?? data.lc_sub), 
-      raw(data.process_total ?? data.total_prep_clear)
+      raw(data.process_total ?? data.total_prep_clear),
+      tidbIdStr
     ];
   }
 
@@ -429,7 +470,7 @@ function saveRejectZoneF(data, user, userLine) {
   if (!sheet) return { status: 'error', message: `Sheet Missing!` };
   
   var rowData = constructRejectFArray(data, user, data.is_closing, 4, userLine);
-  var targetRow = upsertOrAppendRow(sheet, rowData, 4);
+  var targetRow = upsertOrAppendRow(sheet, rowData, 4, data.id);
 
   if (data.is_closing === true) sheet.getRange(targetRow, 1, 1, rowData.length).setBackground("#FFF2CC");
   SpreadsheetApp.flush();
@@ -438,6 +479,10 @@ function saveRejectZoneF(data, user, userLine) {
 
 function updateRejectZoneF(data, user, userLine) { return saveRejectZoneF(data, user, userLine); }
 function deleteRejectZoneF(data, user, userLine) { return { status: 'success', message: 'Delete dilewati di GAS (Opsi 1 Batch Log Out)' }; }
+
+function constructDTArray(data, user, isClosing, startRowVal, userLine) {
+  return constructDowntimeArray(data, user, false);
+}
 
 function constructDowntimeArray(data, user, hasLot) {
   var sourceName = (user && user.nama) ? user.nama : "Unknown";
@@ -448,9 +493,10 @@ function constructDowntimeArray(data, user, hasLot) {
     tglVal = tglVal.toISOString().split('T')[0];
   }
   var tglIndo = formatTglIndo(tglVal);
-  var rowData = [ raw(data.id || new Date()), sourceName, raw(tglIndo), raw(data.shift), raw(data.group), raw(data.no_batch) ];
+  var tidbIdStr = (data.id && !isNaN(Number(data.id))) ? String(data.id).trim() : "";
+  var rowData = [ new Date(), sourceName, raw(tglIndo), raw(data.shift), raw(data.group), raw(data.no_batch) ];
   if (hasLot) rowData.push(raw(data.lot));
-  rowData.push(raw(data.start_h), raw(data.start_m), raw(data.end_h), raw(data.end_m), raw(data.duration), raw(data.plan_unplan), raw(data.root_cause), raw(data.proses), raw(data.unit), raw(data.kasus));
+  rowData.push(raw(data.start_h), raw(data.start_m), raw(data.end_h), raw(data.end_m), raw(data.duration), raw(data.plan_unplan), raw(data.root_cause), raw(data.proses), raw(data.unit), raw(data.kasus), tidbIdStr);
   return rowData;
 }
 
@@ -466,7 +512,7 @@ function saveDT(data, user, userLine, sheetName, hasLot) {
   if (!sheet) return { status: 'error', message: `${sheetName} Missing!` };
   
   var rowData = constructDowntimeArray(data, user, hasLot);
-  var targetRow = upsertOrAppendRow(sheet, rowData, 2);
+  var targetRow = upsertOrAppendRow(sheet, rowData, 2, data.id);
   SpreadsheetApp.flush();
   return { status: 'success', message: 'Downtime Saved!' };
 }
