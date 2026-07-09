@@ -40,8 +40,8 @@ export default async function handler(req, res) {
 
       const [resC, resDC, resF, resDF] = await Promise.all([q1, q2, q3, q4]);
 
-      return res.status(200).json({ 
-        status: 'success', 
+      return res.status(200).json({
+        status: 'success',
         data: {
           reject_c: resC[0],
           downtime_c: resDC[0],
@@ -50,7 +50,7 @@ export default async function handler(req, res) {
         }
       });
     }
-    
+
     return res.status(400).json({ status: 'error', message: 'Action not mapped' });
   } catch (error) {
     console.error('Fetch Error:', error);
