@@ -2,17 +2,23 @@ import db from './db.js';
 
 async function sendToGAS(url, payload, tableName, rowId) {
   if (!url) return;
-  try {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    if (res.ok && rowId && tableName) {
-      await db.query(`UPDATE ${tableName} SET synced_to_gas = 1 WHERE id = ?`, [rowId]);
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        if (rowId && tableName) {
+          await db.query(`UPDATE ${tableName} SET synced_to_gas = 1 WHERE id = ?`, [rowId]).catch(() => {});
+        }
+        break;
+      }
+    } catch (err) {
+      console.warn(`[Background GAS Sync Attempt ${attempt} Error]:`, err.message);
+      if (attempt < 3) await new Promise(r => setTimeout(r, 1000 * attempt));
     }
-  } catch (err) {
-    console.warn("[Background GAS Sync Error]:", err.message);
   }
 }
 
@@ -60,23 +66,6 @@ function cleanItem(item, validCols) {
     }
   });
   return cleaned;
-}
-
-async function sendToGAS(url, payload) {
-  if (!url) return;
-  for (let attempt = 1; attempt <= 3; attempt++) {
-    try {
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      if (res.ok) break;
-    } catch (err) {
-      console.error(`[Backup GAS Attempt ${attempt} Gagal - ${payload.action}]`, err.message);
-      if (attempt < 3) await new Promise(r => setTimeout(r, 1000 * attempt));
-    }
-  }
 }
 
 export default async function handler(req, res) {
