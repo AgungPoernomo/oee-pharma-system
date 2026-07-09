@@ -1,6 +1,7 @@
 import db from './db.js';
 
 export default async function handler(req, res) {
+  if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ message: 'Method Not Allowed' });
 
   const { action, user } = req.body;
@@ -8,7 +9,6 @@ export default async function handler(req, res) {
   const lineNum = rawLine.match(/\d+/) ? rawLine.match(/\d+/)[0] : "4";
 
   try {
-    // [BUG-04 FIX] Batasi query 90 hari terakhir untuk mencegah OOM dan lambat saat database makin besar
     if (action === 'get_today_reject_c') {
       const [rows] = await db.query(`SELECT * FROM oee_line${lineNum}_zonec ORDER BY id DESC LIMIT 1000`);
       return res.status(200).json({ status: 'success', data: rows });

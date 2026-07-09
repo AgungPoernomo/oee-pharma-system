@@ -13,15 +13,28 @@ const apiPlugin = () => ({
       if (urlPath === '/api/fetch-data') handlerFile = './api/fetch-data.js';
       else if (urlPath === '/api/autosave-c') handlerFile = './api/autosave-c.js';
       else if (urlPath === '/api/autosave-f') handlerFile = './api/autosave-f.js';
+      else if (urlPath === '/api/sync-on-logout') handlerFile = './api/sync-on-logout.js';
 
       if (!handlerFile) return next();
 
       try {
+        if (req.method === 'OPTIONS') {
+          res.statusCode = 200;
+          res.setHeader('Access-Control-Allow-Origin', '*');
+          res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+          res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+          return res.end();
+        }
+
         let body = '';
         req.on('data', chunk => { body += chunk; });
         await new Promise(resolve => req.on('end', resolve));
 
-        req.body = body ? JSON.parse(body) : {};
+        try {
+          req.body = body ? JSON.parse(body) : {};
+        } catch (parseErr) {
+          req.body = {};
+        }
 
         res.status = (code) => { res.statusCode = code; return res; };
         res.json = (data) => {
