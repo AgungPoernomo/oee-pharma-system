@@ -129,8 +129,9 @@ const SessionGuard = () => {
   useEffect(() => {
     if (!user) return; 
 
-    const forceLogout = () => {
-      logout();
+    // [BUG-02 FIX] forceLogout harus async agar await logout() bisa menyelesaikan sinkronisasi GAS
+    const forceLogout = async () => {
+      await logout();
       navigate('/access-portal', { replace: true });
       alert("⚠️ SESI BERAKHIR\n\nSistem mengamankan akun Anda karena tidak ada aktivitas selama 15 menit. Silakan Login kembali.");
     };

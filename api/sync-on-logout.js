@@ -58,13 +58,16 @@ export default async function handler(req, res) {
         // Pilih data shift terakhir yang BELUM tersinkronisasi ke Google Spreadsheet (synced_to_gas IS NULL atau 0)
         let sqlQuery = `SELECT * FROM ${config.tableName} WHERE (synced_to_gas IS NULL OR synced_to_gas = 0) AND tanggal >= SUBDATE(CURDATE(), 1)`;
         const queryParams = [];
-        if (user?.shift && String(user.shift).trim() !== "") {
+        // [BUG-03 FIX] Hanya filter shift/group jika user benar-benar memiliki field tersebut (non-empty)
+        const userShift = user?.shift !== undefined && user?.shift !== null ? String(user.shift).trim() : "";
+        const userGroup = user?.group !== undefined && user?.group !== null ? String(user.group).trim() : "";
+        if (userShift !== "" && userShift !== "0") {
           sqlQuery += ` AND shift = ?`;
-          queryParams.push(String(user.shift).trim());
+          queryParams.push(userShift);
         }
-        if (user?.group && String(user.group).trim() !== "") {
+        if (userGroup !== "" && userGroup !== "0") {
           sqlQuery += ` AND \`group\` = ?`;
-          queryParams.push(String(user.group).trim());
+          queryParams.push(userGroup);
         }
         sqlQuery += ` ORDER BY id ASC`;
 

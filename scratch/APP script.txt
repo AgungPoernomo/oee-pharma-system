@@ -170,13 +170,17 @@ function doGet(e) {
 }
 
 function upsertOrAppendRow(sheet, rowData, startRowVal) {
-  var id = String(rowData[0] || "").trim();
-  if (id && !isNaN(Number(id)) && Number(id) > 0) {
+  // [BUG-06 FIX] Pastikan id adalah integer positif dari TiDB — tolak Date, string, 0, dll.
+  var rawId = rowData[0];
+  var id = (rawId !== null && rawId !== undefined && rawId !== "" && !(rawId instanceof Date))
+    ? String(rawId).trim() : "";
+  if (id && /^\d+$/.test(id) && Number(id) > 0) {
     var lastRow = sheet.getLastRow();
     if (lastRow >= startRowVal) {
       var ids = sheet.getRange(startRowVal, 1, lastRow - startRowVal + 1, 1).getValues();
       for (var i = 0; i < ids.length; i++) {
-        if (String(ids[i][0] || "").trim() === id) {
+        var cellId = String(ids[i][0] || "").trim();
+        if (cellId === id) {
           var targetRow = startRowVal + i;
           sheet.getRange(targetRow, 1, 1, rowData.length).setValues([rowData]);
           return targetRow;
@@ -195,7 +199,7 @@ function constructRejectCArray(data, user, isClosing, r, userLine) {
   // KHUSUS LINE 3 (INPUTC - Cutting / Filling Seal)
   if (String(userLine) === "3") {
     return [
-      raw(data.id || new Date()), (user && user.nama) ? user.nama : "Unknown", 
+      raw(data.id || ''), (user && user.nama) ? user.nama : "Unknown", 
       raw(data.no_batch), tglIndo, raw(data.shift), raw(data.group), 
       raw(data.vol_botol ?? data.volume_botol), 
       raw(data.cnt_start), raw(data.cnt_end), raw(data.cnt_sub), raw(data.utuh), raw(data.jml_batch), 
@@ -212,7 +216,7 @@ function constructRejectCArray(data, user, isClosing, r, userLine) {
   // KHUSUS LINE 1 (INPUTC - Blow / Washing / Filling / Preform)
   if (String(userLine) === "1") {
     return [
-      raw(data.id || new Date()), (user && user.nama) ? user.nama : "Unknown", 
+      raw(data.id || ''), (user && user.nama) ? user.nama : "Unknown", 
       raw(data.no_batch), tglIndo, raw(data.shift), raw(data.group), 
       raw(data.volume_botol ?? data.vol_botol), 
       raw(data.reject_botol ?? data.rej_botol), raw(data.reject_preform ?? data.rej_preform), raw(data.reject_blow ?? data.rej_blow), 
@@ -288,7 +292,7 @@ function constructRejectFArray(data, user, isClosing, r, userLine) {
   // KHUSUS LINE 1 (INPUTF - Visual Inspection / Packing)
   if (String(userLine) === "1") {
     return [
-      raw(data.id || new Date()), (user && user.nama) ? user.nama : "Unknown", 
+      raw(data.id || ''), (user && user.nama) ? user.nama : "Unknown", 
       raw(data.no_batch), raw(data.lot_no ?? data.lot), tglIndo, raw(data.shift), raw(data.group), 
       raw(data.volume_botol ?? data.vol_botol), 
       raw(data.steril_in ?? data.input_steril), raw(data.steril_bocor), raw(data.steril_h_patah_ring), raw(data.steril_h_patah_lidah), raw(data.steril_h_patah_leleh), raw(data.steril_no_hanger), raw(data.steril_rej_total ?? data.reject_before_steril), raw(data.steril_sample), raw(data.steril_out ?? data.output_chamber), 
@@ -634,74 +638,4 @@ function handleUpdateFoto(data) {
     }
   }
   return { status: "error", message: "Gagal: User tidak ditemukan di sistem." };
-}
-
-// ==================== FUNGSI TRIGGER WAKTU 1 MENIT (TIME-DRIVEN TRIGGER) ====================
-/**
- * FUNGSI TRIGGER AUTOMATIS 1 MENIT
- * Pasang fungsi ini pada Trigger Google Apps Script (Time-driven -> Every 1 minute).
- * 
- * Fungsi ini bertugas:
- * 1. Memeriksa dan mengeksekusi antrean penghapusan data (Queue Delete) yang tertunda saat lock sibuk.
- * 2. Membersihkan baris duplikat berdasarkan ID TiDB pada setiap Line.
- * 3. Memastikan sinkronisasi data yang telah di-delete dari sistem terupdate otomatis di Google Spreadsheet.
- */
-function autoSyncAndClean1Min() {
-  // Pembersihan Duplikat ID TiDB pada Sheet OEE & Downtime
-  const lines = ["1", "2", "3", "4"];
-  const sheetNames = [SHEET_DL_REJECT_C, SHEET_DL_REJECT_F, SHEET_DL_DOWNTIME_C, SHEET_DL_DOWNTIME_F];
-  
-  for (let l = 0; l < lines.length; l++) {
-    try {
-      const ss = SpreadsheetApp.openById(getDbIdByLine(lines[l]));
-      for (let s = 0; s < sheetNames.length; s++) {
-        const sheet = ss.getSheetByName(sheetNames[s]);
-        if (!sheet) continue;
-        
-        const lastRow = sheet.getLastRow();
-        if (lastRow < START_ROW_DATA) continue;
-        
-        const numRows = lastRow - START_ROW_DATA + 1;
-        const idsA = sheet.getRange(START_ROW_DATA, 1, numRows, 1).getValues();
-        
-        const seenIds = new Set();
-        const rowsToDelete = [];
-        
-        // Cek dari bawah ke atas (data terbaru di bawah)
-        for (let i = numRows - 1; i >= 0; i--) {
-          let id = String(idsA[i][0] || "").trim();
-          
-          if (id && !isNaN(Number(id)) && Number(id) > 0) {
-            if (seenIds.has(id)) {
-              rowsToDelete.push(i + START_ROW_DATA);
-            } else {
-              seenIds.add(id);
-            }
-          }
-        }
-        
-        // Hapus baris duplikat dari bawah agar indeks tidak bergeser
-        rowsToDelete.sort((a, b) => b - a);
-        for (let r = 0; r < rowsToDelete.length; r++) {
-          sheet.deleteRow(rowsToDelete[r]);
-        }
-      }
-    } catch (err) {
-      console.error(`Error clean line ${lines[l]}: ${err.toString()}`);
-    }
-  }
-}
-
-
-// ==================== FUNGSI PEMBERSIH ANTREAN (RUN MANUAL JIKA PERLU) ====================
-/**
- * Jalankan fungsi ini 1x di editor Google Apps Script untuk menghapus seluruh antrean
- * data tertunda (PENDING_SAVES dan PENDING_DELETES) yang tersangkut dari pengujian lama.
- */
-function clearAllPendingQueues() {
-  const props = PropertiesService.getScriptProperties();
-  props.deleteProperty("PENDING_SAVES");
-  props.deleteProperty("PENDING_DELETES");
-  console.log("Seluruh antrean PENDING_SAVES dan PENDING_DELETES berhasil dibersihkan!");
-  return "Antrean bersih!";
 }

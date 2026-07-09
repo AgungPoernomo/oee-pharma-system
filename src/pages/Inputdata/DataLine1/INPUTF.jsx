@@ -608,8 +608,11 @@ const SpreadsheetRow = React.memo(({
 export default function InputF() {
   const { user } = useAuth();
 
-  const [oeeData, setOeeData] = useState(() => getCachedData('F_DATA_OEE', getEmptyOEE, 100));
-  const [dtData, setDtData] = useState(() => getCachedData('F_DATA_DT', getEmptyDT, 100));
+  // [BUG-09 FIX] Gunakan kunci localStorage per-line agar data antar line tidak saling menimpa
+  const LS_OEE = 'F_DATA_OEE_L1', LS_DT = 'F_DATA_DT_L1', LS_IDS_OEE = 'F_IDS_OEE_L1', LS_IDS_DT = 'F_IDS_DT_L1';
+
+  const [oeeData, setOeeData] = useState(() => getCachedData(LS_OEE, getEmptyOEE, 100));
+  const [dtData, setDtData] = useState(() => getCachedData(LS_DT, getEmptyDT, 100));
 
   const [oeeSelection, setOeeSelection] = useState({ startRow: 0, startCol: 0, endRow: 0, endCol: 0 });
   const [dtSelection, setDtSelection] = useState({ startRow: 0, startCol: 0, endRow: 0, endCol: 0 });
@@ -620,13 +623,15 @@ export default function InputF() {
 
   useEffect(() => {
     const handleCloseMenu = () => setContextMenu(null);
-    window.addEventListener('click', handleCloseMenu);
-    window.addEventListener('contextmenu', (e) => {
+    // [BUG-07 FIX] Gunakan named handler agar bisa di-removeEventListener dengan benar (cegah memory leak)
+    const handleContextMenuClose = (e) => {
       if (!e.target.closest('table')) setContextMenu(null);
-    });
+    };
+    window.addEventListener('click', handleCloseMenu);
+    window.addEventListener('contextmenu', handleContextMenuClose);
     return () => {
       window.removeEventListener('click', handleCloseMenu);
-      window.removeEventListener('contextmenu', handleCloseMenu);
+      window.removeEventListener('contextmenu', handleContextMenuClose);
     };
   }, []);
 
@@ -635,8 +640,8 @@ export default function InputF() {
   const oeeGridRef = useRef(null);
   const dtGridRef = useRef(null);
 
-  const oeeIds = useRef(getCachedIds('F_IDS_OEE'));
-  const dtIds = useRef(getCachedIds('F_IDS_DT'));
+  const oeeIds = useRef(getCachedIds(LS_IDS_OEE));
+  const dtIds = useRef(getCachedIds(LS_IDS_DT));
   const oeeTimers = useRef({});
   const dtTimers = useRef({});
 
@@ -672,7 +677,7 @@ export default function InputF() {
         if (original_id) {
           await sendAutoSave({ action: 'delete_reject_f', data: { original_id }, user });
           oeeIds.current[rIdx] = null;
-          localStorage.setItem('F_IDS_OEE', JSON.stringify(oeeIds.current));
+          localStorage.setItem(LS_IDS_OEE, JSON.stringify(oeeIds.current));
         }
         return;
       }
@@ -733,7 +738,7 @@ export default function InputF() {
 
       if (res.status === 'success' && res.original_id) {
         oeeIds.current[rIdx] = res.original_id;
-        localStorage.setItem('F_IDS_OEE', JSON.stringify(oeeIds.current));
+        localStorage.setItem(LS_IDS_OEE, JSON.stringify(oeeIds.current));
       }
     }, 1000);
   }, [user]);
@@ -757,7 +762,7 @@ export default function InputF() {
         if (original_id) {
           await sendAutoSave({ action: 'delete_downtime_f', data: { original_id }, user });
           dtIds.current[rIdx] = null;
-          localStorage.setItem('F_IDS_DT', JSON.stringify(dtIds.current));
+          localStorage.setItem(LS_IDS_DT, JSON.stringify(dtIds.current));
         }
         return;
       }
@@ -783,7 +788,7 @@ export default function InputF() {
 
       if (res.status === 'success' && res.original_id) {
         dtIds.current[rIdx] = res.original_id;
-        localStorage.setItem('F_IDS_DT', JSON.stringify(dtIds.current));
+        localStorage.setItem(LS_IDS_DT, JSON.stringify(dtIds.current));
       }
     }, 1000);
   }, [user]);
@@ -797,7 +802,7 @@ export default function InputF() {
     setData(prevData => {
       redoRef.current.push(prevData);
       const targetState = histRef.current.pop();
-      localStorage.setItem(gridType === 'oee' ? 'F_DATA_OEE' : 'F_DATA_DT', JSON.stringify(targetState));
+      localStorage.setItem(gridType === 'oee' ? LS_OEE : LS_DT, JSON.stringify(targetState));
       const triggerSave = gridType === 'oee' ? triggerAutosaveOEE : triggerAutosaveDT;
       targetState.forEach((row, rIdx) => {
         if (row !== prevData[rIdx]) triggerSave(rIdx, row);
@@ -815,7 +820,7 @@ export default function InputF() {
     setData(prevData => {
       histRef.current.push(prevData);
       const targetState = redoRef.current.pop();
-      localStorage.setItem(gridType === 'oee' ? 'F_DATA_OEE' : 'F_DATA_DT', JSON.stringify(targetState));
+      localStorage.setItem(gridType === 'oee' ? LS_OEE : LS_DT, JSON.stringify(targetState));
       const triggerSave = gridType === 'oee' ? triggerAutosaveOEE : triggerAutosaveDT;
       targetState.forEach((row, rIdx) => {
         if (row !== prevData[rIdx]) triggerSave(rIdx, row);
@@ -874,8 +879,8 @@ export default function InputF() {
       while (next.length < 50) {
         next.push(emptyFunc());
       }
-      localStorage.setItem(gridType === 'oee' ? 'F_DATA_OEE' : 'F_DATA_DT', JSON.stringify(next));
-      localStorage.setItem(gridType === 'oee' ? 'F_IDS_OEE' : 'F_IDS_DT', JSON.stringify(idsRef.current));
+      localStorage.setItem(gridType === 'oee' ? LS_OEE : LS_DT, JSON.stringify(next));
+      localStorage.setItem(gridType === 'oee' ? LS_IDS_OEE : LS_IDS_DT, JSON.stringify(idsRef.current));
       return next;
     });
 
@@ -892,8 +897,8 @@ export default function InputF() {
       oeeIds.current = [...oeeIds.current, ...Array(1000).fill(null)];
       setOeeData(prev => {
         const next = [...prev, ...newRows];
-        localStorage.setItem('F_DATA_OEE', JSON.stringify(next));
-        localStorage.setItem('F_IDS_OEE', JSON.stringify(oeeIds.current));
+        localStorage.setItem(LS_OEE, JSON.stringify(next));
+        localStorage.setItem(LS_IDS_OEE, JSON.stringify(oeeIds.current));
         return next;
       });
     } else {
@@ -901,8 +906,8 @@ export default function InputF() {
       dtIds.current = [...dtIds.current, ...Array(1000).fill(null)];
       setDtData(prev => {
         const next = [...prev, ...newRows];
-        localStorage.setItem('F_DATA_DT', JSON.stringify(next));
-        localStorage.setItem('F_IDS_DT', JSON.stringify(dtIds.current));
+        localStorage.setItem(LS_DT, JSON.stringify(next));
+        localStorage.setItem(LS_IDS_DT, JSON.stringify(dtIds.current));
         return next;
       });
     }
@@ -991,7 +996,7 @@ export default function InputF() {
             const calculatedRow = calculateOEERow(targetRow);
             next[rowIdx] = calculatedRow;
             triggerAutosaveOEE(rowIdx, calculatedRow);
-            setTimeout(() => localStorage.setItem('F_DATA_OEE', JSON.stringify(next)), 0);
+            setTimeout(() => localStorage.setItem(LS_OEE, JSON.stringify(next)), 0);
           }
           return next;
         });
@@ -1019,7 +1024,7 @@ export default function InputF() {
             const calculatedRow = calculateDTRow(targetRow);
             next[rowIdx] = calculatedRow;
             triggerAutosaveDT(rowIdx, calculatedRow);
-            setTimeout(() => localStorage.setItem('F_DATA_DT', JSON.stringify(next)), 0);
+            setTimeout(() => localStorage.setItem(LS_DT, JSON.stringify(next)), 0);
           }
           return next;
         });
@@ -1140,7 +1145,7 @@ export default function InputF() {
           }
           if (changedAny) {
             pushHistory(gridType, prev);
-            setTimeout(() => localStorage.setItem(gridType === 'oee' ? 'F_DATA_OEE' : 'F_DATA_DT', JSON.stringify(next)), 0);
+            setTimeout(() => localStorage.setItem(gridType === 'oee' ? LS_OEE : LS_DT, JSON.stringify(next)), 0);
           }
           return next;
         });
@@ -1213,7 +1218,7 @@ export default function InputF() {
         triggerSave(targetRowIdx, calculatedRow);
       });
 
-      setTimeout(() => localStorage.setItem(gridType === 'oee' ? 'F_DATA_OEE' : 'F_DATA_DT', JSON.stringify(nextData)), 0);
+      setTimeout(() => localStorage.setItem(gridType === 'oee' ? LS_OEE : LS_DT, JSON.stringify(nextData)), 0);
       return nextData;
     });
   }, [oeeSelection, dtSelection, triggerAutosaveOEE, triggerAutosaveDT, pushHistory]);
@@ -1307,7 +1312,7 @@ export default function InputF() {
             }
           }
 
-          setTimeout(() => localStorage.setItem(gridType === 'oee' ? 'F_DATA_OEE' : 'F_DATA_DT', JSON.stringify(nextData)), 0);
+          setTimeout(() => localStorage.setItem(gridType === 'oee' ? LS_OEE : LS_DT, JSON.stringify(nextData)), 0);
           return nextData;
         });
       }
@@ -1438,10 +1443,10 @@ export default function InputF() {
       setOeeData(finalOEEData);
       setDtData(finalDTData);
 
-      localStorage.setItem('F_DATA_OEE', JSON.stringify(finalOEEData));
-      localStorage.setItem('F_DATA_DT', JSON.stringify(finalDTData));
-      localStorage.setItem('F_IDS_OEE', JSON.stringify(oeeIds.current));
-      localStorage.setItem('F_IDS_DT', JSON.stringify(dtIds.current));
+      localStorage.setItem(LS_OEE, JSON.stringify(finalOEEData));
+      localStorage.setItem(LS_DT, JSON.stringify(finalDTData));
+      localStorage.setItem(LS_IDS_OEE, JSON.stringify(oeeIds.current));
+      localStorage.setItem(LS_IDS_DT, JSON.stringify(dtIds.current));
 
     } catch (error) {
       console.error('Fetch data error:', error);

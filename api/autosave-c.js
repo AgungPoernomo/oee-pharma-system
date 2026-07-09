@@ -1,26 +1,30 @@
 import db from './db.js';
 
-const columnCache = {};
+// [BUG-05 FIX] Cache dengan TTL 5 menit agar perubahan skema tabel (ALTER TABLE) langsung terdeteksi
+const CACHE_TTL_MS = 5 * 60 * 1000;
+const columnCache = {}; // { tableName: { cols: Set, ts: number } }
 async function getValidColumns(tableName) {
-  if (!columnCache[tableName]) {
-    try {
-      let [colRows] = await db.query(`SHOW COLUMNS FROM ${tableName}`);
-      let cols = colRows.map(c => c.Field);
-      if (!cols.includes('synced_to_gas')) {
-        try {
-          await db.query(`ALTER TABLE ${tableName} ADD COLUMN synced_to_gas TINYINT(1) DEFAULT 0`);
-          cols.push('synced_to_gas');
-        } catch (alterErr) {
-          console.warn(`[Database] ADD COLUMN synced_to_gas info on ${tableName}:`, alterErr.message);
-        }
-      }
-      columnCache[tableName] = new Set(cols);
-    } catch (e) {
-      console.error(`Gagal SHOW COLUMNS untuk ${tableName}:`, e.message);
-      return null;
-    }
+  const now = Date.now();
+  if (columnCache[tableName] && (now - columnCache[tableName].ts) < CACHE_TTL_MS) {
+    return columnCache[tableName].cols;
   }
-  return columnCache[tableName];
+  try {
+    let [colRows] = await db.query(`SHOW COLUMNS FROM ${tableName}`);
+    let cols = colRows.map(c => c.Field);
+    if (!cols.includes('synced_to_gas')) {
+      try {
+        await db.query(`ALTER TABLE ${tableName} ADD COLUMN synced_to_gas TINYINT(1) DEFAULT 0`);
+        cols.push('synced_to_gas');
+      } catch (alterErr) {
+        console.warn(`[Database] ADD COLUMN synced_to_gas info on ${tableName}:`, alterErr.message);
+      }
+    }
+    columnCache[tableName] = { cols: new Set(cols), ts: now };
+  } catch (e) {
+    console.error(`Gagal SHOW COLUMNS untuk ${tableName}:`, e.message);
+    return null;
+  }
+  return columnCache[tableName].cols;
 }
 
 function cleanItem(item, validCols) {

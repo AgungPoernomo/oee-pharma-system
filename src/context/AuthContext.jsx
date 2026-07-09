@@ -27,6 +27,20 @@ export const AuthProvider = ({ children }) => {
     localStorage.setItem("oee_user", JSON.stringify(userData));
   };
 
+  // Kunci cache grid yang harus dibersihkan saat logout agar data tidak tercampur antar user
+  const GRID_CACHE_KEYS = [
+    'C_DATA_OEE', 'C_DATA_DT', 'C_IDS_OEE', 'C_IDS_DT',
+    'F_DATA_OEE', 'F_DATA_DT', 'F_IDS_OEE', 'F_IDS_DT',
+    'C_DATA_OEE_L1','C_DATA_DT_L1','C_IDS_OEE_L1','C_IDS_DT_L1',
+    'F_DATA_OEE_L1','F_DATA_DT_L1','F_IDS_OEE_L1','F_IDS_DT_L1',
+    'C_DATA_OEE_L2','C_DATA_DT_L2','C_IDS_OEE_L2','C_IDS_DT_L2',
+    'F_DATA_OEE_L2','F_DATA_DT_L2','F_IDS_OEE_L2','F_IDS_DT_L2',
+    'C_DATA_OEE_L3','C_DATA_DT_L3','C_IDS_OEE_L3','C_IDS_DT_L3',
+    'F_DATA_OEE_L3','F_DATA_DT_L3','F_IDS_OEE_L3','F_IDS_DT_L3',
+    'C_DATA_OEE_L4','C_DATA_DT_L4','C_IDS_OEE_L4','C_IDS_DT_L4',
+    'F_DATA_OEE_L4','F_DATA_DT_L4','F_IDS_OEE_L4','F_IDS_DT_L4',
+  ];
+
   const logout = async () => {
     // [OPSI 1 TRIGGER BACKUP LOG OUT]: Kirim data akhir shift dari TiDB ke Google Spreadsheet
     if (user) {
@@ -43,6 +57,8 @@ export const AuthProvider = ({ children }) => {
     }
     setUser(null);
     localStorage.removeItem("oee_user");
+    // [BUG-01 FIX] Bersihkan semua cache data grid agar data tidak bocor ke user berikutnya
+    GRID_CACHE_KEYS.forEach(k => localStorage.removeItem(k));
     // Gunakan window.location agar state benar-benar bersih
     window.location.href = '/login'; 
   };

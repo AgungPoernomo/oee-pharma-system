@@ -647,11 +647,14 @@ const SpreadsheetRow = React.memo(({
 export default function InputC() {
   const { user } = useAuth();
 
-  const [oeeData, setOeeData] = useState(() => getCachedData('C_DATA_OEE', getEmptyOEE, 100));
-  const [dtData, setDtData] = useState(() => getCachedData('C_DATA_DT', getEmptyDT, 100));
+  // [BUG-09 FIX] Kunci localStorage per-line (Line 3) agar data antar line tidak saling menimpa
+  const LS_OEE = 'C_DATA_OEE_L3', LS_DT = 'C_DATA_DT_L3', LS_IDS_OEE = 'C_IDS_OEE_L3', LS_IDS_DT = 'C_IDS_DT_L3';
 
-  const oeeIds = useRef(getCachedIds('C_IDS_OEE', 100));
-  const dtIds = useRef(getCachedIds('C_IDS_DT', 100));
+  const [oeeData, setOeeData] = useState(() => getCachedData(LS_OEE, getEmptyOEE, 100));
+  const [dtData, setDtData] = useState(() => getCachedData(LS_DT, getEmptyDT, 100));
+
+  const oeeIds = useRef(getCachedIds(LS_IDS_OEE, 100));
+  const dtIds = useRef(getCachedIds(LS_IDS_DT, 100));
 
   const [oeeSelection, setOeeSelection] = useState({ startRow: 0, startCol: 0, endRow: 0, endCol: 0 });
   const [dtSelection, setDtSelection] = useState({ startRow: 0, startCol: 0, endRow: 0, endCol: 0 });
@@ -676,12 +679,11 @@ export default function InputC() {
   useEffect(() => {
     const handleCloseMenu = () => setContextMenu(null);
     window.addEventListener('click', handleCloseMenu);
-    window.addEventListener('contextmenu', (e) => {
-      if (!e.target.closest('table')) setContextMenu(null);
-    });
+    const handleContextMenuClose = (e) => { if (!e.target.closest('table')) setContextMenu(null); };
+    window.addEventListener('contextmenu', handleContextMenuClose);
     return () => {
       window.removeEventListener('click', handleCloseMenu);
-      window.removeEventListener('contextmenu', handleCloseMenu);
+      window.removeEventListener('contextmenu', handleContextMenuClose);
     };
   }, []);
 
@@ -701,7 +703,7 @@ export default function InputC() {
         const prev = h.past[h.past.length - 1];
         const newPast = h.past.slice(0, -1);
         setOeeData(curr => {
-          setTimeout(() => localStorage.setItem('C_DATA_OEE', JSON.stringify(prev)), 0);
+          setTimeout(() => localStorage.setItem(LS_OEE, JSON.stringify(prev)), 0);
           return prev;
         });
         return { past: newPast, future: [oeeData, ...h.future] };
@@ -712,7 +714,7 @@ export default function InputC() {
         const prev = h.past[h.past.length - 1];
         const newPast = h.past.slice(0, -1);
         setDtData(curr => {
-          setTimeout(() => localStorage.setItem('C_DATA_DT', JSON.stringify(prev)), 0);
+          setTimeout(() => localStorage.setItem(LS_DT, JSON.stringify(prev)), 0);
           return prev;
         });
         return { past: newPast, future: [dtData, ...h.future] };
@@ -727,7 +729,7 @@ export default function InputC() {
         const next = h.future[0];
         const newFuture = h.future.slice(1);
         setOeeData(curr => {
-          setTimeout(() => localStorage.setItem('C_DATA_OEE', JSON.stringify(next)), 0);
+          setTimeout(() => localStorage.setItem(LS_OEE, JSON.stringify(next)), 0);
           return next;
         });
         return { past: [...h.past, oeeData], future: newFuture };
@@ -738,7 +740,7 @@ export default function InputC() {
         const next = h.future[0];
         const newFuture = h.future.slice(1);
         setDtData(curr => {
-          setTimeout(() => localStorage.setItem('C_DATA_DT', JSON.stringify(next)), 0);
+          setTimeout(() => localStorage.setItem(LS_DT, JSON.stringify(next)), 0);
           return next;
         });
         return { past: [...h.past, dtData], future: newFuture };
@@ -796,8 +798,8 @@ export default function InputC() {
       while (next.length < 50) {
         next.push(emptyFunc());
       }
-      localStorage.setItem(gridType === 'oee' ? 'C_DATA_OEE' : 'C_DATA_DT', JSON.stringify(next));
-      localStorage.setItem(gridType === 'oee' ? 'C_IDS_OEE' : 'C_IDS_DT', JSON.stringify(idsRef.current));
+      localStorage.setItem(gridType === 'oee' ? LS_OEE : LS_DT, JSON.stringify(next));
+      localStorage.setItem(gridType === 'oee' ? LS_IDS_OEE : LS_IDS_DT, JSON.stringify(idsRef.current));
       return next;
     });
 
@@ -814,8 +816,8 @@ export default function InputC() {
       oeeIds.current = [...oeeIds.current, ...Array(1000).fill(null)];
       setOeeData(prev => {
         const next = [...prev, ...newRows];
-        localStorage.setItem('C_DATA_OEE', JSON.stringify(next));
-        localStorage.setItem('C_IDS_OEE', JSON.stringify(oeeIds.current));
+        localStorage.setItem(LS_OEE, JSON.stringify(next));
+        localStorage.setItem(LS_IDS_OEE, JSON.stringify(oeeIds.current));
         return next;
       });
     } else {
@@ -823,8 +825,8 @@ export default function InputC() {
       dtIds.current = [...dtIds.current, ...Array(1000).fill(null)];
       setDtData(prev => {
         const next = [...prev, ...newRows];
-        localStorage.setItem('C_DATA_DT', JSON.stringify(next));
-        localStorage.setItem('C_IDS_DT', JSON.stringify(dtIds.current));
+        localStorage.setItem(LS_DT, JSON.stringify(next));
+        localStorage.setItem(LS_IDS_DT, JSON.stringify(dtIds.current));
         return next;
       });
     }
@@ -847,7 +849,7 @@ export default function InputC() {
       if (original_id) {
         await sendAutoSave({ action: 'delete_reject_c', data: { original_id }, user });
         oeeIds.current[rIdx] = null;
-        localStorage.setItem('C_IDS_OEE', JSON.stringify(oeeIds.current));
+        localStorage.setItem(LS_IDS_OEE, JSON.stringify(oeeIds.current));
       }
       return;
     }
@@ -902,7 +904,7 @@ export default function InputC() {
       const newId = res?.original_id || res?.data?.id;
       if (res?.status === 'success' && newId) {
         oeeIds.current[rIdx] = newId;
-        localStorage.setItem('C_IDS_OEE', JSON.stringify(oeeIds.current));
+        localStorage.setItem(LS_IDS_OEE, JSON.stringify(oeeIds.current));
       }
     } catch (err) {
       console.error('Autosave OEE error:', err);
@@ -926,7 +928,7 @@ export default function InputC() {
       if (original_id) {
         await sendAutoSave({ action: 'delete_downtime_c', data: { original_id }, user });
         dtIds.current[rIdx] = null;
-        localStorage.setItem('C_IDS_DT', JSON.stringify(dtIds.current));
+        localStorage.setItem(LS_IDS_DT, JSON.stringify(dtIds.current));
       }
       return;
     }
@@ -952,7 +954,7 @@ export default function InputC() {
       const newId = res?.original_id || res?.data?.id;
       if (res?.status === 'success' && newId) {
         dtIds.current[rIdx] = newId;
-        localStorage.setItem('C_IDS_DT', JSON.stringify(dtIds.current));
+        localStorage.setItem(LS_IDS_DT, JSON.stringify(dtIds.current));
       }
     } catch (err) {
       console.error('Autosave DT error:', err);
@@ -1063,7 +1065,7 @@ export default function InputC() {
             next[rowIdx] = calculatedRow;
             const recalculatedAll = recalculateAllOEE(next);
             triggerAutosaveOEE(rowIdx, recalculatedAll[rowIdx]);
-            setTimeout(() => localStorage.setItem('C_DATA_OEE', JSON.stringify(recalculatedAll)), 0);
+            setTimeout(() => localStorage.setItem(LS_OEE, JSON.stringify(recalculatedAll)), 0);
             return recalculatedAll;
           }
           return next;
@@ -1093,7 +1095,7 @@ export default function InputC() {
             const calculatedRow = calculateDTRow(targetRow);
             next[rowIdx] = calculatedRow;
             triggerAutosaveDT(rowIdx, calculatedRow);
-            setTimeout(() => localStorage.setItem('C_DATA_DT', JSON.stringify(next)), 0);
+            setTimeout(() => localStorage.setItem(LS_DT, JSON.stringify(next)), 0);
           }
           return next;
         });
@@ -1215,7 +1217,7 @@ export default function InputC() {
           }
           if (changedAny) {
             pushHistory(gridType, prev);
-            setTimeout(() => localStorage.setItem(gridType === 'oee' ? 'C_DATA_OEE' : 'C_DATA_DT', JSON.stringify(next)), 0);
+            setTimeout(() => localStorage.setItem(gridType === 'oee' ? LS_OEE : LS_DT, JSON.stringify(next)), 0);
           }
           return next;
         });
@@ -1289,7 +1291,7 @@ export default function InputC() {
       });
 
       const finalData = gridType === 'oee' ? recalculateAllOEE(nextData) : nextData;
-      setTimeout(() => localStorage.setItem(gridType === 'oee' ? 'C_DATA_OEE' : 'C_DATA_DT', JSON.stringify(finalData)), 0);
+      setTimeout(() => localStorage.setItem(gridType === 'oee' ? LS_OEE : LS_DT, JSON.stringify(finalData)), 0);
       return finalData;
     });
   }, [oeeSelection, dtSelection, triggerAutosaveOEE, triggerAutosaveDT, pushHistory]);
@@ -1384,7 +1386,7 @@ export default function InputC() {
           }
 
           const finalData = gridType === 'oee' ? recalculateAllOEE(nextData) : nextData;
-          setTimeout(() => localStorage.setItem(gridType === 'oee' ? 'C_DATA_OEE' : 'C_DATA_DT', JSON.stringify(finalData)), 0);
+          setTimeout(() => localStorage.setItem(gridType === 'oee' ? LS_OEE : LS_DT, JSON.stringify(finalData)), 0);
           return finalData;
         });
       }
@@ -1509,10 +1511,10 @@ export default function InputC() {
       setOeeData(finalOEEData);
       setDtData(finalDTData);
 
-      localStorage.setItem('C_DATA_OEE', JSON.stringify(finalOEEData));
-      localStorage.setItem('C_DATA_DT', JSON.stringify(finalDTData));
-      localStorage.setItem('C_IDS_OEE', JSON.stringify(oeeIds.current));
-      localStorage.setItem('C_IDS_DT', JSON.stringify(dtIds.current));
+      localStorage.setItem(LS_OEE, JSON.stringify(finalOEEData));
+      localStorage.setItem(LS_DT, JSON.stringify(finalDTData));
+      localStorage.setItem(LS_IDS_OEE, JSON.stringify(oeeIds.current));
+      localStorage.setItem(LS_IDS_DT, JSON.stringify(dtIds.current));
 
     } catch (error) {
       console.error('Fetch data error:', error);
