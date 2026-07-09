@@ -624,9 +624,8 @@ export default function InputF() {
   useEffect(() => {
     const handleCloseMenu = () => setContextMenu(null);
     window.addEventListener('click', handleCloseMenu);
-    window.addEventListener('contextmenu', (e) => {
-      if (!e.target.closest('table')) setContextMenu(null);
-    });
+    const handleContextMenuClose = (e) => { if (!e.target.closest('table')) setContextMenu(null); };
+    window.addEventListener('contextmenu', handleContextMenuClose);
     return () => {
       window.removeEventListener('click', handleCloseMenu);
       window.removeEventListener('contextmenu', handleContextMenuClose);
