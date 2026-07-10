@@ -1,0 +1,14 @@
+Problem TGL : 2026-07-10
+Line : Line 1
+Subject : INPUTC.jsx dan INPUTF.jsx
+Deskripsi troubel : tidak bisa mengambil data dari TiDB serta memperbaiki celah kritis pada proses Input, Update, dan Delete data.
+Analisa & akar masalah : 
+ - Parameter user.line salah sasaran (Query salah tabel di Backend) Looping Autosave & Overwrite Data dari Server (BUG-L1-06), 
+    - Perbaikan Delete Row (BUG-L1-01 & BUG-L1-02), Hilangnya Kolom Sampel QC di Visual Inspection (BUG-L1-05) pada INPUTF.jsx, 
+Deskripsi Solusi : 
+ - Menambahkan parameter eksplisit `line1User` ({ ...user, line: '1', plant: '1' }) pada `loadDataServer`, `triggerAutosaveOEE`, `triggerAutosaveDT`, dan `handleDeleteRow` di INPUTC.jsx & INPUTF.jsx Line 1 agar query ke backend selalu tepat sasaran ke tabel Line 1 (`oee_line1_zonec`, `oee_line1_zonef`).
+ - Menghapus useEffect looping otomatis (`recalculateAllOEE(oeeData)`) yang memicu infinite autosave saat loading data dan menimpa data server.
+ - Memperbaiki penanganan state mutasi `idsRef.current` pada `handleDeleteRow` agar ID tetap sinkron dengan TiDB saat penghapusan baris.
+ - Menambahkan kolom `vi_qc` (rowData[23] / Sampel QC VI) yang hilang pada INPUTF.jsx ke dalam payload autosave dan pemetaan data server.
+Resiko Solusi : Rendah (Perbaikan mengisolasi query agar khusus ke Line 1 dan menghentikan spam request autosave tanpa merubah struktur tabel database).
+Status : SOLVED (Build verified successfully) 

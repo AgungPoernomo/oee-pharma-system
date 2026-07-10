@@ -609,6 +609,7 @@ const SpreadsheetRow = React.memo(({
 
 export default function InputF() {
   const { user } = useAuth();
+  const line1User = useMemo(() => ({ ...(user || {}), line: "1", plant: "1" }), [user]);
 
   // [BUG-09 FIX] Gunakan kunci localStorage per-line agar data antar line tidak saling menimpa
   const LS_OEE = 'F_DATA_OEE_L1', LS_DT = 'F_DATA_DT_L1', LS_IDS_OEE = 'F_IDS_OEE_L1', LS_IDS_DT = 'F_IDS_DT_L1';
@@ -687,7 +688,7 @@ export default function InputF() {
 
       if (!isKeyComplete) {
         if (original_id && isRowEmpty) {
-          await sendAutoSave({ action: 'delete_reject_f', data: { original_id }, user });
+          await sendAutoSave({ action: 'delete_reject_f', data: { original_id }, user: line1User });
           oeeIds.current[rIdx] = null;
           localStorage.setItem(LS_IDS_OEE, JSON.stringify(oeeIds.current));
         }
@@ -718,6 +719,7 @@ export default function InputF() {
         vi_kotik: rowData[20],
         vi_rej_total: rowData[21],
         vi_hasil_baik: rowData[22],
+        vi_qc: rowData[23],
         vi_tf_packing: rowData[24],
         pack_reject: rowData[25],
         pack_hasil_baik: rowData[26],
@@ -746,14 +748,14 @@ export default function InputF() {
       };
 
       const actionType = payloadData.original_id ? 'update_reject_f' : 'submit_reject_f';
-      const res = await sendAutoSave({ action: actionType, data: payloadData, user });
+      const res = await sendAutoSave({ action: actionType, data: payloadData, user: line1User });
 
       if (res.status === 'success' && res.original_id) {
         oeeIds.current[rIdx] = res.original_id;
         localStorage.setItem(LS_IDS_OEE, JSON.stringify(oeeIds.current));
       }
     }, 1000);
-  }, [user]);
+  }, [line1User]);
 
   const triggerAutosaveDT = useCallback((rIdx, rowData) => {
     if (dtTimers.current[rIdx]) clearTimeout(dtTimers.current[rIdx]);
@@ -774,7 +776,7 @@ export default function InputF() {
 
       if (!isKeyComplete) {
         if (original_id && isRowEmpty) {
-          await sendAutoSave({ action: 'delete_downtime_f', data: { original_id }, user });
+          await sendAutoSave({ action: 'delete_downtime_f', data: { original_id }, user: line1User });
           dtIds.current[rIdx] = null;
           localStorage.setItem(LS_IDS_DT, JSON.stringify(dtIds.current));
         }
@@ -798,14 +800,14 @@ export default function InputF() {
       };
 
       const actionType = payloadData.original_id ? 'update_downtime_f' : 'submit_downtime_f';
-      const res = await sendAutoSave({ action: actionType, data: payloadData, user });
+      const res = await sendAutoSave({ action: actionType, data: payloadData, user: line1User });
 
       if (res.status === 'success' && res.original_id) {
         dtIds.current[rIdx] = res.original_id;
         localStorage.setItem(LS_IDS_DT, JSON.stringify(dtIds.current));
       }
     }, 1000);
-  }, [user]);
+  }, [line1User]);
 
   const handleUndo = useCallback((gridType) => {
     const histRef = gridType === 'oee' ? oeeHistory : dtHistory;
@@ -882,14 +884,18 @@ export default function InputF() {
       const original_id = idsRef.current[r];
       if (original_id) {
         const actionType = gridType === 'oee' ? 'delete_reject_f' : 'delete_downtime_f';
-        await sendAutoSave({ action: actionType, data: { original_id }, user });
+        await sendAutoSave({ action: actionType, data: { original_id }, user: line1User });
       }
+    }
+
+    idsRef.current = idsRef.current.filter((_, idx) => idx < minR || idx > maxR);
+    const emptyFunc = gridType === 'oee' ? getEmptyOEE : getEmptyDT;
+    while (idsRef.current.length < 50) {
+      idsRef.current.push(null);
     }
 
     setData(prev => {
       const next = prev.filter((_, idx) => idx < minR || idx > maxR);
-      idsRef.current = idsRef.current.filter((_, idx) => idx < minR || idx > maxR);
-      const emptyFunc = gridType === 'oee' ? getEmptyOEE : getEmptyDT;
       while (next.length < 50) {
         next.push(emptyFunc());
       }
@@ -903,7 +909,7 @@ export default function InputF() {
     } else {
       setDtSelection({ startRow: 0, startCol: 0, endRow: 0, endCol: 0 });
     }
-  }, [oeeSelection, dtSelection, user]);
+  }, [oeeSelection, dtSelection, line1User]);
 
   const handleAdd1000Rows = useCallback((gridType) => {
     if (gridType === 'oee') {
@@ -1378,11 +1384,11 @@ export default function InputF() {
   }, [dtSelection.endRow, dtSelection.endCol]);
 
   const loadDataServer = useCallback(async () => {
-    if (!user) return;
+    if (!line1User) return;
     try {
       const [resOEE, resDT] = await Promise.all([
-        fetchTodayRejectF(user),
-        fetchTodayDowntimeF(user),
+        fetchTodayRejectF(line1User),
+        fetchTodayDowntimeF(line1User),
       ]);
 
       const now = new Date();
@@ -1426,6 +1432,7 @@ export default function InputF() {
           arr[20] = row.vi_kotik ?? '';
           arr[21] = row.vi_rej_total ?? '';
           arr[22] = row.vi_hasil_baik ?? '';
+          arr[23] = row.vi_qc ?? '';
           arr[24] = row.vi_tf_packing ?? '';
           arr[25] = row.pack_reject ?? '';
           arr[26] = row.pack_hasil_baik ?? '';
@@ -1491,7 +1498,7 @@ export default function InputF() {
     } catch (error) {
       console.error('Fetch data error:', error);
     }
-  }, [user]);
+  }, [line1User]);
 
   useEffect(() => {
     loadDataServer();

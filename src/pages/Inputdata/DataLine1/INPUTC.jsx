@@ -667,6 +667,7 @@ const SpreadsheetRow = React.memo(({
 
 export default function InputC() {
   const { user } = useAuth();
+  const line1User = useMemo(() => ({ ...(user || {}), line: "1", plant: "1" }), [user]);
 
   // [BUG-09 FIX] Gunakan kunci localStorage per-line agar data antar line tidak saling menimpa
   const LS_OEE = 'C_DATA_OEE_L1', LS_DT = 'C_DATA_DT_L1', LS_IDS_OEE = 'C_IDS_OEE_L1', LS_IDS_DT = 'C_IDS_DT_L1';
@@ -738,7 +739,7 @@ export default function InputC() {
 
       if (!isKeyComplete) {
         if (original_id && isRowEmpty) {
-          await sendAutoSave({ action: 'delete_reject_c', data: { original_id }, user });
+          await sendAutoSave({ action: 'delete_reject_c', data: { original_id }, user: line1User });
           oeeIds.current[rIdx] = null;
           localStorage.setItem(LS_IDS_OEE, JSON.stringify(oeeIds.current));
         }
@@ -798,14 +799,14 @@ export default function InputC() {
       };
 
       const actionType = payloadData.original_id ? 'update_reject_c' : 'submit_reject_c';
-      const res = await sendAutoSave({ action: actionType, data: payloadData, user });
+      const res = await sendAutoSave({ action: actionType, data: payloadData, user: line1User });
 
       if (res.status === 'success' && res.original_id) {
         oeeIds.current[rIdx] = res.original_id;
         localStorage.setItem(LS_IDS_OEE, JSON.stringify(oeeIds.current));
       }
     }, 1000);
-  }, [user]);
+  }, [line1User]);
 
   const triggerAutosaveDT = useCallback((rIdx, rowData) => {
     if (dtTimers.current[rIdx]) clearTimeout(dtTimers.current[rIdx]);
@@ -826,7 +827,7 @@ export default function InputC() {
 
       if (!isKeyComplete) {
         if (original_id && isRowEmpty) {
-          await sendAutoSave({ action: 'delete_downtime_c', data: { original_id }, user });
+          await sendAutoSave({ action: 'delete_downtime_c', data: { original_id }, user: line1User });
           dtIds.current[rIdx] = null;
           localStorage.setItem(LS_IDS_DT, JSON.stringify(dtIds.current));
         }
@@ -850,29 +851,14 @@ export default function InputC() {
       };
 
       const actionType = payloadData.original_id ? 'update_downtime_c' : 'submit_downtime_c';
-      const res = await sendAutoSave({ action: actionType, data: payloadData, user });
+      const res = await sendAutoSave({ action: actionType, data: payloadData, user: line1User });
 
       if (res.status === 'success' && res.original_id) {
         dtIds.current[rIdx] = res.original_id;
         localStorage.setItem(LS_IDS_DT, JSON.stringify(dtIds.current));
       }
     }, 1000);
-  }, [user]);
-
-  useEffect(() => {
-    const nextData = recalculateAllOEE(oeeData);
-    let changed = false;
-    for (let i = 0; i < oeeData.length; i++) {
-      if (nextData[i] !== oeeData[i]) {
-        changed = true;
-        triggerAutosaveOEE(i, nextData[i]);
-      }
-    }
-    if (changed) {
-      setOeeData(nextData);
-      setTimeout(() => localStorage.setItem(LS_OEE, JSON.stringify(nextData)), 0);
-    }
-  }, [oeeData, triggerAutosaveOEE]);
+  }, [line1User]);
 
   const handleUndo = useCallback((gridType) => {
     const histRef = gridType === 'oee' ? oeeHistory : dtHistory;
@@ -949,14 +935,18 @@ export default function InputC() {
       const original_id = idsRef.current[r];
       if (original_id) {
         const actionType = gridType === 'oee' ? 'delete_reject_c' : 'delete_downtime_c';
-        await sendAutoSave({ action: actionType, data: { original_id }, user });
+        await sendAutoSave({ action: actionType, data: { original_id }, user: line1User });
       }
+    }
+
+    idsRef.current = idsRef.current.filter((_, idx) => idx < minR || idx > maxR);
+    const emptyFunc = gridType === 'oee' ? getEmptyOEE : getEmptyDT;
+    while (idsRef.current.length < 50) {
+      idsRef.current.push(null);
     }
 
     setData(prev => {
       const next = prev.filter((_, idx) => idx < minR || idx > maxR);
-      idsRef.current = idsRef.current.filter((_, idx) => idx < minR || idx > maxR);
-      const emptyFunc = gridType === 'oee' ? getEmptyOEE : getEmptyDT;
       while (next.length < 50) {
         next.push(emptyFunc());
       }
@@ -970,7 +960,7 @@ export default function InputC() {
     } else {
       setDtSelection({ startRow: 0, startCol: 0, endRow: 0, endCol: 0 });
     }
-  }, [oeeSelection, dtSelection, user]);
+  }, [oeeSelection, dtSelection, line1User]);
 
   const handleAdd1000Rows = useCallback((gridType) => {
     if (gridType === 'oee') {
@@ -1076,8 +1066,10 @@ export default function InputC() {
             targetRow[colIdx] = value;
             const calculatedRow = calculateOEERow(targetRow);
             next[rowIdx] = calculatedRow;
-            triggerAutosaveOEE(rowIdx, calculatedRow);
-            setTimeout(() => localStorage.setItem(LS_OEE, JSON.stringify(next)), 0);
+            const recalculatedAll = recalculateAllOEE(next);
+            triggerAutosaveOEE(rowIdx, recalculatedAll[rowIdx]);
+            setTimeout(() => localStorage.setItem(LS_OEE, JSON.stringify(recalculatedAll)), 0);
+            return recalculatedAll;
           }
           return next;
         });
@@ -1420,11 +1412,11 @@ export default function InputC() {
   }, [dtSelection.endRow, dtSelection.endCol]);
 
   const loadDataServer = useCallback(async () => {
-    if (!user) return;
+    if (!line1User) return;
     try {
       const [resOEE, resDT] = await Promise.all([
-        fetchTodayRejectC(user),
-        fetchTodayDowntimeC(user),
+        fetchTodayRejectC(line1User),
+        fetchTodayDowntimeC(line1User),
       ]);
 
       const now = new Date();
@@ -1473,6 +1465,8 @@ export default function InputC() {
         });
       }
 
+      mappedOEE = recalculateAllOEE(mappedOEE);
+
       const EMPTY_ROWS = 50;
       const finalOEE = [...mappedOEE, ...Array.from({ length: EMPTY_ROWS }, getEmptyOEE)];
       const finalDT = [...mappedDT, ...Array.from({ length: EMPTY_ROWS }, getEmptyDT)];
@@ -1491,7 +1485,7 @@ export default function InputC() {
     } catch (error) {
       console.error('[InputC] loadDataServer error:', error);
     }
-  }, [user]);
+  }, [line1User]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
