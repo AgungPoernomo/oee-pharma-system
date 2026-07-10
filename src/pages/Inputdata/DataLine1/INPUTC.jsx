@@ -4,6 +4,8 @@ import { useAuth } from '../../../context/AuthContext';
 import { fetchTodayRejectC, fetchTodayDowntimeC } from '../../../services/api';
 import { scrollCellIntoView } from '../../../lib/utils';
 import { Toaster } from 'react-hot-toast';
+import * as XLSX from 'xlsx';
+import { Download } from 'lucide-react';
 
 const TEORI_BATCH = {
   "100 ML": 56880, "250 ML": 21509, "500 ML": 11538, "1000 ML": 11538, "100 ML PAR": 27522
@@ -1535,6 +1537,28 @@ export default function InputC() {
     return () => clearTimeout(timer);
   }, [loadDataServer]);
 
+  const handleDownloadExcelOEE = useCallback(() => {
+    const headers = OEE_COLS_META.map(col => col.title);
+    const filledRows = oeeData.filter(row => row && row.some(cell => cell !== '' && cell !== null && cell !== undefined));
+    const exportRows = filledRows.length > 0 ? filledRows.map(row => row.slice(0, OEE_COLS_META.length)) : [];
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...exportRows]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Data OEE");
+    const today = new Date().toISOString().split('T')[0];
+    XLSX.writeFile(wb, `Data_OEE_Line1_ZoneC_${today}.xlsx`);
+  }, [oeeData]);
+
+  const handleDownloadExcelDT = useCallback(() => {
+    const headers = DT_COLS_META.map(col => col.title);
+    const filledRows = dtData.filter(row => row && row.some(cell => cell !== '' && cell !== null && cell !== undefined && cell !== 'Unplanned'));
+    const exportRows = filledRows.length > 0 ? filledRows.map(row => row.slice(0, DT_COLS_META.length)) : [];
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...exportRows]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Data Downtime");
+    const today = new Date().toISOString().split('T')[0];
+    XLSX.writeFile(wb, `Data_Downtime_Line1_ZoneC_${today}.xlsx`);
+  }, [dtData]);
+
   const oeeMinR = Math.min(oeeSelection.startRow, oeeSelection.endRow);
   const oeeMaxR = Math.max(oeeSelection.startRow, oeeSelection.endRow);
   const oeeMinC = Math.min(oeeSelection.startCol, oeeSelection.endCol);
@@ -1556,6 +1580,14 @@ export default function InputC() {
               OEE Line 1 — Zone C
             </h1>
           </div>
+          <button
+            type="button"
+            onClick={handleDownloadExcelOEE}
+            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg shadow-md hover:shadow-lg transition-all flex items-center gap-2 text-sm border border-emerald-500"
+          >
+            <Download size={16} />
+            <span>Download Excel (OEE)</span>
+          </button>
         </div>
 
         <div
@@ -1672,6 +1704,14 @@ export default function InputC() {
           <h2 className="text-xl font-black tracking-wider uppercase text-indigo-800">
             Downtime Line 1 — Zone C
           </h2>
+          <button
+            type="button"
+            onClick={handleDownloadExcelDT}
+            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg shadow-md hover:shadow-lg transition-all flex items-center gap-2 text-sm border border-indigo-500"
+          >
+            <Download size={16} />
+            <span>Download Excel (Downtime)</span>
+          </button>
         </div>
 
         <div

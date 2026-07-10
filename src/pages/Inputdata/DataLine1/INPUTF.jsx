@@ -4,6 +4,8 @@ import { useAuth } from '../../../context/AuthContext';
 import { fetchTodayRejectF, fetchTodayDowntimeF } from '../../../services/api';
 import { scrollCellIntoView } from '../../../lib/utils';
 import { Toaster } from 'react-hot-toast';
+import * as XLSX from 'xlsx';
+import { Download } from 'lucide-react';
 
 const TEORI_BATCH = { "100 ML": 56880, "250 ML": 21509, "500 ML": 11538, "1000 ML": 11538, "100 ML PAR": 27522 };
 const TEORI_YIELD = 11538;
@@ -1541,6 +1543,28 @@ export default function InputF() {
     loadDataServer();
   }, [loadDataServer]);
 
+  const handleDownloadExcelOEE = useCallback(() => {
+    const headers = OEE_COLS_META.map(col => col.title);
+    const filledRows = oeeData.filter(row => row && row.some(cell => cell !== '' && cell !== null && cell !== undefined && cell !== 'Y'));
+    const exportRows = filledRows.length > 0 ? filledRows.map(row => row.slice(0, OEE_COLS_META.length)) : [];
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...exportRows]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Data OEE");
+    const today = new Date().toISOString().split('T')[0];
+    XLSX.writeFile(wb, `Data_OEE_Line1_ZoneF_${today}.xlsx`);
+  }, [oeeData]);
+
+  const handleDownloadExcelDT = useCallback(() => {
+    const headers = DT_COLS_META.map(col => col.title);
+    const filledRows = dtData.filter(row => row && row.some(cell => cell !== '' && cell !== null && cell !== undefined && cell !== 'Unplanned'));
+    const exportRows = filledRows.length > 0 ? filledRows.map(row => row.slice(0, DT_COLS_META.length)) : [];
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...exportRows]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Data Downtime");
+    const today = new Date().toISOString().split('T')[0];
+    XLSX.writeFile(wb, `Data_Downtime_Line1_ZoneF_${today}.xlsx`);
+  }, [dtData]);
+
   return (
     <div className="min-h-screen bg-slate-50 p-8 text-slate-800 font-sans outline-none">
       <Toaster position="bottom-right" />
@@ -1550,6 +1574,14 @@ export default function InputF() {
           <h1 className="text-2xl font-black tracking-wider uppercase text-emerald-800">
             OEE Line 1 - Zone F
           </h1>
+          <button
+            type="button"
+            onClick={handleDownloadExcelOEE}
+            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg shadow-md hover:shadow-lg transition-all flex items-center gap-2 text-sm border border-emerald-500"
+          >
+            <Download size={16} />
+            <span>Download Excel (OEE)</span>
+          </button>
         </div>
 
         <div className="bg-white border-2 border-slate-300 shadow-xl mb-12 rounded overflow-hidden p-1 contain-content" style={{ contain: 'content', contentVisibility: 'auto', containIntrinsicSize: '700px' }}>
@@ -1684,6 +1716,14 @@ export default function InputF() {
           <h2 className="text-2xl font-black tracking-wider uppercase text-indigo-800">
             Downtime Line 1 - Zone F
           </h2>
+          <button
+            type="button"
+            onClick={handleDownloadExcelDT}
+            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg shadow-md hover:shadow-lg transition-all flex items-center gap-2 text-sm border border-indigo-500"
+          >
+            <Download size={16} />
+            <span>Download Excel (Downtime)</span>
+          </button>
         </div>
 
         <div className="bg-white border-2 border-slate-300 shadow-xl rounded overflow-hidden p-1 mb-10 contain-content" style={{ contain: 'content', contentVisibility: 'auto', containIntrinsicSize: '700px' }}>
