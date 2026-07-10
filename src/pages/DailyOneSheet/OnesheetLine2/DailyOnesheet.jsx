@@ -340,6 +340,7 @@ const SummaryTable = ({ zoneTitle, structure, matrixData, oee, avail, perf, qual
 
 const DailyOnesheet = () => {
     const { user } = useAuth();
+    const line2User = useMemo(() => ({ ...(user || {}), line: "2", plant: "1" }), [user]);
     const [inputDate, setInputDate] = useState(new Date().toISOString().split('T')[0]);
     const [inputVolume, setInputVolume] = useState("500 ML");
     const [activeDate, setActiveDate] = useState(new Date().toISOString().split('T')[0]);
@@ -360,7 +361,7 @@ const DailyOnesheet = () => {
         setActiveVolume(inputVolume);
 
         try {
-            const res = await fetchOnesheetData(inputDate, user);
+            const res = await fetchOnesheetData(inputDate, line2User);
             if (res.status === 'success') {
                 setRawRejectC(res.data.reject_c || []);
                 setRawDowntimeC(res.data.downtime_c || []);
