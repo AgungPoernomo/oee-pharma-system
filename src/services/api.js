@@ -113,6 +113,11 @@ export const fetchTodayDowntimeC = async (user = null) => await fetchHelper("get
 export const fetchTodayRejectF = async (user = null) => await fetchHelper("get_today_reject_f", user);
 export const fetchTodayDowntimeF = async (user = null) => await fetchHelper("get_today_downtime_f", user);
 
+export const fetchAllRejectC = async (user = null) => await fetchHelper("get_all_reject_c", user);
+export const fetchAllDowntimeC = async (user = null) => await fetchHelper("get_all_downtime_c", user);
+export const fetchAllRejectF = async (user = null) => await fetchHelper("get_all_reject_f", user);
+export const fetchAllDowntimeF = async (user = null) => await fetchHelper("get_all_downtime_f", user);
+
 export const getPendingApprovals = async () => {
   return await sendRequest({ action: 'get_pending_approvals' });
 };

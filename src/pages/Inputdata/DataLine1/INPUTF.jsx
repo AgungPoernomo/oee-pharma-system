@@ -1,9 +1,9 @@
 import React, { useEffect, useRef, useCallback, useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuth } from '../../../context/AuthContext';
-import { fetchTodayRejectF, fetchTodayDowntimeF } from '../../../services/api';
+import { fetchTodayRejectF, fetchTodayDowntimeF, fetchAllRejectF, fetchAllDowntimeF } from '../../../services/api';
 import { scrollCellIntoView } from '../../../lib/utils';
-import { Toaster } from 'react-hot-toast';
+import toast, { Toaster } from 'react-hot-toast';
 import * as XLSX from 'xlsx';
 import { Download } from 'lucide-react';
 
@@ -1543,27 +1543,68 @@ export default function InputF() {
     loadDataServer();
   }, [loadDataServer]);
 
-  const handleDownloadExcelOEE = useCallback(() => {
-    const headers = OEE_COLS_META.map(col => col.title);
-    const filledRows = oeeData.filter(row => row && row.some(cell => cell !== '' && cell !== null && cell !== undefined && cell !== 'Y'));
-    const exportRows = filledRows.length > 0 ? filledRows.map(row => row.slice(0, OEE_COLS_META.length)) : [];
-    const ws = XLSX.utils.aoa_to_sheet([headers, ...exportRows]);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Data OEE");
-    const today = new Date().toISOString().split('T')[0];
-    XLSX.writeFile(wb, `Data_OEE_Line1_ZoneF_${today}.xlsx`);
-  }, [oeeData]);
+  const handleDownloadExcelOEE = useCallback(async () => {
+    const toastId = toast.loading("Mengunduh semua data OEE dari TiDB...");
+    try {
+      const res = await fetchAllRejectF(line1User);
+      if (res?.status === 'success' && Array.isArray(res.data)) {
+        const headers = OEE_COLS_META.map(col => col.title);
+        const exportRows = res.data.map((row) => {
+          const r = [
+            row.no_batch ?? '', row.lot_no ?? '', parseToYMD(row.tanggal), row.shift ?? '', row.group ?? '', row.volume_botol ?? '',
+            row.steril_in ?? '', row.steril_bocor ?? '', row.steril_h_patah_ring ?? '', row.steril_h_patah_lidah ?? '',
+            row.steril_h_patah_leleh ?? '', row.steril_no_hanger ?? '', row.steril_rej_total ?? '', row.steril_sample ?? '',
+            row.steril_out ?? '', row.vi_start ?? '', row.vi_end ?? '', row.vi_sub ?? '', '', row.vi_partikel ?? '',
+            row.vi_kotik ?? '', row.vi_rej_total ?? '', row.vi_hasil_baik ?? '', row.vi_qc ?? '', row.vi_tf_packing ?? '',
+            row.pack_reject ?? '', row.pack_hasil_baik ?? '', row.pack_s_qc ?? '', row.pack_s_others ?? '', row.pack_fg ?? '',
+            row.pack_utuh ?? 'Y', row.pack_jml_batch ?? '', '', '', row.av_sh ?? '', row.av_sm ?? '',
+            row.av_eh ?? '', row.av_em ?? '', row.av_sub ?? '', row.total_avail_shift ?? '', row.run_sh ?? '',
+            row.run_sm ?? '', row.run_eh ?? '', row.run_em ?? '', row.run_sub ?? '', row.clear_sh ?? '',
+            row.clear_sm ?? '', row.clear_eh ?? '', row.clear_em ?? '', row.clear_sub ?? '', row.process_total ?? ''
+          ];
+          return calculateOEERow(r);
+        });
+        const ws = XLSX.utils.aoa_to_sheet([headers, ...exportRows]);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Semua Data OEE");
+        const today = new Date().toISOString().split('T')[0];
+        XLSX.writeFile(wb, `Semua_Data_OEE_Line1_ZoneF_${today}.xlsx`);
+        toast.success("Download Excel OEE berhasil!", { id: toastId });
+      } else {
+        toast.error("Gagal memuat data OEE dari server", { id: toastId });
+      }
+    } catch (err) {
+      toast.error("Terjadi kesalahan saat mengunduh data", { id: toastId });
+    }
+  }, [line1User]);
 
-  const handleDownloadExcelDT = useCallback(() => {
-    const headers = DT_COLS_META.map(col => col.title);
-    const filledRows = dtData.filter(row => row && row.some(cell => cell !== '' && cell !== null && cell !== undefined && cell !== 'Unplanned'));
-    const exportRows = filledRows.length > 0 ? filledRows.map(row => row.slice(0, DT_COLS_META.length)) : [];
-    const ws = XLSX.utils.aoa_to_sheet([headers, ...exportRows]);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Data Downtime");
-    const today = new Date().toISOString().split('T')[0];
-    XLSX.writeFile(wb, `Data_Downtime_Line1_ZoneF_${today}.xlsx`);
-  }, [dtData]);
+  const handleDownloadExcelDT = useCallback(async () => {
+    const toastId = toast.loading("Mengunduh semua data Downtime dari TiDB...");
+    try {
+      const res = await fetchAllDowntimeF(line1User);
+      if (res?.status === 'success' && Array.isArray(res.data)) {
+        const headers = DT_COLS_META.map(col => col.title);
+        const exportRows = res.data.map((row) => {
+          const r = [
+            parseToYMD(row.tanggal), row.shift ?? '', row.group ?? '', row.no_batch ?? '', row.start_h ?? '', row.start_m ?? '',
+            row.end_h ?? '', row.end_m ?? '', row.duration ?? '', row.plan_unplan ?? 'Unplanned', row.root_cause ?? '', row.proses ?? '',
+            row.unit ?? '', row.kasus ?? ''
+          ];
+          return calculateDTRow(r);
+        });
+        const ws = XLSX.utils.aoa_to_sheet([headers, ...exportRows]);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Semua Data Downtime");
+        const today = new Date().toISOString().split('T')[0];
+        XLSX.writeFile(wb, `Semua_Data_Downtime_Line1_ZoneF_${today}.xlsx`);
+        toast.success("Download Excel Downtime berhasil!", { id: toastId });
+      } else {
+        toast.error("Gagal memuat data Downtime dari server", { id: toastId });
+      }
+    } catch (err) {
+      toast.error("Terjadi kesalahan saat mengunduh data", { id: toastId });
+    }
+  }, [line1User]);
 
   return (
     <div className="min-h-screen bg-slate-50 p-8 text-slate-800 font-sans outline-none">
