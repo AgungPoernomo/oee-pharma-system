@@ -1,9 +1,11 @@
 import React, { useEffect, useRef, useCallback, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuth } from '../../../context/AuthContext';
-import { fetchTodayRejectC, fetchTodayDowntimeC } from '../../../services/api';
+import { fetchTodayRejectC, fetchTodayDowntimeC, fetchAllRejectC, fetchAllDowntimeC } from '../../../services/api';
 import { scrollCellIntoView } from '../../../lib/utils';
-import { Toaster } from 'react-hot-toast';
+import toast, { Toaster } from 'react-hot-toast';
+import * as XLSX from 'xlsx';
+import { Download } from 'lucide-react';
 
 const TEORI_BATCH = {
   "100 ML": 56880, "250 ML": 21509, "500 ML": 23076, "1000 ML": 60194,
@@ -1490,6 +1492,70 @@ export default function InputC() {
     return () => clearTimeout(timer);
   }, [loadDataServer]);
 
+  const handleDownloadExcelOEE = useCallback(async () => {
+    const toastId = toast.loading("Mengunduh semua data OEE dari TiDB...");
+    try {
+      const line2User = { ...(user || {}), line: "2" };
+      const res = await fetchAllRejectC(line2User);
+      if (res?.status === 'success' && Array.isArray(res.data)) {
+        const headers = OEE_COLS_META.map(col => col.title);
+        const exportRows = res.data.map((row) => {
+          const r = [
+            row.no_batch ?? '', parseToYMD(row.tanggal), row.shift ?? '', row.group ?? '', row.reject_botol ?? '', row.reject_preform ?? '',
+            row.reject_blow ?? '', row.volume_botol ?? '', row.cnt_start ?? '', row.cnt_end ?? '', row.cnt_sub ?? '', row.utuh ?? 'Y',
+            row.jml_batch ?? '', '', row.r_washing ?? '', row.r_vk ?? '', row.r_vl ?? '', row.r_nocap ?? '',
+            row.r_sealnok ?? '', row.r_others ?? '', row.r_sub ?? '', row.s_ipc ?? '', row.s_others ?? '', row.s_sub ?? '',
+            row.trf_st ?? '', '', '', '', row.pre_in ?? '', row.pre_bocor ?? '',
+            row.pre_nocap ?? '', row.pre_vol ?? '', row.pre_thermo ?? '', row.pre_lain ?? '', row.pre_rej_total ?? '', row.pre_out ?? '',
+            row.av_sh ?? '', row.av_sm ?? '', row.av_eh ?? '', row.av_em ?? '', row.av_sub ?? '', row.total_avail_shift ?? '',
+            row.run_sh ?? '', row.run_sm ?? '', row.run_eh ?? '', row.run_em ?? '', row.run_sub ?? '', row.lc_sh ?? '',
+            row.lc_sm ?? '', row.lc_eh ?? '', row.lc_em ?? '', row.lc_sub ?? ''
+          ];
+          return calculateOEERow(r);
+        });
+        const ws = XLSX.utils.aoa_to_sheet([headers, ...exportRows]);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Semua Data OEE");
+        const today = new Date().toISOString().split('T')[0];
+        XLSX.writeFile(wb, `Semua_Data_OEE_Line2_ZoneC_${today}.xlsx`);
+        toast.success("Download Excel OEE berhasil!", { id: toastId });
+      } else {
+        toast.error("Gagal memuat data OEE dari server", { id: toastId });
+      }
+    } catch (err) {
+      toast.error("Terjadi kesalahan saat mengunduh data", { id: toastId });
+    }
+  }, [user]);
+
+  const handleDownloadExcelDT = useCallback(async () => {
+    const toastId = toast.loading("Mengunduh semua data Downtime dari TiDB...");
+    try {
+      const line2User = { ...(user || {}), line: "2" };
+      const res = await fetchAllDowntimeC(line2User);
+      if (res?.status === 'success' && Array.isArray(res.data)) {
+        const headers = DT_COLS_META.map(col => col.title);
+        const exportRows = res.data.map((row) => {
+          const r = [
+            parseToYMD(row.tanggal), row.shift ?? '', row.group ?? '', row.no_batch ?? '', row.start_h ?? '', row.start_m ?? '',
+            row.end_h ?? '', row.end_m ?? '', row.duration ?? '', row.plan_unplan ?? 'Unplanned', row.root_cause ?? '', row.proses ?? '',
+            row.unit ?? '', row.kasus ?? ''
+          ];
+          return calculateDTRow(r);
+        });
+        const ws = XLSX.utils.aoa_to_sheet([headers, ...exportRows]);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Semua Data Downtime");
+        const today = new Date().toISOString().split('T')[0];
+        XLSX.writeFile(wb, `Semua_Data_Downtime_Line2_ZoneC_${today}.xlsx`);
+        toast.success("Download Excel Downtime berhasil!", { id: toastId });
+      } else {
+        toast.error("Gagal memuat data Downtime dari server", { id: toastId });
+      }
+    } catch (err) {
+      toast.error("Terjadi kesalahan saat mengunduh data", { id: toastId });
+    }
+  }, [user]);
+
   const oeeMinR = Math.min(oeeSelection.startRow, oeeSelection.endRow);
   const oeeMaxR = Math.max(oeeSelection.startRow, oeeSelection.endRow);
   const oeeMinC = Math.min(oeeSelection.startCol, oeeSelection.endCol);
@@ -1511,6 +1577,14 @@ export default function InputC() {
               OEE Line 2 — Zone C
             </h1>
           </div>
+          <button
+            type="button"
+            onClick={handleDownloadExcelOEE}
+            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg shadow-md hover:shadow-lg transition-all flex items-center gap-2 text-sm border border-emerald-500"
+          >
+            <Download size={16} />
+            <span>Download Excel (OEE)</span>
+          </button>
         </div>
 
         <div
@@ -1626,6 +1700,14 @@ export default function InputC() {
           <h2 className="text-xl font-black tracking-wider uppercase text-indigo-800">
             Downtime Line 2 — Zone C
           </h2>
+          <button
+            type="button"
+            onClick={handleDownloadExcelDT}
+            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg shadow-md hover:shadow-lg transition-all flex items-center gap-2 text-sm border border-indigo-500"
+          >
+            <Download size={16} />
+            <span>Download Excel (Downtime)</span>
+          </button>
         </div>
 
         <div
