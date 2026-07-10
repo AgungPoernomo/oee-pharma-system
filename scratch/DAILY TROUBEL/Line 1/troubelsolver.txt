@@ -1,0 +1,31 @@
+Problem TGL : 2026-07-10
+Subject : DailyOnesheet.jsx Line 1 (src/pages/DailyOneSheet/OnesheetLine1/DailyOnesheet.jsx)
+Deskripsi troubel & Bug yang ditemukan pada DailyOnesheet Line 1 dan OEE Zone F:
+
+1. BUG SALAH MAPPING DATA SAMPLES DI OEE ZONE F (KRITIKAL - DATA SALAH)
+   - Lokasi : useZoneFProcessor -> penghitungan q_samp_as & q_samp_ret
+   - Masalah Sebelumnya :
+     data[g].q_samp_as += parseFloat(r.pack_reject) || 0;
+     data[g].q_samp_ret += parseFloat(r.pack_fg) || 0;
+     Sistem keliru memasukkan data Reject Packing (pack_reject) ke dalam kolom "Sample AS", dan yang lebih fatal memasukkan data Finished Goods (pack_fg, puluhan/ratusan ribu botol) ke dalam "Sample Retained". Hal ini menyebabkan Total QC Sample dan persentase OEE Quality Zone F menjadi sangat cacat/tidak akurat.
+   - Solusi :
+     Diperbaiki agar mengambil field sampel QC yang sebenarnya:
+     data[g].q_samp_as += (parseFloat(r.vi_qc || r.pack_s_qc || r.samp_as) || 0);
+     data[g].q_samp_ret += (parseFloat(r.pack_s_others || r.samp_ret) || 0);
+
+2. BUG DELAY UNDUH GAMBAR 10 DETIK (SEDANG - UX BURUK)
+   - Lokasi : handleDownloadJPG() -> setTimeout(..., 10000)
+   - Masalah Sebelumnya : Terdapat hardcoded delay 10.000 ms (10 detik) saat menekan tombol UNDUH laporan PNG.
+   - Solusi : Diubah menjadi 800 ms agar UI responsif seketika.
+
+3. BUG FALLBACK HEADER LINE SALAH (RINGAN - TAMPILAN SALAH)
+   - Lokasi : JSX Laporan Onesheet header
+   - Masalah Sebelumnya : {user?.line || 2} yang menyebabkan jika user belum memiliki property line/admin membuka, tertulis "Line : 2" pada laporan DailyOnesheet Line 1.
+   - Solusi : Diubah menjadi {line1User?.line || "1"}.
+
+4. BUG REACT HOOK DEPENDENCY (EXHAUSTIVE-DEPS)
+   - Lokasi : useEffect(() => { if (user) executeSearch(); }, [])
+   - Masalah Sebelumnya : Array dependency kosong menyebabkan saat pertama kali dipanggil (jika user masih null / proses auth), data tidak di-fetch ulang saat user siap.
+   - Solusi : Array dependency diubah menjadi [user].
+
+Status : SEMUA BUG DI LINE 1 (khususnya OEE F & laporan) TELAH SOLVED DAN DIPERBAIKI.

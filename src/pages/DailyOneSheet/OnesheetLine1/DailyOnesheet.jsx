@@ -147,8 +147,8 @@ const useZoneFProcessor = (rawReject, rawDowntime, date, volume, headerMetrics) 
 
             data[g].pot += (parseFloat(r.av_sub) || 0) / 60;
             data[g].out_counter += parseFloat(r.vi_sub) || 0;
-            data[g].q_samp_as += parseFloat(r.pack_reject) || 0;
-            data[g].q_samp_ret += parseFloat(r.pack_fg) || 0;
+            data[g].q_samp_as += (parseFloat(r.vi_qc || r.pack_s_qc || r.samp_as) || 0);
+            data[g].q_samp_ret += (parseFloat(r.pack_s_others || r.samp_ret) || 0);
             data[g].rej_partikel += (parseFloat(r.vi_partikel) || 0);
             data[g].rej_kosmetik += (parseFloat(r.vi_kotik) || 0);
         });
@@ -380,7 +380,7 @@ const DailyOnesheet = () => {
 
     useEffect(() => {
         if (user) executeSearch();
-    }, []);
+    }, [user]);
 
     const metrics = useMemo(() => calculateZoneMetrics(activeVolume), [activeVolume]);
     const { matrix: mockMatrixDataC, structure: zoneCMatrixStructure, oee: calculatedOEEC, avail: availC, perf: perfC, qual: qualC } = useZoneCProcessor(rawRejectC, rawDowntimeC, activeDate, activeVolume, metrics);
@@ -421,7 +421,7 @@ const DailyOnesheet = () => {
             } finally {
                 setIsPrinting(false);
             }
-        }, 10000);
+        }, 800);
     };
 
     return (
@@ -453,7 +453,7 @@ const DailyOnesheet = () => {
                     <div className="border-4 bg-blue-300 border-black pb-4 mb-8 text-center flex flex-col items-center">
                         <h1 className="text-5xl font-black uppercase tracking-widest mb-4">Laporan Onesheet</h1>
                         <div className="flex gap-10 text-sm font-bold">
-                            <div className="flex flex-col"><span className="text-black-500 uppercase tracking-widest text-[16px]">Line :</span><span className="text-xl">{user?.line || 2}</span></div>
+                            <div className="flex flex-col"><span className="text-black-500 uppercase tracking-widest text-[16px]">Line :</span><span className="text-xl">{line1User?.line || "1"}</span></div>
                             <div className="flex flex-col"><span className="text-black-500 uppercase tracking-widest text-[16px]">Tanggal :</span><span className="text-xl">{activeDate}</span></div>
                             <div className="flex flex-col"><span className="text-black-500 uppercase tracking-widest text-[16px]">Volume :</span><span className="text-xl">{activeVolume}</span></div>
                         </div>
