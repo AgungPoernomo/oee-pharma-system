@@ -402,7 +402,7 @@ function saveRejectZoneC(data, user, userLine) {
 }
 
 function updateRejectZoneC(data, user, userLine) { return saveRejectZoneC(data, user, userLine); }
-function deleteRejectZoneC(data, user, userLine) { return { status: 'success', message: 'Delete dilewati di GAS (Opsi 1 Batch Log Out)' }; }
+function deleteRejectZoneC(data, user, userLine) { return deleteRowFromSheetById(SHEET_DL_REJECT_C, data.id || data.original_id, 4, userLine); }
 
 function constructRejectFArray(data, user, isClosing, r, userLine) {
   var tglIndo = formatTglIndo(data.tanggal);
@@ -480,7 +480,7 @@ function saveRejectZoneF(data, user, userLine) {
 }
 
 function updateRejectZoneF(data, user, userLine) { return saveRejectZoneF(data, user, userLine); }
-function deleteRejectZoneF(data, user, userLine) { return { status: 'success', message: 'Delete dilewati di GAS (Opsi 1 Batch Log Out)' }; }
+function deleteRejectZoneF(data, user, userLine) { return deleteRowFromSheetById(SHEET_DL_REJECT_F, data.id || data.original_id, 4, userLine); }
 
 function constructDTArray(data, user, isClosing, startRowVal, userLine) {
   // Tentukan hasLot berdasarkan userLine: Line 1 downtime Zone F TIDAK pakai lot, Line 2/3/4 pakai lot
@@ -529,8 +529,26 @@ function updateDowntimeZoneF(data, user, userLine) {
 }
 function updateDT(data, user, userLine, sheetName, hasLot) { return saveDT(data, user, userLine, sheetName, hasLot); }
 
-function deleteDowntimeZoneC(data, user, userLine) { return { status: 'success', message: 'Delete dilewati di GAS (Opsi 1 Batch Log Out)' }; }
-function deleteDowntimeZoneF(data, user, userLine) { return { status: 'success', message: 'Delete dilewati di GAS (Opsi 1 Batch Log Out)' }; }
+function deleteDowntimeZoneC(data, user, userLine) { return deleteRowFromSheetById(SHEET_DL_DOWNTIME_C, data.id || data.original_id, 2, userLine); }
+function deleteDowntimeZoneF(data, user, userLine) { return deleteRowFromSheetById(SHEET_DL_DOWNTIME_F, data.id || data.original_id, 2, userLine); }
+
+function deleteRowFromSheetById(sheetName, id, startRowVal, userLine) {
+  if (!id || isNaN(Number(id))) return { status: 'error', message: 'ID tidak valid untuk delete di Spreadsheet' };
+  const ss = SpreadsheetApp.openById(getDbIdByLine(userLine));
+  const sheet = ss.getSheetByName(sheetName);
+  if (!sheet) return { status: 'error', message: `${sheetName} Missing!` };
+  const lastRow = sheet.getLastRow();
+  if (lastRow < startRowVal) return { status: 'success', message: 'Sheet kosong, tidak ada yang dihapus' };
+  const colValues = sheet.getRange(startRowVal, 1, lastRow - startRowVal + 1, 1).getValues();
+  for (var i = 0; i < colValues.length; i++) {
+    if (String(colValues[i][0]).trim() === String(id).trim()) {
+      sheet.deleteRow(startRowVal + i);
+      SpreadsheetApp.flush();
+      return { status: 'success', message: 'Row Deleted dari Spreadsheet!' };
+    }
+  }
+  return { status: 'success', message: 'ID tidak ditemukan di Spreadsheet, dilewati' };
+}
 
 function getTodayData(userLine, sheetName, totalCols, dateColIndex, dataStartRow) {
   const targetId = getDbIdByLine(userLine);

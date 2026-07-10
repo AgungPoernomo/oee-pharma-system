@@ -533,7 +533,8 @@ const SpreadsheetRow = React.memo(({
   onFillHandleMouseDown,
   onFinishEdit,
   onCancelEdit,
-  onRowContextMenu
+  onRowContextMenu,
+  onTypingAutoSave
 }) => {
   const prosesValue = gridType === 'dt' ? rowData[DC.PROSES] : '';
   const unitOptions = gridType === 'dt' ? (UNIT_MAP_C[prosesValue] || ALL_UNITS_C) : [];
@@ -607,6 +608,9 @@ const SpreadsheetRow = React.memo(({
                       el.selectionStart = el.selectionEnd = el.value.length;
                     }
                   }}
+                  onChange={(e) => {
+                    if (onTypingAutoSave) onTypingAutoSave(rowIdx, colIdx, e.target.value, gridType);
+                  }}
                   onBlur={(e) => onFinishEdit(rowIdx, colIdx, e.target.value, gridType)}
                   onKeyDown={(e) => {
                     e.stopPropagation();
@@ -656,6 +660,7 @@ const SpreadsheetRow = React.memo(({
   if (prev.editingColIdx !== next.editingColIdx) return false;
   if (prev.editMode !== next.editMode) return false;
   if (prev.editingInitialValue !== next.editingInitialValue) return false;
+  if (prev.onTypingAutoSave !== next.onTypingAutoSave) return false;
 
   if (prev.isSelectedRow || next.isSelectedRow) {
     if (prev.selectionMinCol !== next.selectionMinCol) return false;
@@ -859,6 +864,42 @@ export default function InputC() {
       }
     }, 1000);
   }, [line1User]);
+
+  // Real-time autosave per-keystroke: dipanggil dari onChange input yang sedang aktif diedit.
+  // Menggunakan debounce 1 detik agar tidak spam request tiap karakter.
+  // Kalkulasi row & simpan ke localStorage langsung; autosave ke server dipanggil via triggerAutosaveOEE/DT.
+  const handleTypingAutoSave = useCallback((rowIdx, colIdx, typingValue, gridType) => {
+    const colsMeta = gridType === 'oee' ? OEE_COLS_META : DT_COLS_META;
+    if (colsMeta[colIdx]?.readOnly) return;
+
+    if (gridType === 'oee') {
+      setOeeData(prev => {
+        const next = [...prev];
+        const targetRow = [...next[rowIdx]];
+        targetRow[colIdx] = typingValue;
+        const calculatedRow = calculateOEERow(targetRow);
+        const recalculatedAll = recalculateAllOEE([...next.slice(0, rowIdx), calculatedRow, ...next.slice(rowIdx + 1)]);
+        recalculatedAll.forEach((row, rIdx) => {
+          if (row !== next[rIdx]) {
+            triggerAutosaveOEE(rIdx, row);
+          }
+        });
+        setTimeout(() => localStorage.setItem(LS_OEE, JSON.stringify(recalculatedAll)), 0);
+        return recalculatedAll;
+      });
+    } else {
+      setDtData(prev => {
+        const next = [...prev];
+        const targetRow = [...next[rowIdx]];
+        targetRow[colIdx] = typingValue;
+        const calculatedRow = calculateDTRow(targetRow);
+        next[rowIdx] = calculatedRow;
+        triggerAutosaveDT(rowIdx, calculatedRow);
+        setTimeout(() => localStorage.setItem(LS_DT, JSON.stringify(next)), 0);
+        return next;
+      });
+    }
+  }, [triggerAutosaveOEE, triggerAutosaveDT]);
 
   const handleUndo = useCallback((gridType) => {
     const histRef = gridType === 'oee' ? oeeHistory : dtHistory;
@@ -1609,6 +1650,7 @@ export default function InputC() {
                       onFinishEdit={handleFinishEdit}
                       onCancelEdit={handleCancelEdit}
                       onRowContextMenu={handleRowContextMenu}
+                      onTypingAutoSave={handleTypingAutoSave}
                     />
                   );
                 })}
@@ -1690,6 +1732,7 @@ export default function InputC() {
                       onFinishEdit={handleFinishEdit}
                       onCancelEdit={handleCancelEdit}
                       onRowContextMenu={handleRowContextMenu}
+                      onTypingAutoSave={handleTypingAutoSave}
                     />
                   );
                 })}

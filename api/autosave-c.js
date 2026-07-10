@@ -109,11 +109,9 @@ export default async function handler(req, res) {
           await db.query(`DELETE FROM ${tableName} WHERE id = ?`, [Number(delId)]);
           deletedCount++;
           deletedIds.push(Number(delId));
+          sendToGAS(process.env.GAS_URL, { action, data: { id: Number(delId), original_id: Number(delId) }, user: { ...user, line: lineNum }, tableName }, tableName, null).catch(err => void err);
         }
       }
-
-      // [OPSI 1 SCHEDULED BACKUP]: sendToGAS dinonaktifkan pada saat Cell Blur operasional.
-      // Pengiriman data ke GAS dilakukan saat Log Out (via endpoint /api/sync-on-logout).
 
       return res.status(200).json({ status: 'success', deleted: deletedCount, ids: deletedIds });
     } else if (
