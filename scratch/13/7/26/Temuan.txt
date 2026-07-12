@@ -1,0 +1,436 @@
+==============================================================================
+  ANALISA PERBEDAAN FITUR / TOOLS: INPUTC.jsx vs INPUTF.jsx
+  Per Line 1 hingga Line 4
+  Tanggal Analisa: 13 Juli 2026
+==============================================================================
+
+PENDAHULUAN
+-----------
+Setiap Line (1-4) memiliki dua file input data:
+  - INPUTC.jsx  => Form input untuk proses BLOWING-FILLING-STERIL (Zone C)
+  - INPUTF.jsx  => Form input untuk proses FINISHING/PACKAGING (Zone F)
+
+Keduanya menggunakan arsitektur yang sama (spreadsheet berbasis custom React),
+namun berbeda secara konteks data, struktur kolom, dan logika kalkulasi
+sesuai dengan kebutuhan proses masing-masing zona.
+
+==============================================================================
+LINE 1 — DataLine1/INPUTC.jsx  vs  DataLine1/INPUTF.jsx
+==============================================================================
+
+[1] IMPORT & HOOKS
+  - INPUTC : mengimpor useMemo (ada)
+  - INPUTF : mengimpor useMemo (ada)
+  => Sama
+
+[2] API ENDPOINT AUTOSAVE
+  - INPUTC : POST ke '/api/autosave-c'
+  - INPUTF : POST ke '/api/autosave-f'
+  => Berbeda sesuai zona masing-masing
+
+[3] LOCALSTORAGE KEYS
+  - INPUTC : 'C_DATA_OEE_L1', 'C_DATA_DT_L1', 'C_IDS_OEE_L1', 'C_IDS_DT_L1'
+  - INPUTF : 'F_DATA_OEE_L1', 'F_DATA_DT_L1', 'F_IDS_OEE_L1', 'F_IDS_DT_L1'
+  => Prefix berbeda (C_ vs F_), kode line sama (L1)
+
+[4] TEORI BATCH / VOLUME
+  - INPUTC : {"100 ML": 56880, "250 ML": 21509, "500 ML": 11538,
+               "1000 ML": 11538, "100 ML PAR": 27522} — 5 volume termasuk PAR
+  - INPUTF : {"100 ML": 56880, "250 ML": 21509, "500 ML": 11538,
+               "1000 ML": 11538, "100 ML PAR": 27522} — sama persis
+             + konstanta TEORI_YIELD = 11538 (khusus INPUTF untuk hitung yield %)
+  => INPUTF memiliki konstanta tambahan TEORI_YIELD
+
+[5] STRUKTUR KOLOM OEE (OEE_COLS_META) — Total 52 kolom (indeks 0-51)
+  INPUTC (Zone C — Blowing-Filling-Steril):
+    Kolom kunci: No Batch, Tanggal, Shift, Group, Reject Botol, Reject Preform,
+    Reject Blow (auto), Volume Botol, Start/End Counter, Sub Total, Utuh?,
+    Jumlah Batch, Total Cnt/Shift, Washing, VK, VL, Tanpa Cap, Seal NOK,
+    Others/Bocor, Sub Fill-Seal, IPC, Others, Sub Samples, Transfer to ST,
+    Total Per Shift, Yield/Batch (%), AVG/Shift (%), Input Before Steril,
+    Reject Bocor/Tanpa Cap/Vol/Thermo/Lain, Total Reject BS, Output Chamber,
+    Available Time (AT), Run Time (RT), Line Clearance (LC) — masing-masing
+    4 field jam/menit + sub total
+    -- TIDAK ADA kolom Lot No
+
+  INPUTF (Zone F — Finishing/Packaging):
+    Kolom kunci: No Batch, LOT NO (tambahan!), Tanggal, Shift, Group, Volume,
+    Input Botol Chamber, Reject Bocor/Patah Ring/Patah Lidah/Patah Lelehan/
+    Tanpa Hanger, TOTAL Reject, Sampel QC, Output TF to VI,
+    VI Start/End/Sub/Total per Shift, Partikel, Kosmetik, TOTAL VI,
+    Hasil Baik, QC, Transfer ke Packing, Reject Packing, Hasil Baik Packing,
+    QC Packing, Others, Finished Goods, Utuh?, Jumlah Batch, Total per shift,
+    per Batch (%), AVG per shift (%),
+    Available Time (AT), Run Time (RT), Line Clearance (LC), TOTAL
+    -- MEMILIKI kolom Lot No (kolom ke-2, indeks 1)
+    -- MEMILIKI kolom tambahan Total AT per shift & TOTAL di akhir
+    -- Sticky boundary di kolom ke-5 (INPUTF) vs kolom ke-4 (INPUTC)
+
+[6] STRUKTUR KOLOM DOWNTIME (DT_COLS_META)
+  INPUTC — opsi Proses: ['Blowing', 'Filling', 'Mixing', 'Autoclave']
+  INPUTF — opsi Proses: ['All Team Packaging', 'Cartoning', 'Conveyor',
+                          'Visual Inspeksi', 'Labelling', 'Robot', 'Unpacker']
+  => Pilihan proses berbeda sesuai zona
+
+[7] UNIT MAP DOWNTIME
+  INPUTC (UNIT_MAP_C): 4 proses — Blowing, Filling, Mixing, Autoclave
+    Total unit: ~70+ item
+  INPUTF (UNIT_MAP_F): 7 proses — All Team Packaging, Cartoning, Conveyor,
+    Visual Inspeksi, Labelling, Robot, Unpacker
+    Total unit: ~35 item
+  => Sangat berbeda sesuai departemen
+
+[8] LOGIKA KALKULASI OEE (calculateOEERow)
+  INPUTC:
+    - Menghitung REJ_BLOW = REJ_BOTOL + REJ_PREFORM
+    - CNT_SUB = CNT_END - CNT_START
+    - JML_BATCH = CNT_SUB / TEORI_BATCH[volume]
+    - Menghitung Fill-Seal, Samples, Transfer to ST, Yield, Input Steril,
+      Total Reject BS, Output Chamber, dan time sub (AT, RT, LC)
+    - recalculateAllOEE: menjumlah AT_TOTAL, TOTAL_CNT, AVG_SHIFT per shift
+      (3 metric di-aggregate per shift)
+
+  INPUTF:
+    - Tidak ada hitungan counter START-END
+    - Input dimulai dari steril_in langsung (input botol dari chamber)
+    - Menghitung reject per kategori (bocor, patah ring, dll)
+    - Menghitung alur: Input -> Reject -> QC Sample -> Output VI ->
+      Visual Inspeksi -> Transfer Packing -> Reject Packing -> Finished Goods
+    - Menghitung Jumlah Batch berdasarkan Finished Goods
+    - Menghitung Yield = (FG / TEORI_YIELD) * 100
+    - Menghitung time sub (AT, RT, LC) + TOTAL gabungan RT+LC
+    - Tidak ada recalculateAllOEE per shift
+
+[9] FITUR VIRTUAL SCROLLING
+  - INPUTC : TIDAK memiliki virtual scrolling (render semua row)
+  - INPUTF : MEMILIKI state oeeScrollTop, dtScrollTop, ROW_HEIGHT=29,
+             VISIBLE_ROWS, BUFFER_ROWS=15 (infrastruktur virtual scroll siap)
+  => INPUTF Line 1 lebih siap untuk data besar
+
+[10] OPTIMISASI TIMER (setTimeout vs requestAnimationFrame)
+  - INPUTC : menggunakan setTimeout(() => ..., 0) untuk state update
+  - INPUTF : menggunakan requestAnimationFrame(() => ...) untuk state update
+  => INPUTF lebih optimal untuk rendering UI
+
+[11] SCROLL INTO VIEW SAAT NAVIGASI
+  - INPUTC : menggunakan scrollCellIntoView(td, gridRef.current) via lib/utils
+  - INPUTF : menggunakan kalkulasi manual (rowTop, HEADER_HEIGHT) +
+             requestAnimationFrame untuk query td[data-row][data-col]
+  => Metode scroll berbeda; INPUTF lebih presisi
+
+[12] LOGIKA TYPING AUTOSAVE (handleTypingAutoSave)
+  - INPUTC : OEE path memanggil recalculateAllOEE (aggregate per shift)
+  - INPUTF : OEE path TIDAK memanggil recalculateAllOEE (hanya kalkulasi row)
+  => INPUTC lebih berat saat typing karena re-aggregate seluruh data
+
+[13] API ACTIONS
+  - INPUTC : submit_reject_c, update_reject_c, delete_reject_c,
+             submit_downtime_c, update_downtime_c, delete_downtime_c
+  - INPUTF : submit_reject_f, update_reject_f, delete_reject_f,
+             submit_downtime_f, update_downtime_f, delete_downtime_f
+
+[14] FIELD PAYLOAD AUTOSAVE OEE
+  INPUTC mengirim: no_batch, tanggal, shift, group, reject_botol,
+    reject_preform, reject_blow, volume_botol, cnt_start, cnt_end,
+    cnt_sub, utuh, jml_batch, washing, vk, vl, r_nocap, r_sealnok,
+    r_others, r_sub, s_ipc, s_others, s_sub, trf_st, pre_in, pre_bocor,
+    pre_nocap, pre_vol, pre_thermo, pre_lain, pre_rej_total, pre_out,
+    av_sh/sm/eh/em/sub, total_avail_shift, run_sh/sm/eh/em/sub,
+    lc_sh/sm/eh/em/sub  (TIDAK ada lot_no)
+
+  INPUTF mengirim: no_batch, LOT_NO (tambahan), tanggal, shift, group,
+    volume_botol, steril_in, steril_bocor, steril_h_patah_ring,
+    steril_h_patah_lidah, steril_h_patah_leleh, steril_no_hanger,
+    steril_rej_total, steril_sample, steril_out, vi_start, vi_end, vi_sub,
+    vi_partikel, vi_kotik, vi_rej_total, vi_hasil_baik, vi_qc, vi_tf_packing,
+    pack_reject, pack_hasil_baik, pack_s_qc, pack_s_others, pack_fg,
+    pack_utuh, pack_jml_batch, av_sh/sm/eh/em/sub, total_avail_shift,
+    run_sh/sm/eh/em/sub, clear_sh/sm/eh/em/sub, process_total
+
+[15] NAMA FILE EXPORT EXCEL
+  - INPUTC : Semua_Data_OEE_Line1_ZoneC_YYYY-MM-DD.xlsx
+  - INPUTF : Semua_Data_OEE_Line1_ZoneF_YYYY-MM-DD.xlsx
+
+==============================================================================
+LINE 2 — DataLine2/INPUTC.jsx  vs  DataLine2/INPUTF.jsx
+==============================================================================
+
+[1] IMPORT & HOOKS
+  - INPUTC : TIDAK mengimpor useMemo (berbeda dari Line 1!)
+  - INPUTF : TIDAK mengimpor useMemo
+  => Sama (keduanya tidak pakai useMemo)
+
+[2] TEORI BATCH / VOLUME
+  - INPUTC : {"100 ML": 56880, "250 ML": 21509, "500 ML": 23076, "1000 ML": 60194}
+             — 4 volume, nilai 500ML & 1000ML BERBEDA dari Line 1
+             — TIDAK ada "100 ML PAR"
+  - INPUTF : Sama dengan INPUTC Line 2 (4 volume, nilai sama)
+             + TEORI_YIELD = 23076 (berbeda dari Line 1 yang 11538)
+  => Volume lebih sedikit dari Line 1 (tidak ada PAR), nilai teori batch berbeda
+
+[3] PARSETOYVMD — Metode parsing tanggal
+  - Line 2 INPUTC & INPUTF: hanya menangani format DD/MM/YYYY (split '/')
+    dan fallback new Date(str) — lebih sederhana
+  - Line 1 INPUTC & INPUTF: menangani lebih banyak format (YYYY-MM-DD,
+    YYYY/MM/DD, DD-MM-YYYY, dll) — lebih robust
+  => Line 2 memiliki parseToYMD yang lebih sederhana/terbatas
+
+[4] STRUKTUR KOLOM OEE (OEE_COLS_META)
+  INPUTC Line 2: IDENTIK dengan INPUTC Line 1 (52 kolom, struktur sama)
+    — Perbedaan hanya di nilai TEORI_BATCH dan opsi VOLUMES
+
+  INPUTF Line 2: IDENTIK dengan INPUTF Line 1 (52 kolom, struktur sama)
+    — Perbedaan hanya di nilai TEORI_BATCH/YIELD dan opsi VOLUMES
+
+[5] VIRTUAL SCROLLING
+  - INPUTC : TIDAK ada
+  - INPUTF : TIDAK ada (berbeda dari INPUTF Line 1 yang punya infrastruktur virtual scroll)
+  => Line 2 keduanya tidak memiliki virtual scrolling
+
+[6] TIMER OPTIMISASI
+  - INPUTC & INPUTF Line 2: menggunakan setTimeout (tidak ada requestAnimationFrame)
+  => Kedua file di Line 2 belum menggunakan requestAnimationFrame
+
+[7] DOWNTIME PROSES OPTIONS
+  - INPUTC : ['Blowing', 'Filling', 'Mixing', 'Autoclave'] — sama dengan Line 1
+  - INPUTF : ['All Team Packaging', 'Cartoning', 'Conveyor', 'Visual Inspeksi',
+               'Labelling', 'Robot', 'Unpacker'] — sama dengan Line 1
+
+[8] localStorage KEYS
+  - INPUTC : 'C_DATA_OEE_L2', 'C_DATA_DT_L2', 'C_IDS_OEE_L2', 'C_IDS_DT_L2'
+  - INPUTF : 'F_DATA_OEE_L2', 'F_DATA_DT_L2', 'F_IDS_OEE_L2', 'F_IDS_DT_L2'
+
+[9] NAMA FILE EXPORT EXCEL
+  - INPUTC : Semua_Data_OEE_Line2_ZoneC_YYYY-MM-DD.xlsx
+  - INPUTF : Semua_Data_OEE_Line2_ZoneF_YYYY-MM-DD.xlsx
+
+[10] LINE IDENTIFIER DI KODE
+  - INPUTC : line1User = { line: "2", plant: "1" }
+  - INPUTF : line1User = { line: "2", plant: "1" }
+
+==============================================================================
+LINE 3 — DataLine3/INPUTC.jsx  vs  DataLine3/INPUTF.jsx
+==============================================================================
+
+[1] IMPORT & HOOKS
+  - INPUTC : mengimpor useMemo (ada) — berbeda dari Line 2
+  - INPUTF : mengimpor useMemo (ada)
+  => Sama (keduanya pakai useMemo seperti Line 1)
+
+[2] PRODUK — PERBEDAAN TERBESAR DIBANDING LINE 1 & 2
+  - INPUTC : Hanya volume "25 ML" (1 produk saja!)
+             TEORI_BATCH = {"25 ML": 29412}
+  - INPUTF : Hanya volume "25 ML" (1 produk saja!)
+             TEORI_BATCH = {"25 ML": 29412}
+             TEORI_YIELD = 29412
+  => Line 3 khusus produk 25 ML — berbeda total dari Line 1 & 2
+
+[3] OPSI SHIFT & GROUP (BARU DI LINE 3)
+  - INPUTC : Memiliki konstanta SHIFTS = ["1","2","3"] dan GROUPS = ["A","B","C","D"]
+             Kolom Shift dan Grup menggunakan type 'select' dengan opsi tersebut
+  - INPUTF : Sama, memiliki SHIFTS & GROUPS
+  => Line 1 & 2 tidak memiliki dropdown untuk Shift/Group; Line 3 memiliki
+
+[4] STRUKTUR KOLOM OEE — SANGAT BERBEDA DARI LINE 1 & 2
+  INPUTC Line 3:
+    - Total 40 kolom (bukan 52 seperti Line 1/2!)
+    - Kolom kunci: Batch No, Tanggal, Shift (select), Grup (select), Volume (select),
+      Start/End Counter, Sub Total, Utuh? (select), Jumlah Batch,
+      REJ: botol+isi, Setting, VL, Seal, Cutting, Lelehan, Sub Fill-Seal,
+      IPC, Others, Sub Samples, Transfer to ST (Sub Total),
+      Input Before Steril, Reject Before Steril (input manual!), Output Chamber,
+      AT (4 field), AT Sub, TOTAL PER SHIFT, RT (4 field), RT Sub,
+      LC (4 field), LC Sub
+    - "Reject Before Steril" adalah INPUT MANUAL (bukan readOnly) — berbeda Line 1/2
+    - Tidak ada REJ_BOTOL / REJ_PREFORM terpisah (digabung "botol+isi")
+    - Tidak ada kolom TOTAL_CNT/AVG_SHIFT
+    - TIDAK ADA kolom Lot No
+
+  INPUTF Line 3:
+    - Total 46 kolom (berbeda dari 52 kolom Line 1/2)
+    - Struktur lebih sederhana: Input chamber, Reject Bocor+Lain, Output,
+      VI (Start/End/Sub/Total per Shift — manual input!),
+      Partikel Menempel, Lelehan, Rilent, Bocor Sealing, Bocor Logo,
+      Volume Kurang, Volume Lebih, Others (8 kategori reject VI vs 2 di Line1),
+      TOTAL, Hasil Baik, Transfer ke Packing, Hasil Baik, QC,
+      Finished Goods, Utuh?, Jumlah Batch,
+      AT (4+sub+TOTAL), RT (4+sub), LC (4+sub)
+    - "Total per Shift" untuk VI adalah INPUT MANUAL (bukan readOnly)
+    - Lebih banyak kategori reject visual inspeksi
+
+[5] UNIT MAP DOWNTIME
+  INPUTC Line 3:
+    - TIDAK ADA 'Blowing' (karena Line 3 tidak ada proses Blowing)
+    - Opsi: ['Filling', 'Mixing', 'Autoclave'] — hanya 3 proses
+  INPUTF Line 3:
+    - Sama seperti Line 1 & 2: 7 proses packaging
+
+[6] RECALCULATE ALL OEE
+  INPUTC Line 3: recalculateAllOEE HANYA menjumlah AT_TOTAL (1 metric)
+    — tidak menjumlah TOTAL_CNT dan AVG_SHIFT seperti Line 1
+  INPUTF Line 3: TIDAK ada fungsi recalculateAllOEE
+
+[7] KONSTANTA DC_COLS_META vs DT_COLS_META
+  INPUTC Line 3: Nama variabel kolom downtime adalah DC_COLS_META
+    (berbeda dari Line 1/2 yang pakai DT_COLS_META)
+  INPUTF Line 3: Nama variabel tetap DT_COLS_META
+
+[8] GETEMPYOEE - NILAI DEFAULT
+  - INPUTC : arr[C.UTUH] = '' (kosong, tidak 'Y' seperti Line 1/2)
+  - INPUTF : arr[4] = '' (Volume), arr[28] = '' (Utuh)
+  => Nilai default berbeda; Line 3 tidak pre-set 'Y' untuk Utuh
+
+[9] GETEMPYDT - NILAI DEFAULT
+  - INPUTC : arr[DC.TYPE] = '' (kosong, tidak 'Unplanned' seperti Line 1/2)
+  - INPUTF : arr[9] = ' ' (spasi, bukan 'Unplanned')
+
+[10] FIELD PAYLOAD OEE INPUTC Line 3
+  Berbeda dari Line 1 karena field di database berbeda:
+  no_batch, tanggal, shift, group, volume_botol, cnt_start, cnt_end, cnt_sub,
+  utuh, jml_batch, rej_botol_isi, rej_setting, rej_vl, bocor_seal,
+  bocor_cutting, rej_lelehan, sub_fill_seal, samp_ipc, samp_others,
+  sub_samples, trf_to_st, input_steril, reject_before_steril, output_chamber,
+  av_sh/sm/eh/em/sub, total_per_shift, run_sh/sm/eh/em/sub, lc_sh/sm/eh/em/sub
+
+[11] localStorage KEYS
+  - INPUTC : 'C_DATA_OEE_L3', 'C_DATA_DT_L3', 'C_IDS_OEE_L3', 'C_IDS_DT_L3'
+  - INPUTF : 'F_DATA_OEE_L3', 'F_DATA_DT_L3', 'F_IDS_OEE_L3', 'F_IDS_DT_L3'
+
+[12] NAMA FILE EXPORT EXCEL
+  - INPUTC : Semua_Data_OEE_Line3_ZoneC_YYYY-MM-DD.xlsx
+  - INPUTF : Semua_Data_OEE_Line3_ZoneF_YYYY-MM-DD.xlsx
+
+==============================================================================
+LINE 4 — DataLine4/INPUTC.jsx  vs  DataLine4/INPUTF.jsx
+==============================================================================
+
+[1] IMPORT & HOOKS
+  - INPUTC : TIDAK mengimpor useMemo
+  - INPUTF : TIDAK mengimpor useMemo
+  => Sama (seperti Line 2, tidak pakai useMemo)
+
+[2] TEORI BATCH / VOLUME
+  - INPUTC : {"100 ML": 56880, "250 ML": 21509, "500 ML": 21730, "1000 ML": 60194}
+             — 4 volume, nilai 500ML = 21730 (berbeda dari Line 1: 11538, Line 2: 23076)
+  - INPUTF : Sama dengan INPUTC Line 4
+             + TEORI_YIELD = 21730
+  => Nilai teori batch berbeda tiap Line (tiap mesin berbeda kapasitas)
+
+[3] PARSETOYVMD
+  - Sama seperti Line 2 (versi sederhana, hanya handle DD/MM/YYYY)
+
+[4] STRUKTUR KOLOM OEE
+  INPUTC Line 4: IDENTIK dengan INPUTC Line 2 (52 kolom, struktur sama)
+    — Perbedaan hanya di nilai TEORI_BATCH
+
+  INPUTF Line 4: IDENTIK dengan INPUTF Line 2 (52 kolom, struktur sama)
+    — Perbedaan hanya di nilai TEORI_BATCH/YIELD
+
+[5] VIRTUAL SCROLLING
+  - INPUTC : TIDAK ada
+  - INPUTF : TIDAK ada
+  => Sama seperti Line 2, tidak ada virtual scrolling
+
+[6] TIMER OPTIMISASI
+  - INPUTC & INPUTF Line 4: menggunakan setTimeout (tidak ada requestAnimationFrame)
+  => Sama seperti Line 2
+
+[7] DOWNTIME PROSES OPTIONS
+  - INPUTC : ['Blowing', 'Filling', 'Mixing', 'Autoclave']
+  - INPUTF : ['All Team Packaging', 'Cartoning', 'Conveyor', 'Visual Inspeksi',
+               'Labelling', 'Robot', 'Unpacker']
+  => Sama pola dengan Line 1, 2
+
+[8] localStorage KEYS
+  - INPUTC : 'C_DATA_OEE_L4', 'C_DATA_DT_L4', 'C_IDS_OEE_L4', 'C_IDS_DT_L4'
+  - INPUTF : 'F_DATA_OEE_L4', 'F_DATA_DT_L4', 'F_IDS_OEE_L4', 'F_IDS_DT_L4'
+
+[9] NAMA FILE EXPORT EXCEL
+  - INPUTC : Semua_Data_OEE_Line4_ZoneC_YYYY-MM-DD.xlsx
+  - INPUTF : Semua_Data_OEE_Line4_ZoneF_YYYY-MM-DD.xlsx
+
+[10] LINE IDENTIFIER DI KODE
+  - INPUTC & INPUTF : line1User = { line: "4", plant: "1" }
+
+==============================================================================
+RINGKASAN PERBEDAAN UMUM INPUTC vs INPUTF (BERLAKU SEMUA LINE)
+==============================================================================
+
+| Aspek                     | INPUTC (Zone C)                | INPUTF (Zone F)              |
+|---------------------------|--------------------------------|------------------------------|
+| Endpoint API              | /api/autosave-c                | /api/autosave-f              |
+| Konteks Proses            | Blowing + Filling + Steril     | Finishing + Packaging        |
+| Kolom Lot No              | TIDAK ADA                      | ADA (semua Line)             |
+| Kolom Counter START/END   | ADA (cnt_start, cnt_end)       | TIDAK ADA                    |
+| Input Botol Awal          | Dari counter mesin (START-END) | Dari output steril (chamber) |
+| Reject Blow (auto)        | ADA (rej_botol + rej_preform)  | TIDAK ADA                    |
+| Alur Kalkulasi OEE        | Blow->Fill->Sample->Steril     | Steril->VI->Pack->FG         |
+| Kalkulasi Yield           | Per-batch dari counter         | FG/TEORI_YIELD × 100         |
+| Proses Downtime           | Blowing/Filling/Mixing/Auto    | Packaging/Cartoning/dll      |
+| Unit Map Downtime         | 4 proses, ~70+ unit            | 7 proses, ~35 unit           |
+| recalculateAllOEE         | ADA (aggregate per shift)      | TIDAK ADA                    |
+| TEORI_YIELD konstanta     | TIDAK ADA                      | ADA (berbeda tiap Line)      |
+
+==============================================================================
+RINGKASAN PERBEDAAN ANTAR LINE (INPUTC)
+==============================================================================
+
+| Aspek                   | Line 1          | Line 2          | Line 3          | Line 4          |
+|-------------------------|-----------------|-----------------|-----------------|-----------------|
+| Produk Volume           | 5 vol (+PAR)    | 4 vol           | 1 vol (25 ML)   | 4 vol           |
+| Nilai 500 ML batch      | 11,538          | 23,076          | N/A             | 21,730          |
+| useMemo                 | YA              | TIDAK           | YA              | TIDAK           |
+| Jumlah Kolom OEE        | 52              | 52              | 40              | 52              |
+| Shift/Group dropdown    | TIDAK           | TIDAK           | YA (select)     | TIDAK           |
+| Proses DT options       | 4 (+ Blowing)   | 4 (+ Blowing)   | 3 (no Blowing)  | 4 (+ Blowing)   |
+| parseToYMD versi        | Robust (multi)  | Sederhana       | Sederhana       | Sederhana       |
+| recalculateAllOEE       | 3 metric        | 3 metric        | 1 metric (AT)   | 3 metric        |
+| Default Utuh?           | 'Y'             | 'Y'             | ''              | 'Y'             |
+| Default Planned         | 'Unplanned'     | 'Unplanned'     | ''              | 'Unplanned'     |
+
+==============================================================================
+RINGKASAN PERBEDAAN ANTAR LINE (INPUTF)
+==============================================================================
+
+| Aspek                   | Line 1          | Line 2          | Line 3          | Line 4          |
+|-------------------------|-----------------|-----------------|-----------------|-----------------|
+| Produk Volume           | 5 vol (+PAR)    | 4 vol           | 1 vol (25 ML)   | 4 vol           |
+| TEORI_YIELD             | 11,538          | 23,076          | 29,412          | 21,730          |
+| useMemo                 | YA              | TIDAK           | YA              | TIDAK           |
+| Jumlah Kolom OEE        | 52              | 52              | 46              | 52              |
+| Virtual Scrolling       | ADA (siap)      | TIDAK           | TIDAK           | TIDAK           |
+| requestAnimationFrame   | YA              | TIDAK           | TIDAK           | TIDAK           |
+| Shift/Group dropdown    | TIDAK           | TIDAK           | YA (select)     | TIDAK           |
+| Total per Shift VI      | readOnly (auto) | readOnly (auto) | input manual    | readOnly (auto) |
+| parseToYMD versi        | Robust (multi)  | Sederhana       | Sederhana       | Sederhana       |
+
+==============================================================================
+TEMUAN & REKOMENDASI
+==============================================================================
+
+1. [INKONSISTENSI] Line 1 INPUTF memiliki infrastruktur virtual scrolling dan
+   requestAnimationFrame yang tidak dimiliki Line 2, 3, 4. Sebaiknya
+   distandarisasi jika semua Line bisa memiliki data besar.
+
+2. [INKONSISTENSI] parseToYMD di Line 1 lebih robust (handle multiple format
+   tanggal) dibanding Line 2/3/4 yang hanya handle DD/MM/YYYY. Risiko:
+   data dari sumber lain bisa gagal di-parse di Line 2/3/4.
+
+3. [LINE 3 UNIK] Line 3 memiliki perbedaan terbesar:
+   - Hanya 1 produk (25 ML)
+   - Kolom lebih sedikit (40 vs 52 untuk INPUTC, 46 vs 52 untuk INPUTF)
+   - Shift & Group menggunakan dropdown select
+   - "Reject Before Steril" bisa diinput manual (Line 1/2/4 readOnly)
+   - Default Utuh? dan Planned tidak di-preset
+   - Proses Downtime INPUTC tidak ada Blowing (mesin berbeda)
+
+4. [INKONSISTENSI] useMemo digunakan di Line 1 & 3 tetapi tidak di Line 2 & 4.
+   Sebaiknya konsisten menggunakan useMemo untuk optimasi re-render.
+
+5. [PERBEDAAN NILAI BISNIS] Nilai TEORI_BATCH berbeda tiap Line mencerminkan
+   kapasitas mesin yang berbeda — ini sudah benar secara bisnis.
+
+==============================================================================
+END OF ANALYSIS
+Dibuat oleh: Antigravity AI Assistant
+==============================================================================
