@@ -1,0 +1,77 @@
+09:49:50.489 Running build in Washington, D.C., USA (East) – iad1
+09:49:50.490 Build machine configuration: 2 cores, 8 GB
+09:49:50.720 Cloning github.com/AgungPoernomo/oee-pharma-system (Branch: main, Commit: 944357e)
+09:49:51.654 Cloning completed: 934.000ms
+09:49:51.803 Restored build cache from previous deployment (YRMjdEsPe2RgBZ2h1H1JdHgF5j5y)
+09:49:52.022 Running "vercel build"
+09:49:52.042 Vercel CLI 55.0.0
+09:49:52.847 Installing dependencies...
+09:49:54.507 
+09:49:54.508 up to date in 2s
+09:49:54.509 
+09:49:54.509 176 packages are looking for funding
+09:49:54.510   run `npm fund` for details
+09:49:54.551 Running "npm run build"
+09:49:54.656 
+09:49:54.656 > oee-pharma-system@0.0.0 build
+09:49:54.657 > vite build
+09:49:54.657 
+09:49:54.923 rolldown-vite v7.2.5 building client environment for production...
+09:49:55.343 Browserslist: browsers data (caniuse-lite) is 6 months old. Please run:
+09:49:55.344   npx update-browserslist-db@latest
+09:49:55.344   Why you should do it regularly: https://github.com/browserslist/update-db#readme
+09:49:55.975 
+transforming...✓ 16 modules transformed.
+09:49:55.979 ✗ Build failed in 1.05s
+09:49:55.980 error during build:
+09:49:55.980 Build failed with 6 errors:
+09:49:55.981 
+09:49:55.988 [UNRESOLVED_IMPORT] Error: Could not resolve './pages/foreman/Inputdata/TacticalInputHub' in src/App.jsx
+09:49:55.988    ╭─[ src/App.jsx:9:50 ]
+09:49:55.988    │
+09:49:55.989  9 │ const TacticalInputHub = React.lazy(() => import("./pages/foreman/Inputdata/TacticalInputHub"));
+09:49:55.989    │                                                  ──────────────────────┬─────────────────────  
+09:49:55.990    │                                                                        ╰─────────────────────── Module not found.
+09:49:55.990 ───╯
+09:49:55.990 
+09:49:55.991 [UNRESOLVED_IMPORT] Error: Could not resolve './pages/foreman/Inputdata/SmartDowntimeLoggerC' in src/App.jsx
+09:49:55.991     ╭─[ src/App.jsx:10:48 ]
+09:49:55.991     │
+09:49:55.992  10 │ const SmartDowntimeC = React.lazy(() => import("./pages/foreman/Inputdata/SmartDowntimeLoggerC"));
+09:49:55.992     │                                                ────────────────────────┬───────────────────────  
+09:49:55.993     │                                                                        ╰───────────────────────── Module not found.
+09:49:55.994 ────╯
+09:49:55.994 
+09:49:55.994 [UNRESOLVED_IMPORT] Error: Could not resolve './pages/foreman/Inputdata/SmartDowntimeLoggerF' in src/App.jsx
+09:49:55.995     ╭─[ src/App.jsx:11:48 ]
+09:49:55.995     │
+09:49:55.995  11 │ const SmartDowntimeF = React.lazy(() => import("./pages/foreman/Inputdata/SmartDowntimeLoggerF"));
+09:49:55.998     │                                                ────────────────────────┬───────────────────────  
+09:49:55.998     │                                                                        ╰───────────────────────── Module not found.
+09:49:55.998 ────╯
+09:49:55.999 
+09:49:55.999 [UNRESOLVED_IMPORT] Error: Could not resolve './pages/foreman/Inputdata/DefectCatcherC' in src/App.jsx
+09:49:55.999     ╭─[ src/App.jsx:12:48 ]
+09:49:55.999     │
+09:49:55.999  12 │ const DefectCatcherC = React.lazy(() => import("./pages/foreman/Inputdata/DefectCatcherC"));
+09:49:55.999     │                                                ─────────────────────┬────────────────────  
+09:49:55.999     │                                                                     ╰────────────────────── Module not found.
+09:49:56.000 ────╯
+09:49:56.000 
+09:49:56.000 [UNRESOLVED_IMPORT] Error: Could not resolve './pages/foreman/Inputdata/DefectCatcherF' in src/App.jsx
+09:49:56.000     ╭─[ src/App.jsx:13:48 ]
+09:49:56.000     │
+09:49:56.000  13 │ const DefectCatcherF = React.lazy(() => import("./pages/foreman/Inputdata/DefectCatcherF"));
+09:49:56.001     │                                                ─────────────────────┬────────────────────  
+09:49:56.002     │                                                                     ╰────────────────────── Module not found.
+09:49:56.002 ────╯
+09:49:56.002 
+09:49:56.003 ...
+09:49:56.003     at aggregateBindingErrorsIntoJsError (file:///vercel/path0/node_modules/rolldown/dist/shared/src-CYkh2Ybc.mjs:2659:18)
+09:49:56.003     at unwrapBindingResult (file:///vercel/path0/node_modules/rolldown/dist/shared/src-CYkh2Ybc.mjs:2634:128)
+09:49:56.003     at #build (file:///vercel/path0/node_modules/rolldown/dist/shared/src-CYkh2Ybc.mjs:4433:34)
+09:49:56.004     at async buildEnvironment (file:///vercel/path0/node_modules/vite/dist/node/chunks/node.js:33468:64)
+09:49:56.004     at async Object.build (file:///vercel/path0/node_modules/vite/dist/node/chunks/node.js:33871:19)
+09:49:56.004     at async Object.buildApp (file:///vercel/path0/node_modules/vite/dist/node/chunks/node.js:33868:153)
+09:49:56.005     at async CAC.<anonymous> (file:///vercel/path0/node_modules/vite/dist/node/cli.js:629:3)
+09:49:56.049 Error: Command "npm run build" exited with 1
