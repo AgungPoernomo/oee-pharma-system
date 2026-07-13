@@ -1,0 +1,29 @@
+Berikut adalah revisi untuk Line 2:
+Koreksi pada src/pages/Inputdata/DataLine2/INPUTF.jsx tambahkan  kolom LOT pada tabel downtime. letakkan kolom tersebut setelah kolom No.Batch
+
+================================================================================
+STATUS: SELESAI / COMPLETED (Tanggal: 13 Juli 2026)
+================================================================================
+Detail Implementasi Penambahan Kolom LOT (Lot No) pada Tabel Downtime (INPUTF.jsx):
+
+1. Pembaruan Struktur Metadata Kolom (`DT_COLS_META`)
+   - Menambahkan definisi kolom `{ title: 'Lot No', width: 90, type: 'text', stickyLeft: 415 }` pada posisi indeks 4 (tepat setelah kolom `No. Batch` yang berada di indeks 3).
+   - Menyesuaikan batas akhir sticky header pada `<thead>` dan sel `SpreadsheetRow` dari indeks 3 ke indeks 4 (`idx === 4` & `colIdx === 4`) agar pemisahan visual bayangan (`shadow-[1px_0_0_0_#cbd5e1]`) tetap rapi pada akhir kolom sticky.
+
+2. Penyesuaian Indeks & Kalkulasi Durasi (`calculateDTRow` & `getEmptyDT`)
+   - Memperbarui `getEmptyDT` dari 14 kolom menjadi 15 kolom (`Array(15).fill('')`) serta menggeser nilai default `'Unplanned'` dari indeks 9 ke indeks 10.
+   - Memperbarui logika `calculateDTRow` yang menghitung selisih waktu dari sebelumnya menggunakan indeks `4, 5, 6, 7` menjadi indeks `5, 6, 7, 8` (`Start Jam`, `Start Menit`, `End Jam`, `End Menit`), serta menyimpan hasil durasi pada indeks `9` (`next[9]`).
+
+3. Penyesuaian Navigasi & Auto-Clear Proses (`handleFinishEdit` & `SpreadsheetRow`)
+   - Memperbarui pengecekan ketergantungan kolom `Proses` dan `Unit`:
+     Jika operator mengubah `Proses` (`colIdx === 12` yang sebelumnya 11), maka kolom `Unit` (`targetRow[13]`) akan otomatis di-reset.
+   - Memperbarui batas maksimal kolom navigasi tombol keyboard (`Tab`, `ArrowRight`) pada tabel Downtime dari `Math.min(13, colIdx + 1)` menjadi `Math.min(14, colIdx + 1)`.
+
+4. Pembaruan Payload Autosave & Integrasi TiDB (`triggerAutosaveDT` & `loadDataServer`)
+   - Memasukkan properti `lot_no: rowData[4]` ke dalam `payloadData` pada `triggerAutosaveDT` untuk penyiapan atau pembaruan record di database melalui API `/api/autosave-f`.
+   - Memperbarui pengecekan kelengkapan data awal (`isKeyComplete`) agar memeriksa indeks waktu yang baru (`5, 6, 7, 8`).
+   - Menambahkan pemetaan `row.lot_no ?? ''` pada `mappedDT` saat memuat data riwayat dari server TiDB (`loadDataServer`).
+
+5. Pembaruan Ekspor Excel Downtime (`handleDownloadExcelDT`)
+   - Menambahkan `row.lot_no ?? ''` tepat setelah `row.no_batch ?? ''` pada konstruksi `exportRows` sehingga file Excel yang diunduh dari tabel Downtime memiliki kolom `Lot No` yang akurat sesuai tampilan layar.
+================================================================================

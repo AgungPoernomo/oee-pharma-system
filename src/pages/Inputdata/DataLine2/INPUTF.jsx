@@ -48,8 +48,8 @@ const getEmptyOEE = () => {
 };
 
 const getEmptyDT = () => {
-  const arr = Array(14).fill('');
-  arr[9] = 'Unplanned';
+  const arr = Array(15).fill('');
+  arr[10] = 'Unplanned';
   return arr;
 };
 
@@ -164,11 +164,11 @@ const calculateDTRow = (row) => {
     const val = raw(c);
     return (val === '' || isNaN(val)) ? 0 : parseFloat(val);
   };
-  if (raw(4) !== '' && raw(6) !== '') {
-    const diff = (v(6) * 60 + v(7)) - (v(4) * 60 + v(5));
-    next[8] = diff < 0 ? diff + 24 * 60 : diff;
+  if (raw(5) !== '' && raw(7) !== '') {
+    const diff = (v(7) * 60 + v(8)) - (v(5) * 60 + v(6));
+    next[9] = diff < 0 ? diff + 24 * 60 : diff;
   } else {
-    next[8] = '';
+    next[9] = '';
   }
   return next;
 };
@@ -273,6 +273,7 @@ const DT_COLS_META = [
   { title: 'Shift', width: 60, type: 'number', stickyLeft: 180 },
   { title: 'Grup', width: 60, type: 'text', stickyLeft: 240 },
   { title: 'No. Batch', width: 115, type: 'text', stickyLeft: 300 },
+  { title: 'Lot No', width: 90, type: 'text', stickyLeft: 415 },
   { title: 'Start (Jam)', width: 80, type: 'number' },
   { title: 'Start (Menit)', width: 85, type: 'number' },
   { title: 'End (Jam)', width: 80, type: 'number' },
@@ -477,7 +478,7 @@ const SpreadsheetRow = React.memo(({
   onCancelEdit,
   onRowContextMenu
 }) => {
-  const prosesValue = gridType === 'dt' ? rowData[11] : '';
+  const prosesValue = gridType === 'dt' ? rowData[12] : '';
   const unitOptions = gridType === 'dt' ? (UNIT_MAP_F[prosesValue] || ALL_UNITS_F) : [];
 
   return (
@@ -508,7 +509,7 @@ const SpreadsheetRow = React.memo(({
           bgClass = col.readOnly ? 'bg-slate-100' : 'bg-white';
         }
 
-        const borderSticky = isSticky && colIdx === (gridType === 'oee' ? 4 : 3) ? 'shadow-[1px_0_0_0_#cbd5e1]' : '';
+        const borderSticky = isSticky && colIdx === 4 ? 'shadow-[1px_0_0_0_#cbd5e1]' : '';
         const selectionRing = isSelected && !isEditing ? (gridType === 'oee' ? 'ring-1 ring-emerald-500 ring-inset' : 'ring-1 ring-indigo-500 ring-inset') : '';
 
         const initVal = (isEditing && editingInitialValue !== undefined) ? editingInitialValue : val;
@@ -752,10 +753,10 @@ export default function InputF() {
         isValidKey(rowData[0]) &&
         isValidKey(rowData[3]) &&
         isValidKey(rowData[1]) &&
-        isValidKey(rowData[4]) &&
         isValidKey(rowData[5]) &&
         isValidKey(rowData[6]) &&
-        isValidKey(rowData[7]);
+        isValidKey(rowData[7]) &&
+        isValidKey(rowData[8]);
 
       if (!isKeyComplete) {
         if (original_id) {
@@ -772,14 +773,15 @@ export default function InputF() {
         shift: rowData[1],
         group: rowData[2],
         no_batch: rowData[3],
-        start_h: rowData[4], start_m: rowData[5],
-        end_h: rowData[6], end_m: rowData[7],
-        duration: rowData[8],
-        plan_unplan: rowData[9],
-        root_cause: rowData[10],
-        proses: rowData[11],
-        unit: rowData[12],
-        kasus: rowData[13],
+        lot_no: rowData[4],
+        start_h: rowData[5], start_m: rowData[6],
+        end_h: rowData[7], end_m: rowData[8],
+        duration: rowData[9],
+        plan_unplan: rowData[10],
+        root_cause: rowData[11],
+        proses: rowData[12],
+        unit: rowData[13],
+        kasus: rowData[14],
       };
 
       const actionType = payloadData.original_id ? 'update_downtime_f' : 'submit_downtime_f';
@@ -1019,7 +1021,7 @@ export default function InputF() {
           if (targetRow[colIdx] !== value) {
             pushHistory('dt', prev);
             targetRow[colIdx] = value;
-            if (colIdx === 11) targetRow[12] = '';
+            if (colIdx === 12) targetRow[13] = '';
             const calculatedRow = calculateDTRow(targetRow);
             next[rowIdx] = calculatedRow;
             triggerAutosaveDT(rowIdx, calculatedRow);
@@ -1032,7 +1034,7 @@ export default function InputF() {
         const maxR = dtData.length - 1;
         if (moveKey === 'Enter' || moveKey === 'ArrowDown') nextR = Math.min(maxR, rowIdx + 1);
         else if (moveKey === 'ArrowUp') nextR = Math.max(0, rowIdx - 1);
-        else if (moveKey === 'Tab' || moveKey === 'ArrowRight') nextC = Math.min(13, colIdx + 1);
+        else if (moveKey === 'Tab' || moveKey === 'ArrowRight') nextC = Math.min(14, colIdx + 1);
         else if (moveKey === 'ArrowLeft') nextC = Math.max(0, colIdx - 1);
 
         if (moveKey) {
@@ -1421,7 +1423,7 @@ export default function InputF() {
         mappedDT = filteredDT.map((row) => {
           mappedDTIds.push(row.id);
           return [
-            parseToYMD(row.tanggal), row.shift ?? '', row.group ?? '', row.no_batch ?? '', row.start_h ?? '', row.start_m ?? '',
+            parseToYMD(row.tanggal), row.shift ?? '', row.group ?? '', row.no_batch ?? '', row.lot_no ?? '', row.start_h ?? '', row.start_m ?? '',
             row.end_h ?? '', row.end_m ?? '', row.duration ?? '', row.plan_unplan ?? 'Unplanned', row.root_cause ?? '', row.proses ?? '',
             row.unit ?? '', row.kasus ?? ''
           ];
@@ -1537,7 +1539,7 @@ export default function InputF() {
         const headers = DT_COLS_META.map(col => col.title);
         const exportRows = res.data.map((row) => {
           return [
-            parseToYMD(row.tanggal), row.shift ?? '', row.group ?? '', row.no_batch ?? '', row.start_h ?? '', row.start_m ?? '',
+            parseToYMD(row.tanggal), row.shift ?? '', row.group ?? '', row.no_batch ?? '', row.lot_no ?? '', row.start_h ?? '', row.start_m ?? '',
             row.end_h ?? '', row.end_m ?? '', row.duration ?? '', row.plan_unplan ?? 'Unplanned', row.root_cause ?? '', row.proses ?? '',
             row.unit ?? '', row.kasus ?? ''
           ];
@@ -1716,7 +1718,7 @@ export default function InputF() {
                         left: col.stickyLeft !== undefined ? col.stickyLeft : 'auto',
                         zIndex: col.stickyLeft !== undefined ? 41 : 40,
                       }}
-                      className={`border-r border-b border-slate-300 px-1 py-2 text-center text-[10px] uppercase tracking-wide ${col.stickyLeft !== undefined ? 'bg-slate-200' : 'bg-slate-100'} ${col.stickyLeft !== undefined && idx === 3 ? 'shadow-[1px_0_0_0_#cbd5e1]' : ''}`}
+                      className={`border-r border-b border-slate-300 px-1 py-2 text-center text-[10px] uppercase tracking-wide ${col.stickyLeft !== undefined ? 'bg-slate-200' : 'bg-slate-100'} ${col.stickyLeft !== undefined && idx === 4 ? 'shadow-[1px_0_0_0_#cbd5e1]' : ''}`}
                     >
                       {col.title}
                     </th>
