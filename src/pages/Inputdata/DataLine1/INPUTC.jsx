@@ -273,7 +273,23 @@ const findEdgeCell = (data, r, c, key, maxR, maxC) => {
   }
 };
 
-const OEE_COLS_META = [
+const enhanceMeta = (cols) => cols.map(col => {
+  const isSticky = col.stickyLeft !== undefined;
+  return {
+    ...col,
+    cellStyle: isSticky
+      ? { width: col.width, minWidth: col.width, maxWidth: col.width, position: 'sticky', left: col.stickyLeft, zIndex: 10 }
+      : { width: col.width, minWidth: col.width, maxWidth: col.width },
+    headerStyle: isSticky
+      ? { width: col.width, minWidth: col.width, maxWidth: col.width, position: 'sticky', left: col.stickyLeft, zIndex: 41 }
+      : { width: col.width, minWidth: col.width, maxWidth: col.width }
+  };
+});
+
+const ID_CELL_STYLE = { width: 60, minWidth: 60, maxWidth: 60, position: 'sticky', left: 0, zIndex: 30 };
+const ID_HEADER_STYLE = { width: 60, minWidth: 60, maxWidth: 60, position: 'sticky', top: 0, left: 0, zIndex: 50 };
+
+const OEE_COLS_META = enhanceMeta([
   { title: 'No Batch', width: 100, type: 'text', stickyLeft: 60 },
   { title: 'Tanggal', width: 115, type: 'date', stickyLeft: 160 },
   { title: 'Shift', width: 55, type: 'number', stickyLeft: 275 },
@@ -326,9 +342,9 @@ const OEE_COLS_META = [
   { title: 'End (Jam)', width: 75, type: 'number' },
   { title: 'End (Menit)', width: 80, type: 'number' },
   { title: 'Sub Total', width: 80, type: 'number', readOnly: true },
-];
+]);
 
-const DT_COLS_META = [
+const DT_COLS_META = enhanceMeta([
   { title: 'Tanggal', width: 120, type: 'date', stickyLeft: 60 },
   { title: 'Shift', width: 60, type: 'number', stickyLeft: 180 },
   { title: 'Grup', width: 60, type: 'text', stickyLeft: 240 },
@@ -343,7 +359,7 @@ const DT_COLS_META = [
   { title: 'Proses', width: 125, type: 'select', options: ['Blowing', 'Filling', 'Mixing', 'Autoclave'] },
   { title: 'Unit', width: 180, type: 'select_unit' },
   { title: 'Kasus', width: 400, type: 'text' },
-];
+]);
 
 const AutocompleteCombobox = ({
   initVal,
@@ -545,7 +561,7 @@ const SpreadsheetRow = React.memo(({
     <tr className="border-b border-slate-200 text-xs hover:bg-slate-50/60" onContextMenu={(e) => onRowContextMenu && onRowContextMenu(e, rowIdx, gridType)}>
       <td
         className="p-1 bg-slate-200 text-slate-700 font-mono text-center text-xs sticky left-0 z-30 cursor-pointer hover:bg-red-200 hover:text-red-800 transition-colors shadow-[1px_0_0_0_#cbd5e1] font-bold select-none"
-        style={{ width: 60, minWidth: 60, maxWidth: 60, position: 'sticky', left: 0, zIndex: 30 }}
+        style={ID_CELL_STYLE}
         onClick={() => onSelectRow && onSelectRow(rowIdx, gridType)}
         title="Klik untuk memilih baris ini"
       >
@@ -557,8 +573,6 @@ const SpreadsheetRow = React.memo(({
         const isSelected = isSelectedRow && colIdx >= selectionMinCol && colIdx <= selectionMaxCol;
         const isFillHandleCorner = isSelectedRow && rowIdx === selectionMaxRow && colIdx === selectionMaxCol;
         const isEditing = editingColIdx === colIdx;
-
-        const stickyStyle = isSticky ? { position: 'sticky', left: col.stickyLeft, zIndex: 10 } : {};
 
         let bgClass = 'bg-white';
         if (col.readOnly) bgClass = 'bg-slate-100 text-slate-600';
@@ -580,7 +594,7 @@ const SpreadsheetRow = React.memo(({
             key={colIdx}
             data-row={rowIdx}
             data-col={colIdx}
-            style={{ width: col.width, minWidth: col.width, maxWidth: col.width, ...stickyStyle }}
+            style={col.cellStyle}
             className={`p-0 border-r border-slate-200 align-middle select-none ${relativeClass} ${bgClass} ${borderSticky} ${selectionRing}`}
             onMouseDown={(e) => onCellMouseDown(e, rowIdx, colIdx, gridType)}
             onMouseEnter={() => onCellMouseEnter(rowIdx, colIdx, gridType)}
@@ -1637,13 +1651,13 @@ export default function InputC() {
           onCopy={(e) => handleCopy(e, 'oee')}
           onPaste={(e) => handlePaste(e, 'oee')}
           className="bg-white border border-slate-300 shadow-lg mb-10 rounded overflow-hidden focus:outline-none focus:ring-2 focus:ring-emerald-500"
-          style={{ contentVisibility: 'auto', containIntrinsicSize: '680px' }}
+          style={{ contain: 'layout paint', willChange: 'scroll-position' }}
         >
           <div className="overflow-x-auto max-h-[680px]">
             <table className="border-collapse w-max min-w-full text-left">
               <thead className="bg-slate-100 text-slate-700 font-semibold shadow-sm sticky top-0 z-40">
                 <tr>
-                  <th rowSpan={3} className="py-1.5 px-2 bg-slate-200 text-slate-800 font-mono text-center sticky top-0 left-0 z-50 w-[60px] min-w-[60px] max-w-[60px] shadow-[1px_0_0_0_#cbd5e1]">ID</th>
+                  <th rowSpan={3} style={ID_HEADER_STYLE} className="py-1.5 px-2 bg-slate-200 text-slate-800 font-mono text-center shadow-[1px_0_0_0_#cbd5e1]">ID</th>
                   <th colSpan={4} className="border-r border-b border-slate-300 px-2 py-1.5 text-center sticky left-[60px] z-40 bg-slate-100 shadow-[1px_0_0_0_#cbd5e1]">General Info</th>
                   <th colSpan={4} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Reject Botol & Volume</th>
                   <th colSpan={6} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Counter Filling</th>
@@ -1680,12 +1694,7 @@ export default function InputC() {
                   {OEE_COLS_META.map((col, idx) => (
                     <th
                       key={idx}
-                      style={{
-                        width: col.width, minWidth: col.width, maxWidth: col.width,
-                        position: col.stickyLeft !== undefined ? 'sticky' : 'static',
-                        left: col.stickyLeft !== undefined ? col.stickyLeft : 'auto',
-                        zIndex: col.stickyLeft !== undefined ? 41 : 40,
-                      }}
+                      style={col.headerStyle}
                       className={`border-r border-b border-slate-300 px-1 py-2 text-center text-[10px] uppercase tracking-wide ${col.stickyLeft !== undefined ? 'bg-slate-200' : 'bg-slate-100'} ${col.stickyLeft !== undefined && idx === 3 ? 'shadow-[1px_0_0_0_#cbd5e1]' : ''}`}
                     >
                       {col.title}
@@ -1761,20 +1770,19 @@ export default function InputC() {
           onCopy={(e) => handleCopy(e, 'dt')}
           onPaste={(e) => handlePaste(e, 'dt')}
           className="bg-white border border-slate-300 shadow-lg rounded overflow-hidden mb-12 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          style={{ contentVisibility: 'auto', containIntrinsicSize: '500px' }}
+          style={{ contain: 'layout paint', willChange: 'scroll-position' }}
         >
           <div className="overflow-x-auto max-h-[500px]">
             <table className="border-collapse w-max min-w-full text-left">
               <thead className="bg-indigo-950 text-white text-[11px] uppercase tracking-wider font-bold sticky top-0 z-20">
                 <tr className="border-b border-indigo-900 text-center divide-x divide-indigo-900">
-                  <th className="py-2.5 px-2 bg-indigo-950 text-white font-mono text-center sticky left-0 z-40 w-[60px] min-w-[60px] max-w-[60px] shadow-[1px_0_0_0_#312e81]">ID</th>
+                  <th style={ID_HEADER_STYLE} className="py-2.5 px-2 bg-indigo-950 text-white font-mono text-center shadow-[1px_0_0_0_#312e81]">ID</th>
                   {DT_COLS_META.map((col, idx) => {
                     const isSticky = col.stickyLeft !== undefined;
-                    const stickyStyle = isSticky ? { position: 'sticky', left: col.stickyLeft, zIndex: 30 } : {};
                     return (
                       <th
                         key={idx}
-                        style={{ width: col.width, minWidth: col.width, maxWidth: col.width, ...stickyStyle }}
+                        style={col.headerStyle}
                         className={`py-2.5 px-2 text-center leading-tight whitespace-normal break-words ${isSticky ? 'bg-indigo-950' : ''} ${isSticky && idx === 3 ? 'shadow-[1px_0_0_0_#312e81]' : ''}`}
                       >
                         {col.title}

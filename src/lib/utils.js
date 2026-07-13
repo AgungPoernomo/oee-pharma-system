@@ -14,25 +14,14 @@ export function scrollCellIntoView(td, container) {
     // Find the actual scrollable container (in case container is an outer wrapper without overflow)
     const scrollContainer = td.closest('.overflow-x-auto, .overflow-auto, [style*="overflow"]') || container;
 
-    // Use getBoundingClientRect for exact viewport pixel math.
-    // We DO NOT call td.scrollIntoView() because browsers execute it asynchronously
-    // and will overwrite our custom scrollLeft adjustments!
+    // --- PHASE 1: BATCH ALL GEOMETRY READS FIRST ---
+    // Read all getBoundingClientRect properties before modifying any scroll positions
+    // to prevent browser forced reflow / synchronous layout recalculation.
     const cRect = scrollContainer.getBoundingClientRect();
     const tdRect = td.getBoundingClientRect();
-
-    // 1. VERTICAL SCROLLING (scrollTop)
     const thead = scrollContainer.getElementsByTagName('thead')[0];
     const headerHeight = thead ? thead.getBoundingClientRect().height : 0;
-    const visibleTop = cRect.top + headerHeight;
-    const visibleBottom = cRect.bottom;
 
-    if (tdRect.top < visibleTop) {
-      scrollContainer.scrollTop = Math.max(0, scrollContainer.scrollTop - (visibleTop - tdRect.top));
-    } else if (tdRect.bottom > visibleBottom) {
-      scrollContainer.scrollTop += (tdRect.bottom - visibleBottom);
-    }
-
-    // 2. HORIZONTAL SCROLLING (scrollLeft)
     const row = td.parentElement;
     if (!row || !row.cells) return;
 
@@ -57,18 +46,34 @@ export function scrollCellIntoView(td, container) {
     if (isTargetSticky) return;
 
     const stickyRight = lastStickyCell ? lastStickyCell.getBoundingClientRect().right : cRect.left;
-    const tdLeft = td.getBoundingClientRect().left;
-    const tdRight = td.getBoundingClientRect().right;
 
-    // Check if hidden behind sticky columns on the left (with a safety margin of 5px)
-    if (tdLeft < stickyRight + 5) {
-      const leftOverlap = (stickyRight + 5) - tdLeft;
-      scrollContainer.scrollLeft = Math.max(0, scrollContainer.scrollLeft - leftOverlap);
-    } 
-    // Check if hidden beyond the right edge of the container (with a safety margin of 200px for comfortable field of view)
-    else if (tdRight > cRect.right - 200) {
-      const rightOverlap = tdRight - (cRect.right - 200);
-      scrollContainer.scrollLeft += rightOverlap;
+    // --- PHASE 2: CALCULATE TARGET SCROLL POSITIONS IN MEMORY ---
+    let targetScrollTop = scrollContainer.scrollTop;
+    const visibleTop = cRect.top + headerHeight;
+    const visibleBottom = cRect.bottom;
+
+    if (tdRect.top < visibleTop) {
+      targetScrollTop = Math.max(0, targetScrollTop - (visibleTop - tdRect.top));
+    } else if (tdRect.bottom > visibleBottom) {
+      targetScrollTop += (tdRect.bottom - visibleBottom);
+    }
+
+    let targetScrollLeft = scrollContainer.scrollLeft;
+    if (tdRect.left < stickyRight + 5) {
+      const leftOverlap = (stickyRight + 5) - tdRect.left;
+      targetScrollLeft = Math.max(0, targetScrollLeft - leftOverlap);
+    } else if (tdRect.right > cRect.right - 200) {
+      const rightOverlap = tdRect.right - (cRect.right - 200);
+      targetScrollLeft += rightOverlap;
+    }
+
+    // --- PHASE 3: BATCH ALL WRITES AT THE END ---
+    // Apply scroll modifications only once at the end.
+    if (targetScrollTop !== scrollContainer.scrollTop) {
+      scrollContainer.scrollTop = targetScrollTop;
+    }
+    if (targetScrollLeft !== scrollContainer.scrollLeft) {
+      scrollContainer.scrollLeft = targetScrollLeft;
     }
   });
 }
