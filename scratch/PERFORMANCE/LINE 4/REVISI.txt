@@ -1,0 +1,27 @@
+Berikut adalah revisi untuk Line 4:
+Koreksi pada src/pages/Inputdata/DataLine4/INPUTC.jsx dan src/pages/Inputdata/DataLine4/INPUTF.jsx, agar bisa mengatasi performance (LCP, CLS, INP). Gunakan teknik yang sama seperti src/pages/Inputdata/DataLine1/INPUTC.jsx dan src/pages/Inputdata/DataLine1/INPUTF.jsx dalam mengatasi performance (LCP, CLS, INP)
+
+================================================================================
+STATUS: SELESAI DAN TERVERIFIKASI / COMPLETED & VERIFIED (Tanggal: 14 Juli 2026)
+================================================================================
+Detail Hasil Analisa dan Implementasi 4 TO DO LIST pada INPUTC.jsx & INPUTF.jsx (Line 4):
+
+1. Row Virtualization (Dynamic Slice & Buffer Rows - Optimasi LCP & INP)
+   - [TERVERIFIKASI] State `oeeScrollTop` dan `dtScrollTop` telah ditambahkan di dalam scope komponen utama untuk memantau posisi scroll secara real-time.
+   - [TERVERIFIKASI] Konstanta virtualisasi telah ditetapkan persis sesuai standar Line 1 (`ROW_HEIGHT = 29px`, `VISIBLE_ROWS = Math.ceil(700 / ROW_HEIGHT)`, dan `BUFFER_ROWS = 15`).
+   - [TERVERIFIKASI] Pemotongan baris dinamis `data.slice(startIdx, endIdx + 1)` telah diterapkan pada `<tbody>` tabel OEE maupun Downtime.
+   - [TERVERIFIKASI] Spacer row atas `<tr style={{ height: `${startIdx * ROW_HEIGHT}px` }}>` dan bawah `<tr style={{ height: `${(data.length - 1 - endIdx) * ROW_HEIGHT}px` }}>` telah dipasang dengan akurat untuk menjaga proporsi ketinggian scroll container.
+
+2. CSS Layout Containment & Hardware Acceleration (Eliminasi CLS & Reflow)
+   - [TERVERIFIKASI] Wrapper luar grid telah dilengkapi dengan class `contain-content` dan `style={{ contain: 'content', contentVisibility: 'auto', containIntrinsicSize: '700px' }}` untuk mengisolasi proses reflow/repaint browser.
+   - [TERVERIFIKASI] Elemen `<thead>` tabel OEE dan Downtime telah diberikan class `will-change-transform` untuk akselerasi GPU (hardware acceleration) agar scrolling sticky header tetap smooth tanpa layout shift (CLS).
+
+3. Virtual-Scroll Aware Cell Navigation (`scrollCellIntoView` Optimization)
+   - [TERVERIFIKASI] `useEffect` untuk auto-scroll navigasi sel telah diperbaiki pada tabel OEE (`HEADER_HEIGHT = 65px`) dan Downtime (`HEADER_HEIGHT = 45px`).
+   - [TERVERIFIKASI] Logika pengecekan posisi matematis (`rowTop < grid.scrollTop + HEADER_HEIGHT` atau `rowBottom > grid.scrollTop + grid.clientHeight`) telah diterapkan sebelum pencarian DOM.
+   - [TERVERIFIKASI] Pencarian elemen `grid.querySelector` dan eksekusi `scrollCellIntoView(td, grid)` dibungkus di dalam `requestAnimationFrame` untuk memastikan elemen sel baru yang dirender oleh Virtual Scrolling telah siap di DOM sebelum difokuskan.
+
+4. Penempatan Grid Ref (`oeeGridRef` & `dtGridRef`) Langsung pada Container Scrolling
+   - [TERVERIFIKASI] Pada INPUTC.jsx maupun INPUTF.jsx, `ref={oeeGridRef}` beserta `onScroll={(e) => setOeeScrollTop(e.target.scrollTop)}` dipasang langsung pada div pembawa scroll (`className="w-full h-[700px] overflow-auto select-none outline-none"`).
+   - [TERVERIFIKASI] `ref={dtGridRef}` beserta `onScroll={(e) => setDtScrollTop(e.target.scrollTop)}` juga dipasang tepat pada div scroll container `h-[700px] overflow-auto`. Hal ini menjamin kalkulasi koordinat scroll, auto-scroll sel, dan `scrollTop tracking` bekerja 100% presisi.
+================================================================================

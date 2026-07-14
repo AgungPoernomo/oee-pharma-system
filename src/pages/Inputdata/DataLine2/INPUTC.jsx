@@ -722,7 +722,7 @@ export default function InputC() {
     oeeTimers.current[rIdx] = setTimeout(async () => {
       const original_id = oeeIds.current[rIdx] || null;
       const isValidKey = (val) => val !== '' && val !== null && val !== undefined && String(val).trim() !== '';
-      const isKeyComplete = 
+      const isKeyComplete =
         isValidKey(rowData[C.TANGGAL]) &&
         isValidKey(rowData[C.NO_BATCH]) &&
         isValidKey(rowData[C.SHIFT]) &&
@@ -808,7 +808,7 @@ export default function InputC() {
     dtTimers.current[rIdx] = setTimeout(async () => {
       const original_id = dtIds.current[rIdx] || null;
       const isValidKey = (val) => val !== '' && val !== null && val !== undefined && String(val).trim() !== '';
-      const isKeyComplete = 
+      const isKeyComplete =
         isValidKey(rowData[DC.TANGGAL]) &&
         isValidKey(rowData[DC.NO_BATCH]) &&
         isValidKey(rowData[DC.SHIFT]) &&

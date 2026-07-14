@@ -634,7 +634,7 @@ export default function InputF() {
 
   const [oeeScrollTop, setOeeScrollTop] = useState(0);
   const [dtScrollTop, setDtScrollTop] = useState(0);
-  
+
   const ROW_HEIGHT = 29;
   const VISIBLE_ROWS = Math.ceil(700 / ROW_HEIGHT);
   const BUFFER_ROWS = 15;
@@ -682,12 +682,12 @@ export default function InputF() {
     oeeTimers.current[rIdx] = setTimeout(async () => {
       const original_id = oeeIds.current[rIdx] || null;
       const isValidKey = (val) => val !== '' && val !== null && val !== undefined && String(val).trim() !== '';
-      const isKeyComplete = 
+      const isKeyComplete =
         isValidKey(rowData[2]) &&
         isValidKey(rowData[0]) &&
         isValidKey(rowData[3]);
 
-      const isRowEmpty = 
+      const isRowEmpty =
         !isValidKey(rowData[2]) &&
         !isValidKey(rowData[0]) &&
         !isValidKey(rowData[3]) &&
@@ -771,11 +771,11 @@ export default function InputF() {
     dtTimers.current[rIdx] = setTimeout(async () => {
       const original_id = dtIds.current[rIdx] || null;
       const isValidKey = (val) => val !== '' && val !== null && val !== undefined && String(val).trim() !== '';
-      const isKeyComplete = 
+      const isKeyComplete =
         isValidKey(rowData[0]) &&
         isValidKey(rowData[1]);
 
-      const isRowEmpty = 
+      const isRowEmpty =
         !isValidKey(rowData[0]) &&
         !isValidKey(rowData[3]) &&
         !isValidKey(rowData[1]) &&
@@ -1384,12 +1384,12 @@ export default function InputF() {
   useEffect(() => {
     if (!oeeGridRef.current) return;
     const grid = oeeGridRef.current;
-    
+
     const ROW_HEIGHT = 29;
     const HEADER_HEIGHT = 65;
     const rowTop = (oeeSelection.endRow * ROW_HEIGHT) + HEADER_HEIGHT;
     const rowBottom = rowTop + ROW_HEIGHT;
-    
+
     if (rowTop < grid.scrollTop + HEADER_HEIGHT) {
       grid.scrollTop = Math.max(0, rowTop - HEADER_HEIGHT);
     } else if (rowBottom > grid.scrollTop + grid.clientHeight) {
@@ -1405,12 +1405,12 @@ export default function InputF() {
   useEffect(() => {
     if (!dtGridRef.current) return;
     const grid = dtGridRef.current;
-    
+
     const ROW_HEIGHT = 29;
     const HEADER_HEIGHT = 45;
     const rowTop = (dtSelection.endRow * ROW_HEIGHT) + HEADER_HEIGHT;
     const rowBottom = rowTop + ROW_HEIGHT;
-    
+
     if (rowTop < grid.scrollTop + HEADER_HEIGHT) {
       grid.scrollTop = Math.max(0, rowTop - HEADER_HEIGHT);
     } else if (rowBottom > grid.scrollTop + grid.clientHeight) {
@@ -1627,13 +1627,13 @@ export default function InputF() {
         </div>
 
         <div className="bg-white border-2 border-slate-300 shadow-xl mb-12 rounded overflow-hidden p-1 contain-content" style={{ contain: 'content', contentVisibility: 'auto', containIntrinsicSize: '700px' }}>
-          <div 
-            className="w-full h-[700px] overflow-auto select-none outline-none" 
-            ref={oeeGridRef} 
-            tabIndex={0} 
+          <div
+            className="w-full h-[700px] overflow-auto select-none outline-none"
+            ref={oeeGridRef}
+            tabIndex={0}
             onScroll={(e) => setOeeScrollTop(e.target.scrollTop)}
-            onKeyDown={(e) => handleGridKeyDown(e, 'oee')} 
-            onCopy={(e) => handleCopy(e, 'oee')} 
+            onKeyDown={(e) => handleGridKeyDown(e, 'oee')}
+            onCopy={(e) => handleCopy(e, 'oee')}
             onPaste={(e) => handlePaste(e, 'oee')}
           >
             <table className="w-max min-w-full border-collapse text-xs table-fixed">
@@ -1695,7 +1695,7 @@ export default function InputF() {
                 {(() => {
                   const startIdx = Math.max(0, Math.floor(oeeScrollTop / ROW_HEIGHT) - BUFFER_ROWS);
                   const endIdx = Math.min(oeeData.length - 1, startIdx + VISIBLE_ROWS + (BUFFER_ROWS * 2));
-                  
+
                   return (
                     <>
                       {startIdx > 0 && <tr style={{ height: `${startIdx * ROW_HEIGHT}px` }}><td colSpan={OEE_COLS_META.length + 1} className="p-0 border-none"></td></tr>}
@@ -1769,13 +1769,13 @@ export default function InputF() {
         </div>
 
         <div className="bg-white border-2 border-slate-300 shadow-xl rounded overflow-hidden p-1 mb-10 contain-content" style={{ contain: 'content', contentVisibility: 'auto', containIntrinsicSize: '700px' }}>
-          <div 
-            className="w-full h-[700px] overflow-auto select-none outline-none" 
-            ref={dtGridRef} 
-            tabIndex={0} 
+          <div
+            className="w-full h-[700px] overflow-auto select-none outline-none"
+            ref={dtGridRef}
+            tabIndex={0}
             onScroll={(e) => setDtScrollTop(e.target.scrollTop)}
-            onKeyDown={(e) => handleGridKeyDown(e, 'dt')} 
-            onCopy={(e) => handleCopy(e, 'dt')} 
+            onKeyDown={(e) => handleGridKeyDown(e, 'dt')}
+            onCopy={(e) => handleCopy(e, 'dt')}
             onPaste={(e) => handlePaste(e, 'dt')}
           >
             <table className="w-max min-w-full border-collapse text-xs table-fixed">
@@ -1802,7 +1802,7 @@ export default function InputF() {
                 {(() => {
                   const startIdx = Math.max(0, Math.floor(dtScrollTop / ROW_HEIGHT) - BUFFER_ROWS);
                   const endIdx = Math.min(dtData.length - 1, startIdx + VISIBLE_ROWS + (BUFFER_ROWS * 2));
-                  
+
                   return (
                     <>
                       {startIdx > 0 && <tr style={{ height: `${startIdx * ROW_HEIGHT}px` }}><td colSpan={DT_COLS_META.length + 1} className="p-0 border-none"></td></tr>}

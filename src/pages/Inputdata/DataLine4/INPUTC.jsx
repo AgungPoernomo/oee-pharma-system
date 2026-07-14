@@ -168,11 +168,11 @@ const calculateDTRow = (row) => {
 
 const recalculateAllOEE = (data) => {
   const shiftData = {};
-  
+
   data.forEach((row, index) => {
     const tanggal = row[C.TANGGAL];
     const shift = row[C.SHIFT];
-    
+
     if (tanggal && shift) {
       const key = `${tanggal}_${shift}`;
       if (!shiftData[key]) {
@@ -184,19 +184,19 @@ const recalculateAllOEE = (data) => {
           lastRowIdx: -1
         };
       }
-      
+
       const atSub = parseFloat(row[C.AT_SUB]);
       if (!isNaN(atSub)) shiftData[key].atSubSum += atSub;
-      
+
       const cntSub = parseFloat(row[C.CNT_SUB]);
       if (!isNaN(cntSub)) shiftData[key].cntSubSum += cntSub;
-      
+
       const yieldBatch = parseFloat(row[C.YIELD_BATCH]);
       if (!isNaN(yieldBatch)) {
         shiftData[key].yieldBatchSum += yieldBatch;
         shiftData[key].yieldBatchCount += 1;
       }
-      
+
       shiftData[key].lastRowIdx = index;
     }
   });
@@ -204,11 +204,11 @@ const recalculateAllOEE = (data) => {
   return data.map((row, index) => {
     const tanggal = row[C.TANGGAL];
     const shift = row[C.SHIFT];
-    
+
     let newAtTotal = '';
     let newTotalCnt = '';
     let newAvgShift = '';
-    
+
     if (tanggal && shift) {
       const key = `${tanggal}_${shift}`;
       if (shiftData[key] && shiftData[key].lastRowIdx === index) {
@@ -219,7 +219,7 @@ const recalculateAllOEE = (data) => {
         }
       }
     }
-    
+
     if (row[C.AT_TOTAL] !== newAtTotal || row[C.TOTAL_CNT] !== newTotalCnt || row[C.AVG_SHIFT] !== newAvgShift) {
       const newRow = [...row];
       newRow[C.AT_TOTAL] = newAtTotal;
@@ -227,7 +227,7 @@ const recalculateAllOEE = (data) => {
       newRow[C.AVG_SHIFT] = newAvgShift;
       return newRow;
     }
-    
+
     return row;
   });
 };
@@ -682,6 +682,13 @@ export default function InputC() {
   const [dtEditingCell, setDtEditingCell] = useState(null);
   const [contextMenu, setContextMenu] = useState(null);
 
+  const [oeeScrollTop, setOeeScrollTop] = useState(0);
+  const [dtScrollTop, setDtScrollTop] = useState(0);
+
+  const ROW_HEIGHT = 29;
+  const VISIBLE_ROWS = Math.ceil(700 / ROW_HEIGHT);
+  const BUFFER_ROWS = 15;
+
   useEffect(() => {
     const handleCloseMenu = () => setContextMenu(null);
     window.addEventListener('click', handleCloseMenu);
@@ -722,7 +729,7 @@ export default function InputC() {
     oeeTimers.current[rIdx] = setTimeout(async () => {
       const original_id = oeeIds.current[rIdx] || null;
       const isValidKey = (val) => val !== '' && val !== null && val !== undefined && String(val).trim() !== '';
-      const isKeyComplete = 
+      const isKeyComplete =
         isValidKey(rowData[C.TANGGAL]) &&
         isValidKey(rowData[C.NO_BATCH]) &&
         isValidKey(rowData[C.SHIFT]) &&
@@ -808,7 +815,7 @@ export default function InputC() {
     dtTimers.current[rIdx] = setTimeout(async () => {
       const original_id = dtIds.current[rIdx] || null;
       const isValidKey = (val) => val !== '' && val !== null && val !== undefined && String(val).trim() !== '';
-      const isKeyComplete = 
+      const isKeyComplete =
         isValidKey(rowData[DC.TANGGAL]) &&
         isValidKey(rowData[DC.NO_BATCH]) &&
         isValidKey(rowData[DC.SHIFT]) &&
@@ -1395,21 +1402,47 @@ export default function InputC() {
     return () => window.removeEventListener('mouseup', handleMouseUp);
   }, [pushHistory, triggerAutosaveOEE, triggerAutosaveDT]);
 
-  // Auto scroll into view on navigation
+  // Auto scroll into view on navigation (Virtual Scroll Aware)
   useEffect(() => {
     if (!oeeGridRef.current) return;
-    const tbody = oeeGridRef.current.querySelector('tbody');
-    const rowEl = tbody?.rows?.[oeeSelection.endRow];
-    const td = rowEl?.cells?.[oeeSelection.endCol];
-    scrollCellIntoView(td, oeeGridRef.current);
+    const grid = oeeGridRef.current;
+
+    const ROW_HEIGHT = 29;
+    const HEADER_HEIGHT = 65;
+    const rowTop = (oeeSelection.endRow * ROW_HEIGHT) + HEADER_HEIGHT;
+    const rowBottom = rowTop + ROW_HEIGHT;
+
+    if (rowTop < grid.scrollTop + HEADER_HEIGHT) {
+      grid.scrollTop = Math.max(0, rowTop - HEADER_HEIGHT);
+    } else if (rowBottom > grid.scrollTop + grid.clientHeight) {
+      grid.scrollTop = rowBottom - grid.clientHeight;
+    }
+
+    requestAnimationFrame(() => {
+      const td = grid.querySelector(`td[data-row="${oeeSelection.endRow}"][data-col="${oeeSelection.endCol}"]`);
+      if (td) scrollCellIntoView(td, grid);
+    });
   }, [oeeSelection.endRow, oeeSelection.endCol]);
 
   useEffect(() => {
     if (!dtGridRef.current) return;
-    const tbody = dtGridRef.current.querySelector('tbody');
-    const rowEl = tbody?.rows?.[dtSelection.endRow];
-    const td = rowEl?.cells?.[dtSelection.endCol];
-    scrollCellIntoView(td, dtGridRef.current);
+    const grid = dtGridRef.current;
+
+    const ROW_HEIGHT = 29;
+    const HEADER_HEIGHT = 45;
+    const rowTop = (dtSelection.endRow * ROW_HEIGHT) + HEADER_HEIGHT;
+    const rowBottom = rowTop + ROW_HEIGHT;
+
+    if (rowTop < grid.scrollTop + HEADER_HEIGHT) {
+      grid.scrollTop = Math.max(0, rowTop - HEADER_HEIGHT);
+    } else if (rowBottom > grid.scrollTop + grid.clientHeight) {
+      grid.scrollTop = rowBottom - grid.clientHeight;
+    }
+
+    requestAnimationFrame(() => {
+      const td = grid.querySelector(`td[data-row="${dtSelection.endRow}"][data-col="${dtSelection.endCol}"]`);
+      if (td) scrollCellIntoView(td, grid);
+    });
   }, [dtSelection.endRow, dtSelection.endCol]);
 
   const loadDataServer = useCallback(async () => {
@@ -1588,18 +1621,18 @@ export default function InputC() {
           </button>
         </div>
 
-        <div
-          ref={oeeGridRef}
-          tabIndex={0}
-          onKeyDown={(e) => handleGridKeyDown(e, 'oee')}
-          onCopy={(e) => handleCopy(e, 'oee')}
-          onPaste={(e) => handlePaste(e, 'oee')}
-          className="bg-white border border-slate-300 shadow-lg mb-10 rounded overflow-hidden focus:outline-none focus:ring-2 focus:ring-emerald-500"
-          style={{ contentVisibility: 'auto', containIntrinsicSize: '680px' }}
-        >
-          <div className="overflow-x-auto max-h-[680px]">
-            <table className="border-collapse w-max min-w-full text-left">
-              <thead className="bg-slate-100 text-slate-700 font-semibold shadow-sm sticky top-0 z-40">
+        <div className="bg-white border-2 border-slate-300 shadow-xl mb-12 rounded overflow-hidden p-1 contain-content" style={{ contain: 'content', contentVisibility: 'auto', containIntrinsicSize: '700px' }}>
+          <div
+            className="w-full h-[700px] overflow-auto select-none outline-none"
+            ref={oeeGridRef}
+            tabIndex={0}
+            onScroll={(e) => setOeeScrollTop(e.target.scrollTop)}
+            onKeyDown={(e) => handleGridKeyDown(e, 'oee')}
+            onCopy={(e) => handleCopy(e, 'oee')}
+            onPaste={(e) => handlePaste(e, 'oee')}
+          >
+            <table className="w-max min-w-full border-collapse text-xs table-fixed text-left">
+              <thead className="bg-slate-100 text-slate-700 font-semibold shadow-sm sticky top-0 z-40 will-change-transform">
                 <tr>
                   <th rowSpan={3} className="py-1.5 px-2 bg-slate-200 text-slate-800 font-mono text-center sticky top-0 left-0 z-50 w-[60px] min-w-[60px] max-w-[60px] shadow-[1px_0_0_0_#cbd5e1]">ID</th>
                   <th colSpan={4} className="border-r border-b border-slate-300 px-2 py-1.5 text-center sticky left-[60px] z-40 bg-slate-100 shadow-[1px_0_0_0_#cbd5e1]">General Info</th>
@@ -1652,37 +1685,50 @@ export default function InputC() {
                 </tr>
               </thead>
               <tbody>
-                {oeeData.map((row, rowIdx) => {
-                  const isSelRow = rowIdx >= oeeMinR && rowIdx <= oeeMaxR;
-                  const edCol = (oeeEditingCell && oeeEditingCell.row === rowIdx) ? oeeEditingCell.col : -1;
-                  const edMode = (oeeEditingCell && oeeEditingCell.row === rowIdx) ? oeeEditingCell.mode : null;
-                  const edInit = (oeeEditingCell && oeeEditingCell.row === rowIdx) ? oeeEditingCell.initialValue : undefined;
+                {(() => {
+                  const startIdx = Math.max(0, Math.floor(oeeScrollTop / ROW_HEIGHT) - BUFFER_ROWS);
+                  const endIdx = Math.min(oeeData.length - 1, startIdx + VISIBLE_ROWS + (BUFFER_ROWS * 2));
+
                   return (
-                    <SpreadsheetRow
-                      key={rowIdx}
-                      rowData={row}
-                      rowIdx={rowIdx}
-                      colsMeta={OEE_COLS_META}
-                      gridType="oee"
-                      isSelectedRow={isSelRow}
-                      selectionMinCol={oeeMinC}
-                      selectionMaxCol={oeeMaxC}
-                      selectionMaxRow={oeeMaxR}
-                      editingColIdx={edCol}
-                      editMode={edMode}
-                      editingInitialValue={edInit}
-                      rowId={oeeIds.current[rowIdx] || null}
-                      onSelectRow={handleSelectRow}
-                      onCellMouseDown={handleCellMouseDown}
-                      onCellMouseEnter={handleCellMouseEnter}
-                      onCellDoubleClick={handleCellDoubleClick}
-                      onFillHandleMouseDown={handleFillHandleMouseDown}
-                      onFinishEdit={handleFinishEdit}
-                      onCancelEdit={handleCancelEdit}
-                      onRowContextMenu={handleRowContextMenu}
-                    />
+                    <>
+                      {startIdx > 0 && <tr style={{ height: `${startIdx * ROW_HEIGHT}px` }}><td colSpan={OEE_COLS_META.length + 1} className="p-0 border-none"></td></tr>}
+                      {oeeData.slice(startIdx, endIdx + 1).map((row, index) => {
+                        const rowIdx = startIdx + index;
+                        const isSelRow = rowIdx >= oeeMinR && rowIdx <= oeeMaxR;
+                        const edCol = (oeeEditingCell && oeeEditingCell.row === rowIdx) ? oeeEditingCell.col : null;
+                        const edMode = (oeeEditingCell && oeeEditingCell.row === rowIdx) ? oeeEditingCell.mode : null;
+                        const edInit = (oeeEditingCell && oeeEditingCell.row === rowIdx) ? oeeEditingCell.initialValue : undefined;
+
+                        return (
+                          <SpreadsheetRow
+                            key={rowIdx}
+                            rowData={row}
+                            rowIdx={rowIdx}
+                            colsMeta={OEE_COLS_META}
+                            gridType="oee"
+                            isSelectedRow={isSelRow}
+                            selectionMinCol={oeeMinC}
+                            selectionMaxCol={oeeMaxC}
+                            selectionMaxRow={oeeMaxR}
+                            editingColIdx={edCol}
+                            editMode={edMode}
+                            editingInitialValue={edInit}
+                            rowId={oeeIds.current[rowIdx] || null}
+                            onSelectRow={handleSelectRow}
+                            onCellMouseDown={handleCellMouseDown}
+                            onCellMouseEnter={handleCellMouseEnter}
+                            onCellDoubleClick={handleCellDoubleClick}
+                            onFillHandleMouseDown={handleFillHandleMouseDown}
+                            onFinishEdit={handleFinishEdit}
+                            onCancelEdit={handleCancelEdit}
+                            onRowContextMenu={handleRowContextMenu}
+                          />
+                        );
+                      })}
+                      {endIdx < oeeData.length - 1 && <tr style={{ height: `${(oeeData.length - 1 - endIdx) * ROW_HEIGHT}px` }}><td colSpan={OEE_COLS_META.length + 1} className="p-0 border-none"></td></tr>}
+                    </>
                   );
-                })}
+                })()}
               </tbody>
             </table>
             <div className="p-2 bg-slate-100 border-t border-slate-300 flex items-center justify-start">
@@ -1711,18 +1757,18 @@ export default function InputC() {
           </button>
         </div>
 
-        <div
-          ref={dtGridRef}
-          tabIndex={0}
-          onKeyDown={(e) => handleGridKeyDown(e, 'dt')}
-          onCopy={(e) => handleCopy(e, 'dt')}
-          onPaste={(e) => handlePaste(e, 'dt')}
-          className="bg-white border border-slate-300 shadow-lg rounded overflow-hidden mb-12 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          style={{ contentVisibility: 'auto', containIntrinsicSize: '500px' }}
-        >
-          <div className="overflow-x-auto max-h-[500px]">
-            <table className="border-collapse w-max min-w-full text-left">
-              <thead className="bg-indigo-950 text-white text-[11px] uppercase tracking-wider font-bold sticky top-0 z-20">
+        <div className="bg-white border-2 border-slate-300 shadow-xl rounded overflow-hidden p-1 mb-10 contain-content" style={{ contain: 'content', contentVisibility: 'auto', containIntrinsicSize: '700px' }}>
+          <div
+            className="w-full h-[700px] overflow-auto select-none outline-none"
+            ref={dtGridRef}
+            tabIndex={0}
+            onScroll={(e) => setDtScrollTop(e.target.scrollTop)}
+            onKeyDown={(e) => handleGridKeyDown(e, 'dt')}
+            onCopy={(e) => handleCopy(e, 'dt')}
+            onPaste={(e) => handlePaste(e, 'dt')}
+          >
+            <table className="w-max min-w-full border-collapse text-xs table-fixed text-left">
+              <thead className="bg-indigo-950 text-white text-[11px] uppercase tracking-wider font-bold sticky top-0 z-20 will-change-transform">
                 <tr className="border-b border-indigo-900 text-center divide-x divide-indigo-900">
                   <th className="py-2.5 px-2 bg-indigo-950 text-white font-mono text-center sticky left-0 z-40 w-[60px] min-w-[60px] max-w-[60px] shadow-[1px_0_0_0_#312e81]">ID</th>
                   {DT_COLS_META.map((col, idx) => {
@@ -1741,37 +1787,50 @@ export default function InputC() {
                 </tr>
               </thead>
               <tbody>
-                {dtData.map((row, rowIdx) => {
-                  const isSelRow = rowIdx >= dtMinR && rowIdx <= dtMaxR;
-                  const edCol = (dtEditingCell && dtEditingCell.row === rowIdx) ? dtEditingCell.col : -1;
-                  const edMode = (dtEditingCell && dtEditingCell.row === rowIdx) ? dtEditingCell.mode : null;
-                  const edInit = (dtEditingCell && dtEditingCell.row === rowIdx) ? dtEditingCell.initialValue : undefined;
+                {(() => {
+                  const startIdx = Math.max(0, Math.floor(dtScrollTop / ROW_HEIGHT) - BUFFER_ROWS);
+                  const endIdx = Math.min(dtData.length - 1, startIdx + VISIBLE_ROWS + (BUFFER_ROWS * 2));
+
                   return (
-                    <SpreadsheetRow
-                      key={rowIdx}
-                      rowData={row}
-                      rowIdx={rowIdx}
-                      colsMeta={DT_COLS_META}
-                      gridType="dt"
-                      isSelectedRow={isSelRow}
-                      selectionMinCol={dtMinC}
-                      selectionMaxCol={dtMaxC}
-                      selectionMaxRow={dtMaxR}
-                      editingColIdx={edCol}
-                      editMode={edMode}
-                      editingInitialValue={edInit}
-                      rowId={dtIds.current[rowIdx] || null}
-                      onSelectRow={handleSelectRow}
-                      onCellMouseDown={handleCellMouseDown}
-                      onCellMouseEnter={handleCellMouseEnter}
-                      onCellDoubleClick={handleCellDoubleClick}
-                      onFillHandleMouseDown={handleFillHandleMouseDown}
-                      onFinishEdit={handleFinishEdit}
-                      onCancelEdit={handleCancelEdit}
-                      onRowContextMenu={handleRowContextMenu}
-                    />
+                    <>
+                      {startIdx > 0 && <tr style={{ height: `${startIdx * ROW_HEIGHT}px` }}><td colSpan={DT_COLS_META.length + 1} className="p-0 border-none"></td></tr>}
+                      {dtData.slice(startIdx, endIdx + 1).map((row, index) => {
+                        const rowIdx = startIdx + index;
+                        const isSelRow = rowIdx >= dtMinR && rowIdx <= dtMaxR;
+                        const edCol = (dtEditingCell && dtEditingCell.row === rowIdx) ? dtEditingCell.col : null;
+                        const edMode = (dtEditingCell && dtEditingCell.row === rowIdx) ? dtEditingCell.mode : null;
+                        const edInit = (dtEditingCell && dtEditingCell.row === rowIdx) ? dtEditingCell.initialValue : undefined;
+
+                        return (
+                          <SpreadsheetRow
+                            key={rowIdx}
+                            rowData={row}
+                            rowIdx={rowIdx}
+                            colsMeta={DT_COLS_META}
+                            gridType="dt"
+                            isSelectedRow={isSelRow}
+                            selectionMinCol={dtMinC}
+                            selectionMaxCol={dtMaxC}
+                            selectionMaxRow={dtMaxR}
+                            editingColIdx={edCol}
+                            editMode={edMode}
+                            editingInitialValue={edInit}
+                            rowId={dtIds.current[rowIdx] || null}
+                            onSelectRow={handleSelectRow}
+                            onCellMouseDown={handleCellMouseDown}
+                            onCellMouseEnter={handleCellMouseEnter}
+                            onCellDoubleClick={handleCellDoubleClick}
+                            onFillHandleMouseDown={handleFillHandleMouseDown}
+                            onFinishEdit={handleFinishEdit}
+                            onCancelEdit={handleCancelEdit}
+                            onRowContextMenu={handleRowContextMenu}
+                          />
+                        );
+                      })}
+                      {endIdx < dtData.length - 1 && <tr style={{ height: `${(dtData.length - 1 - endIdx) * ROW_HEIGHT}px` }}><td colSpan={DT_COLS_META.length + 1} className="p-0 border-none"></td></tr>}
+                    </>
                   );
-                })}
+                })()}
               </tbody>
             </table>
             <div className="p-2 bg-slate-100 border-t border-slate-300 flex items-center justify-start">

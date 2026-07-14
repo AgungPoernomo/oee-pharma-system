@@ -676,7 +676,7 @@ export default function InputC() {
 
   const [oeeScrollTop, setOeeScrollTop] = useState(0);
   const [dtScrollTop, setDtScrollTop] = useState(0);
-  
+
   const ROW_HEIGHT = 29;
   const VISIBLE_ROWS = Math.ceil(700 / ROW_HEIGHT);
   const BUFFER_ROWS = 15;
@@ -846,7 +846,7 @@ export default function InputC() {
     if (!user) return;
     const original_id = oeeIds.current[rIdx] || null;
     const isValidKey = (val) => val !== '' && val !== null && val !== undefined && String(val).trim() !== '';
-    const isKeyComplete = 
+    const isKeyComplete =
       isValidKey(rowData[C.TANGGAL]) &&
       isValidKey(rowData[C.NO_BATCH]) &&
       isValidKey(rowData[C.SHIFT]) &&
@@ -925,7 +925,7 @@ export default function InputC() {
     if (!user) return;
     const original_id = dtIds.current[rIdx] || null;
     const isValidKey = (val) => val !== '' && val !== null && val !== undefined && String(val).trim() !== '';
-    const isKeyComplete = 
+    const isKeyComplete =
       isValidKey(rowData[DC.TANGGAL]) &&
       isValidKey(rowData[DC.NO_BATCH]) &&
       isValidKey(rowData[DC.SHIFT]) &&
@@ -1409,12 +1409,12 @@ export default function InputC() {
   useEffect(() => {
     if (!oeeGridRef.current) return;
     const grid = oeeGridRef.current;
-    
+
     const ROW_HEIGHT = 29;
     const HEADER_HEIGHT = 65;
     const rowTop = (oeeSelection.endRow * ROW_HEIGHT) + HEADER_HEIGHT;
     const rowBottom = rowTop + ROW_HEIGHT;
-    
+
     if (rowTop < grid.scrollTop + HEADER_HEIGHT) {
       grid.scrollTop = Math.max(0, rowTop - HEADER_HEIGHT);
     } else if (rowBottom > grid.scrollTop + grid.clientHeight) {
@@ -1430,12 +1430,12 @@ export default function InputC() {
   useEffect(() => {
     if (!dtGridRef.current) return;
     const grid = dtGridRef.current;
-    
+
     const ROW_HEIGHT = 29;
     const HEADER_HEIGHT = 45;
     const rowTop = (dtSelection.endRow * ROW_HEIGHT) + HEADER_HEIGHT;
     const rowBottom = rowTop + ROW_HEIGHT;
-    
+
     if (rowTop < grid.scrollTop + HEADER_HEIGHT) {
       grid.scrollTop = Math.max(0, rowTop - HEADER_HEIGHT);
     } else if (rowBottom > grid.scrollTop + grid.clientHeight) {
@@ -1749,7 +1749,7 @@ export default function InputC() {
                   {(() => {
                     const startIdx = Math.max(0, Math.floor(oeeScrollTop / ROW_HEIGHT) - BUFFER_ROWS);
                     const endIdx = Math.min(oeeData.length - 1, startIdx + VISIBLE_ROWS + (BUFFER_ROWS * 2));
-                    
+
                     return (
                       <>
                         {startIdx > 0 && <tr style={{ height: `${startIdx * ROW_HEIGHT}px` }}><td colSpan={OEE_COLS_META.length + 1} className="p-0 border-none"></td></tr>}
@@ -1847,7 +1847,7 @@ export default function InputC() {
                   {(() => {
                     const startIdx = Math.max(0, Math.floor(dtScrollTop / ROW_HEIGHT) - BUFFER_ROWS);
                     const endIdx = Math.min(dtData.length - 1, startIdx + VISIBLE_ROWS + (BUFFER_ROWS * 2));
-                    
+
                     return (
                       <>
                         {startIdx > 0 && <tr style={{ height: `${startIdx * ROW_HEIGHT}px` }}><td colSpan={DC_COLS_META.length + 1} className="p-0 border-none"></td></tr>}

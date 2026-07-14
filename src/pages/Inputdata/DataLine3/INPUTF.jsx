@@ -657,7 +657,7 @@ export default function InputF() {
 
   const [oeeScrollTop, setOeeScrollTop] = useState(0);
   const [dtScrollTop, setDtScrollTop] = useState(0);
-  
+
   const ROW_HEIGHT = 29;
   const VISIBLE_ROWS = Math.ceil(700 / ROW_HEIGHT);
   const BUFFER_ROWS = 15;
@@ -825,7 +825,7 @@ export default function InputF() {
     if (!user) return;
     const original_id = oeeIds.current[rIdx] || null;
     const isValidKey = (val) => val !== '' && val !== null && val !== undefined && String(val).trim() !== '';
-    const isKeyComplete = 
+    const isKeyComplete =
       isValidKey(rowData[1]) &&
       isValidKey(rowData[0]) &&
       isValidKey(rowData[2]) &&
@@ -910,7 +910,7 @@ export default function InputF() {
     if (!user) return;
     const original_id = dtIds.current[rIdx] || null;
     const isValidKey = (val) => val !== '' && val !== null && val !== undefined && String(val).trim() !== '';
-    const isKeyComplete = 
+    const isKeyComplete =
       isValidKey(rowData[0]) &&
       isValidKey(rowData[3]) &&
       isValidKey(rowData[1]) &&
@@ -1390,12 +1390,12 @@ export default function InputF() {
   useEffect(() => {
     if (!oeeGridRef.current) return;
     const grid = oeeGridRef.current;
-    
+
     const ROW_HEIGHT = 29;
     const HEADER_HEIGHT = 65;
     const rowTop = (oeeSelection.endRow * ROW_HEIGHT) + HEADER_HEIGHT;
     const rowBottom = rowTop + ROW_HEIGHT;
-    
+
     if (rowTop < grid.scrollTop + HEADER_HEIGHT) {
       grid.scrollTop = Math.max(0, rowTop - HEADER_HEIGHT);
     } else if (rowBottom > grid.scrollTop + grid.clientHeight) {
@@ -1411,12 +1411,12 @@ export default function InputF() {
   useEffect(() => {
     if (!dtGridRef.current) return;
     const grid = dtGridRef.current;
-    
+
     const ROW_HEIGHT = 29;
     const HEADER_HEIGHT = 45;
     const rowTop = (dtSelection.endRow * ROW_HEIGHT) + HEADER_HEIGHT;
     const rowBottom = rowTop + ROW_HEIGHT;
-    
+
     if (rowTop < grid.scrollTop + HEADER_HEIGHT) {
       grid.scrollTop = Math.max(0, rowTop - HEADER_HEIGHT);
     } else if (rowBottom > grid.scrollTop + grid.clientHeight) {
@@ -1689,107 +1689,107 @@ export default function InputF() {
                   <tr>
                     <th rowSpan={3} className="py-1.5 px-2 bg-slate-200 text-slate-800 font-mono text-center sticky top-0 left-0 z-50 w-[60px] min-w-[60px] max-w-[60px] shadow-[1px_0_0_0_#cbd5e1]">ID</th>
                     <th colSpan={5} className="border-r border-b border-slate-300 px-2 py-1.5 text-center sticky left-[60px] z-40 bg-slate-100 shadow-[1px_0_0_0_#cbd5e1]">Informasi Batch</th>
-                  <th colSpan={5} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Output After Steril</th>
-                  <th colSpan={15} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Output Visual Inspection</th>
-                  <th colSpan={2} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Output Packaging</th>
-                  <th colSpan={3} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Finished Goods &amp; Status</th>
-                  <th colSpan={6} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Available Time</th>
-                  <th colSpan={11} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Process Details</th>
-                </tr>
-                <tr>
-                  <th colSpan={5} className="border-r border-b border-slate-300 px-2 py-1.5 text-center sticky left-[60px] z-40 bg-slate-100 shadow-[1px_0_0_0_#cbd5e1]"></th>
-                  <th colSpan={1} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Input (Botol chamber)</th>
-                  <th colSpan={2} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Reject After Steril</th>
-                  <th colSpan={1} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Total</th>
-                  <th colSpan={1} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Output (TF to VI)</th>
-                  <th colSpan={4} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Input</th>
-                  <th colSpan={9} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">REJECT AVI</th>
-                  <th colSpan={1} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Hasil Baik</th>
-                  <th colSpan={1} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Transfer ke Packing</th>
-                  <th colSpan={1} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Hasil Baik</th>
-                  <th colSpan={1} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Samples QC</th>
-                  <th colSpan={1} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Finished Goods</th>
-                  <th colSpan={1} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Utuh ?</th>
-                  <th colSpan={1} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Jumlah Batch</th>
-                  <th colSpan={6} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">(waktu per shift)</th>
-                  <th colSpan={5} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Machine Run</th>
-                  <th colSpan={5} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Line Clearance</th>
-                  <th colSpan={1} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Total</th>
-                </tr>
-                <tr>
-                  {OEE_COLS_META.map((col, idx) => (
-                    <th
-                      key={idx}
-                      style={{
-                        width: col.width, minWidth: col.width, maxWidth: col.width,
-                        position: col.stickyLeft !== undefined ? 'sticky' : 'static',
-                        left: col.stickyLeft !== undefined ? col.stickyLeft : 'auto',
-                        zIndex: col.stickyLeft !== undefined ? 41 : 40,
-                      }}
-                      className={`border-r border-b border-slate-300 px-1 py-2 text-center text-[10px] uppercase tracking-wide ${col.stickyLeft !== undefined ? 'bg-slate-200' : 'bg-slate-100'} ${col.stickyLeft !== undefined && idx === 3 ? 'shadow-[1px_0_0_0_#cbd5e1]' : ''}`}
-                    >
-                      {col.title}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {(() => {
-                  const startIdx = Math.max(0, Math.floor(oeeScrollTop / ROW_HEIGHT) - BUFFER_ROWS);
-                  const endIdx = Math.min(oeeData.length - 1, startIdx + VISIBLE_ROWS + (BUFFER_ROWS * 2));
-                  
-                  return (
-                    <>
-                      {startIdx > 0 && <tr style={{ height: `${startIdx * ROW_HEIGHT}px` }}><td colSpan={OEE_COLS_META.length + 1} className="p-0 border-none"></td></tr>}
-                      {oeeData.slice(startIdx, endIdx + 1).map((row, index) => {
-                        const rowIdx = startIdx + index;
-                        const isSelRow = rowIdx >= oeeMinR && rowIdx <= oeeMaxR;
-                        const edCol = (oeeEditingCell && oeeEditingCell.row === rowIdx) ? oeeEditingCell.col : null;
-                        const edMode = (oeeEditingCell && oeeEditingCell.row === rowIdx) ? oeeEditingCell.mode : null;
-                        const edInit = (oeeEditingCell && oeeEditingCell.row === rowIdx) ? oeeEditingCell.initialValue : undefined;
+                    <th colSpan={5} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Output After Steril</th>
+                    <th colSpan={15} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Output Visual Inspection</th>
+                    <th colSpan={2} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Output Packaging</th>
+                    <th colSpan={3} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Finished Goods &amp; Status</th>
+                    <th colSpan={6} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Available Time</th>
+                    <th colSpan={11} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Process Details</th>
+                  </tr>
+                  <tr>
+                    <th colSpan={5} className="border-r border-b border-slate-300 px-2 py-1.5 text-center sticky left-[60px] z-40 bg-slate-100 shadow-[1px_0_0_0_#cbd5e1]"></th>
+                    <th colSpan={1} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Input (Botol chamber)</th>
+                    <th colSpan={2} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Reject After Steril</th>
+                    <th colSpan={1} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Total</th>
+                    <th colSpan={1} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Output (TF to VI)</th>
+                    <th colSpan={4} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Input</th>
+                    <th colSpan={9} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">REJECT AVI</th>
+                    <th colSpan={1} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Hasil Baik</th>
+                    <th colSpan={1} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Transfer ke Packing</th>
+                    <th colSpan={1} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Hasil Baik</th>
+                    <th colSpan={1} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Samples QC</th>
+                    <th colSpan={1} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Finished Goods</th>
+                    <th colSpan={1} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Utuh ?</th>
+                    <th colSpan={1} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Jumlah Batch</th>
+                    <th colSpan={6} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">(waktu per shift)</th>
+                    <th colSpan={5} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Machine Run</th>
+                    <th colSpan={5} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Line Clearance</th>
+                    <th colSpan={1} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Total</th>
+                  </tr>
+                  <tr>
+                    {OEE_COLS_META.map((col, idx) => (
+                      <th
+                        key={idx}
+                        style={{
+                          width: col.width, minWidth: col.width, maxWidth: col.width,
+                          position: col.stickyLeft !== undefined ? 'sticky' : 'static',
+                          left: col.stickyLeft !== undefined ? col.stickyLeft : 'auto',
+                          zIndex: col.stickyLeft !== undefined ? 41 : 40,
+                        }}
+                        className={`border-r border-b border-slate-300 px-1 py-2 text-center text-[10px] uppercase tracking-wide ${col.stickyLeft !== undefined ? 'bg-slate-200' : 'bg-slate-100'} ${col.stickyLeft !== undefined && idx === 3 ? 'shadow-[1px_0_0_0_#cbd5e1]' : ''}`}
+                      >
+                        {col.title}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {(() => {
+                    const startIdx = Math.max(0, Math.floor(oeeScrollTop / ROW_HEIGHT) - BUFFER_ROWS);
+                    const endIdx = Math.min(oeeData.length - 1, startIdx + VISIBLE_ROWS + (BUFFER_ROWS * 2));
 
-                        return (
-                          <SpreadsheetRow
-                            key={rowIdx}
-                            rowData={row}
-                            rowIdx={rowIdx}
-                            colsMeta={OEE_COLS_META}
-                            gridType="oee"
-                            isSelectedRow={isSelRow}
-                            selectionMinCol={oeeMinC}
-                            selectionMaxCol={oeeMaxC}
-                            selectionMaxRow={oeeMaxR}
-                            editingColIdx={edCol}
-                            editMode={edMode}
-                            editingInitialValue={edInit}
-                            rowId={oeeIds.current[rowIdx] || null}
-                            onSelectRow={handleSelectRow}
-                            onCellMouseDown={handleCellMouseDown}
-                            onCellMouseEnter={handleCellMouseEnter}
-                            onCellDoubleClick={handleCellDoubleClick}
-                            onFillHandleMouseDown={handleFillHandleMouseDown}
-                            onFinishEdit={handleFinishEdit}
-                            onCancelEdit={handleCancelEdit}
-                            onRowContextMenu={handleRowContextMenu}
-                          />
-                        );
-                      })}
-                      {endIdx < oeeData.length - 1 && <tr style={{ height: `${(oeeData.length - 1 - endIdx) * ROW_HEIGHT}px` }}><td colSpan={OEE_COLS_META.length + 1} className="p-0 border-none"></td></tr>}
-                    </>
-                  );
-                })()}
-              </tbody>
-            </table>
-            <div className="p-2 bg-slate-100 border-t border-slate-300 flex items-center justify-start">
-              <button
-                type="button"
-                onClick={() => handleAdd1000Rows('oee')}
-                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded shadow transition-colors text-xs flex items-center gap-1.5 sticky left-2 z-30"
-              >
-                <span>+ Tambah Baris</span>
-              </button>
+                    return (
+                      <>
+                        {startIdx > 0 && <tr style={{ height: `${startIdx * ROW_HEIGHT}px` }}><td colSpan={OEE_COLS_META.length + 1} className="p-0 border-none"></td></tr>}
+                        {oeeData.slice(startIdx, endIdx + 1).map((row, index) => {
+                          const rowIdx = startIdx + index;
+                          const isSelRow = rowIdx >= oeeMinR && rowIdx <= oeeMaxR;
+                          const edCol = (oeeEditingCell && oeeEditingCell.row === rowIdx) ? oeeEditingCell.col : null;
+                          const edMode = (oeeEditingCell && oeeEditingCell.row === rowIdx) ? oeeEditingCell.mode : null;
+                          const edInit = (oeeEditingCell && oeeEditingCell.row === rowIdx) ? oeeEditingCell.initialValue : undefined;
+
+                          return (
+                            <SpreadsheetRow
+                              key={rowIdx}
+                              rowData={row}
+                              rowIdx={rowIdx}
+                              colsMeta={OEE_COLS_META}
+                              gridType="oee"
+                              isSelectedRow={isSelRow}
+                              selectionMinCol={oeeMinC}
+                              selectionMaxCol={oeeMaxC}
+                              selectionMaxRow={oeeMaxR}
+                              editingColIdx={edCol}
+                              editMode={edMode}
+                              editingInitialValue={edInit}
+                              rowId={oeeIds.current[rowIdx] || null}
+                              onSelectRow={handleSelectRow}
+                              onCellMouseDown={handleCellMouseDown}
+                              onCellMouseEnter={handleCellMouseEnter}
+                              onCellDoubleClick={handleCellDoubleClick}
+                              onFillHandleMouseDown={handleFillHandleMouseDown}
+                              onFinishEdit={handleFinishEdit}
+                              onCancelEdit={handleCancelEdit}
+                              onRowContextMenu={handleRowContextMenu}
+                            />
+                          );
+                        })}
+                        {endIdx < oeeData.length - 1 && <tr style={{ height: `${(oeeData.length - 1 - endIdx) * ROW_HEIGHT}px` }}><td colSpan={OEE_COLS_META.length + 1} className="p-0 border-none"></td></tr>}
+                      </>
+                    );
+                  })()}
+                </tbody>
+              </table>
+              <div className="p-2 bg-slate-100 border-t border-slate-300 flex items-center justify-start">
+                <button
+                  type="button"
+                  onClick={() => handleAdd1000Rows('oee')}
+                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded shadow transition-colors text-xs flex items-center gap-1.5 sticky left-2 z-30"
+                >
+                  <span>+ Tambah Baris</span>
+                </button>
+              </div>
             </div>
-          </div>
           </div>
         </div>
 
@@ -1815,78 +1815,78 @@ export default function InputF() {
                   <tr>
                     <th className="py-2 px-1 bg-slate-200 text-slate-800 font-mono text-center sticky top-0 left-0 z-50 w-[60px] min-w-[60px] max-w-[60px] shadow-[1px_0_0_0_#cbd5e1]">ID</th>
                     {DT_COLS_META.map((col, idx) => (
-                    <th
-                      key={idx}
-                      style={{
-                        width: col.width, minWidth: col.width, maxWidth: col.width,
-                        position: col.stickyLeft !== undefined ? 'sticky' : 'static',
-                        left: col.stickyLeft !== undefined ? col.stickyLeft : 'auto',
-                        zIndex: col.stickyLeft !== undefined ? 41 : 40,
-                      }}
-                      className={`border-r border-b border-slate-300 px-1 py-2 text-center text-[10px] uppercase tracking-wide ${col.stickyLeft !== undefined ? 'bg-slate-200' : 'bg-slate-100'} ${col.stickyLeft !== undefined && idx === 3 ? 'shadow-[1px_0_0_0_#cbd5e1]' : ''}`}
-                    >
-                      {col.title}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {(() => {
-                  const startIdx = Math.max(0, Math.floor(dtScrollTop / ROW_HEIGHT) - BUFFER_ROWS);
-                  const endIdx = Math.min(dtData.length - 1, startIdx + VISIBLE_ROWS + (BUFFER_ROWS * 2));
-                  
-                  return (
-                    <>
-                      {startIdx > 0 && <tr style={{ height: `${startIdx * ROW_HEIGHT}px` }}><td colSpan={DT_COLS_META.length + 1} className="p-0 border-none"></td></tr>}
-                      {dtData.slice(startIdx, endIdx + 1).map((row, index) => {
-                        const rowIdx = startIdx + index;
-                        const isSelRow = rowIdx >= dtMinR && rowIdx <= dtMaxR;
-                        const edCol = (dtEditingCell && dtEditingCell.row === rowIdx) ? dtEditingCell.col : null;
-                        const edMode = (dtEditingCell && dtEditingCell.row === rowIdx) ? dtEditingCell.mode : null;
-                        const edInit = (dtEditingCell && dtEditingCell.row === rowIdx) ? dtEditingCell.initialValue : undefined;
+                      <th
+                        key={idx}
+                        style={{
+                          width: col.width, minWidth: col.width, maxWidth: col.width,
+                          position: col.stickyLeft !== undefined ? 'sticky' : 'static',
+                          left: col.stickyLeft !== undefined ? col.stickyLeft : 'auto',
+                          zIndex: col.stickyLeft !== undefined ? 41 : 40,
+                        }}
+                        className={`border-r border-b border-slate-300 px-1 py-2 text-center text-[10px] uppercase tracking-wide ${col.stickyLeft !== undefined ? 'bg-slate-200' : 'bg-slate-100'} ${col.stickyLeft !== undefined && idx === 3 ? 'shadow-[1px_0_0_0_#cbd5e1]' : ''}`}
+                      >
+                        {col.title}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {(() => {
+                    const startIdx = Math.max(0, Math.floor(dtScrollTop / ROW_HEIGHT) - BUFFER_ROWS);
+                    const endIdx = Math.min(dtData.length - 1, startIdx + VISIBLE_ROWS + (BUFFER_ROWS * 2));
 
-                        return (
-                          <SpreadsheetRow
-                            key={rowIdx}
-                            rowData={row}
-                            rowIdx={rowIdx}
-                            colsMeta={DT_COLS_META}
-                            gridType="dt"
-                            isSelectedRow={isSelRow}
-                            selectionMinCol={dtMinC}
-                            selectionMaxCol={dtMaxC}
-                            selectionMaxRow={dtMaxR}
-                            editingColIdx={edCol}
-                            editMode={edMode}
-                            editingInitialValue={edInit}
-                            rowId={dtIds.current[rowIdx] || null}
-                            onSelectRow={handleSelectRow}
-                            onCellMouseDown={handleCellMouseDown}
-                            onCellMouseEnter={handleCellMouseEnter}
-                            onCellDoubleClick={handleCellDoubleClick}
-                            onFillHandleMouseDown={handleFillHandleMouseDown}
-                            onFinishEdit={handleFinishEdit}
-                            onCancelEdit={handleCancelEdit}
-                            onRowContextMenu={handleRowContextMenu}
-                          />
-                        );
-                      })}
-                      {endIdx < dtData.length - 1 && <tr style={{ height: `${(dtData.length - 1 - endIdx) * ROW_HEIGHT}px` }}><td colSpan={DT_COLS_META.length + 1} className="p-0 border-none"></td></tr>}
-                    </>
-                  );
-                })()}
-              </tbody>
-            </table>
-            <div className="p-2 bg-slate-100 border-t border-slate-300 flex items-center justify-start">
-              <button
-                type="button"
-                onClick={() => handleAdd1000Rows('dt')}
-                className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded shadow transition-colors text-xs flex items-center gap-1.5 sticky left-2 z-30"
-              >
-                <span>+ Tambah Baris</span>
-              </button>
+                    return (
+                      <>
+                        {startIdx > 0 && <tr style={{ height: `${startIdx * ROW_HEIGHT}px` }}><td colSpan={DT_COLS_META.length + 1} className="p-0 border-none"></td></tr>}
+                        {dtData.slice(startIdx, endIdx + 1).map((row, index) => {
+                          const rowIdx = startIdx + index;
+                          const isSelRow = rowIdx >= dtMinR && rowIdx <= dtMaxR;
+                          const edCol = (dtEditingCell && dtEditingCell.row === rowIdx) ? dtEditingCell.col : null;
+                          const edMode = (dtEditingCell && dtEditingCell.row === rowIdx) ? dtEditingCell.mode : null;
+                          const edInit = (dtEditingCell && dtEditingCell.row === rowIdx) ? dtEditingCell.initialValue : undefined;
+
+                          return (
+                            <SpreadsheetRow
+                              key={rowIdx}
+                              rowData={row}
+                              rowIdx={rowIdx}
+                              colsMeta={DT_COLS_META}
+                              gridType="dt"
+                              isSelectedRow={isSelRow}
+                              selectionMinCol={dtMinC}
+                              selectionMaxCol={dtMaxC}
+                              selectionMaxRow={dtMaxR}
+                              editingColIdx={edCol}
+                              editMode={edMode}
+                              editingInitialValue={edInit}
+                              rowId={dtIds.current[rowIdx] || null}
+                              onSelectRow={handleSelectRow}
+                              onCellMouseDown={handleCellMouseDown}
+                              onCellMouseEnter={handleCellMouseEnter}
+                              onCellDoubleClick={handleCellDoubleClick}
+                              onFillHandleMouseDown={handleFillHandleMouseDown}
+                              onFinishEdit={handleFinishEdit}
+                              onCancelEdit={handleCancelEdit}
+                              onRowContextMenu={handleRowContextMenu}
+                            />
+                          );
+                        })}
+                        {endIdx < dtData.length - 1 && <tr style={{ height: `${(dtData.length - 1 - endIdx) * ROW_HEIGHT}px` }}><td colSpan={DT_COLS_META.length + 1} className="p-0 border-none"></td></tr>}
+                      </>
+                    );
+                  })()}
+                </tbody>
+              </table>
+              <div className="p-2 bg-slate-100 border-t border-slate-300 flex items-center justify-start">
+                <button
+                  type="button"
+                  onClick={() => handleAdd1000Rows('dt')}
+                  className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded shadow transition-colors text-xs flex items-center gap-1.5 sticky left-2 z-30"
+                >
+                  <span>+ Tambah Baris</span>
+                </button>
+              </div>
             </div>
-          </div>
           </div>
         </div>
 

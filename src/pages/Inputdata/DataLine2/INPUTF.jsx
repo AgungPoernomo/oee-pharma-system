@@ -665,7 +665,7 @@ export default function InputF() {
     oeeTimers.current[rIdx] = setTimeout(async () => {
       const original_id = oeeIds.current[rIdx] || null;
       const isValidKey = (val) => val !== '' && val !== null && val !== undefined && String(val).trim() !== '';
-      const isKeyComplete = 
+      const isKeyComplete =
         isValidKey(rowData[2]) &&
         isValidKey(rowData[0]) &&
         isValidKey(rowData[3]) &&
@@ -750,7 +750,7 @@ export default function InputF() {
     dtTimers.current[rIdx] = setTimeout(async () => {
       const original_id = dtIds.current[rIdx] || null;
       const isValidKey = (val) => val !== '' && val !== null && val !== undefined && String(val).trim() !== '';
-      const isKeyComplete = 
+      const isKeyComplete =
         isValidKey(rowData[0]) &&
         isValidKey(rowData[3]) &&
         isValidKey(rowData[1]) &&

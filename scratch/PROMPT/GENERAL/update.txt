@@ -1,4 +1,4 @@
 Tanggal         : 2026-07-14
 Prompt          :   Lakukan Updata :    1. git add .
-                                        2. git commit -m "NEW VERSION A.14/7/2026"
+                                        2. git commit -m "NEW VERSION B.14/7/2026"
                                         3. git push

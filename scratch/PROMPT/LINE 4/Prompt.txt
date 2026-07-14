@@ -1,4 +1,9 @@
 Tanggal         : 2026-07-10
-Prompt          : 
-Subject         : 
-Deskripsi       :
+Prompt          : - Lakukan pengecekan di INPUTC.jsx dan INPUTF.jsx terkait troubel berikut ini :
+- no batch ketika d tarik ke bawah tidak lanjut ke no batch selanjutnya 
+-DT C : proses dan unit tdk ada opsi untuk preform
+-DT F : proses dan unit tdk ada opsi unloading
+- saat copy 1 kolom tdk bsa d paste d bayak kolom
+- Jika dari salah satu point diatas sudah dilakukan atau diimplementasikan berikan status (sudah) pada point keluhan diatas.
+Subject         : Keluhan User
+Deskripsi       : Terdapat revisi dari user Line 4
