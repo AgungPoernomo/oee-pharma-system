@@ -92,7 +92,8 @@ const UNIT_MAP_F = {
   'Visual Inspeksi': ['Conveyor Inspeksi', 'Mesin Visual Inspeksi', 'Others'],
   'Labelling': ['Carton sealer', 'Conveyor', 'Floating Conveyor', 'Ganti Label', 'Inkjet Printer', 'Labelling', 'Sensor Inkjet', 'Sensor label', 'Wait Produk'],
   'Robot': ['Collecting conveyor', 'Conveyor', 'Floating conveyor', 'Meja Collecting', 'Others', 'Robot'],
-  'Unpacker': ['Carton Unpacker']
+  'Unpacker': ['Carton Unpacker'],
+  'Unloading': ['Carton Sealer', 'Carton Unpacker', 'Case Packer - Others', 'Casepacker', 'Changeover', 'Collecting Conveyor', 'Conveyor', 'Conveyor After', 'Conveyor Inspeksi', 'Floating Conveyor', 'Ganti Label', 'IDDLE', 'Inkjet Printer', 'Labelling - Others', 'Line Clearance', 'Unloading-Others', 'Robotic', 'Sensor Inkjet', 'Sensor Label', 'Trolley & Lifter', 'Wait produk', 'Mesin AVI']
 };
 const ALL_UNITS_F = [...new Set(Object.values(UNIT_MAP_F).flat())];
 
@@ -282,7 +283,7 @@ const DT_COLS_META = [
   { title: 'Durasi (menit)', width: 105, type: 'number', readOnly: true },
   { title: 'Planned / Unplanned', width: 155, type: 'select', options: ['Planned', 'Unplanned'] },
   { title: 'Root Cause', width: 145, type: 'select', options: ['Production', 'Mechanical', 'Electrical', 'Utility', 'QA', 'QC', 'Warehouse', 'PPIC', 'R&D'] },
-  { title: 'Proses', width: 125, type: 'select', options: ['All Team Packaging', 'Cartoning', 'Conveyor', 'Visual Inspeksi', 'Labelling', 'Robot', 'Unpacker'] },
+  { title: 'Proses', width: 125, type: 'select', options: ['All Team Packaging', 'Cartoning', 'Conveyor', 'Visual Inspeksi', 'Labelling', 'Robot', 'Unpacker', 'Unloading'] },
   { title: 'Unit', width: 180, type: 'select_unit' },
   { title: 'Kasus', width: 400, type: 'text' },
 ];

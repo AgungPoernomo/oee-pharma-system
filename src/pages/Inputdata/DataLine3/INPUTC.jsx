@@ -105,7 +105,8 @@ const sendAutoSave = async (payload) => {
 const UNIT_MAP_C = {
   'Filling': ['Laserjet', 'Gripper Washing', 'PLC', 'Ionizer', 'Carousel 1', 'Carousel 2', 'Carousel 3', 'Buffer Tank', 'Filling', 'Carousel 4', 'Carousel 5', 'Carousel 6', 'Cap Feeding Chute', 'Sealing', 'Heater', 'Cooling Heater Sealing', 'Wheelcap Ganjil', 'Wheelcap Genap', 'Conveyor Filling', 'Tandonan', 'Gear', 'Compresor-Oilfree', 'Compresor-Oilless', 'Trial', 'CIP/SIP', 'Filling-Others', 'Supply Listrik', 'Line Clearance', 'Break'],
   'Mixing': ['Supply WFI', 'Tanki D1', 'Tanki D2', 'Filter Produk', 'Mixing Produk', 'CIP/SIP', 'Integrity', 'PLC', 'Trial'],
-  'Autoclave': ['Conveyor', 'Meja A', 'Meja B', 'Lifter A', 'Lifter B', 'Tray kereta', 'Turn table', 'Kereta Anjlok', 'Kereta Habis', 'Jalur penuh', 'Chamber A', 'Chamber B', 'Doorseal', 'Autoclave-Other', 'Pick and Place']
+  'Autoclave': ['Conveyor', 'Meja A', 'Meja B', 'Lifter A', 'Lifter B', 'Tray kereta', 'Turn table', 'Kereta Anjlok', 'Kereta Habis', 'Jalur penuh', 'Chamber A', 'Chamber B', 'Doorseal', 'Autoclave-Other', 'Pick and Place'],
+  'Preform': ['Robot Preform', 'Mold Preform', 'Conveyor buffer', 'Preform-Others']
 };
 const ALL_UNITS_C = [...new Set(Object.values(UNIT_MAP_C).flat())];
 
@@ -316,7 +317,7 @@ const DC_COLS_META = [
   { title: 'Durasi (menit)', width: 105, type: 'number', readOnly: true },
   { title: 'Planned / Unplanned', width: 155, type: 'select', options: ['Planned', 'Unplanned'] },
   { title: 'Root Cause', width: 145, type: 'select', options: ['Production', 'Mechanical', 'Electrical', 'Utility', 'QA', 'QC', 'Warehouse', 'PPIC', 'R&D'] },
-  { title: 'Proses', width: 125, type: 'select', options: ['Filling', 'Mixing', 'Autoclave'] },
+  { title: 'Proses', width: 125, type: 'select', options: ['Filling', 'Mixing', 'Autoclave', 'Preform'] },
   { title: 'Unit', width: 180, type: 'select_unit' },
   { title: 'Kasus', width: 400, type: 'text' },
 ];

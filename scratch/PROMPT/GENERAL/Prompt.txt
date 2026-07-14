@@ -1,8 +1,3 @@
-Tanggal         : 2026-07-10
-Prompt          : Lakukan Pengecekan Terhadap 4 File Berikut:
-                : 1. src/pages/DailyOneSheet/OnesheetLine1/DailyOnesheet.jsx
-                : 2. src/pages/DailyOneSheet/OnesheetLine2/DailyOnesheet.jsx
-                : 3. src/pages/DailyOneSheet/OnesheetLine3/DailyOnesheet.jsx
-                : 4. src/pages/DailyOneSheet/OnesheetLine4/DailyOnesheet.jsx
-Subject         : DailyOnesheet
-PROBLEM         : Tunjukan cara perhitungan OEE Zone C dan Zone F pada file src/pages/DailyOneSheet/OnesheetLine1/DailyOnesheet.jsx. Selain cara perhitungan tunjukan sumber data yang digunakan. Disini ada masalah terkait perhitungannya atau mungkin cara pengambilan data yang tidak tepat.
+Tanggal         : 2026-07-14
+Prompt          :   - Sekarang fokus ke tabel data OEE C (INPUTC.jsx) tambahkan proses Preform dengan pilihan unit sebagai berikut : Robot Preform, Mold Preform, Conveyor buffer, Preform-Others
+                    -  Terapkan penambahan proses Preform disemua Line.
