@@ -13,6 +13,7 @@ const SmartDowntimeF = React.lazy(() => import('./pages/foreman/Inputdata/SmartD
 const DefectCatcherC = React.lazy(() => import('./pages/foreman/Inputdata/DefectCatcherC'));
 const DefectCatcherF = React.lazy(() => import('./pages/foreman/Inputdata/DefectCatcherF'));
 const ForemanSettings = React.lazy(() => import('./pages/foreman/ForemanSettings')); 
+const BatchAchievement = React.lazy(() => import('./pages/BatchAchievement/BatchAchievement'));
 
 const AccessControl = React.lazy(() => import('./pages/admin/AccessControl'));
 const NeuralSystemHealth = React.lazy(() => import('./pages/admin/NeuralSystemHealth'));
@@ -128,6 +129,9 @@ const SessionGuard = () => {
 
   useEffect(() => {
     if (!user) return; 
+
+    // Khusus untuk Line 4: matikan auto log out 15 menit
+    if (getCleanLineNumber(user?.line) === "4") return;
 
     // [BUG-02 FIX] forceLogout harus async agar await logout() bisa menyelesaikan sinkronisasi GAS
     const forceLogout = async () => {
@@ -267,6 +271,7 @@ const App = () => {
           <Route path="foreman/onesheet" element={<DynamicOnesheetRoute />} />
           <Route path="foreman/input-c" element={<DynamicInputCRoute />} />
           <Route path="foreman/input-f" element={<DynamicInputFRoute />} />
+          <Route path="foreman/batch-achievement" element={<BatchAchievement />} />
         </Route>
 
         <Route 

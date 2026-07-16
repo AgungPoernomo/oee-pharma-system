@@ -1,0 +1,242 @@
+-- ==============================================================================
+-- STRUKTUR TABEL TIDB: BATCH ACHIEVEMENT (Line 1 hingga Line 4)
+-- Total 150 Kolom (Kolom A sampai Kolom ET) + id, created_at, updated_at
+-- ==============================================================================
+
+-- 1. BATCH ACHIEVEMENT LINE 1
+DROP TABLE IF EXISTS batch_achievement_line1;
+CREATE TABLE batch_achievement_line1 (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    -- Kolom A - C: Waktu & Periode
+    bulan VARCHAR(50) DEFAULT NULL COMMENT 'Kolom A: Bulan',
+    tanggal DATE DEFAULT NULL COMMENT 'Kolom B: Tanggal',
+    week VARCHAR(20) DEFAULT NULL COMMENT 'Kolom C: Week',
+    
+    -- Kolom D - J: Target & Achievement Grup (Zone C / Umum)
+    target_ppic_fg DOUBLE DEFAULT 0 COMMENT 'Kolom D: Target PPIC (FG)',
+    ach_grup_a DOUBLE DEFAULT 0 COMMENT 'Kolom E: Ach Grup A',
+    ach_grup_b DOUBLE DEFAULT 0 COMMENT 'Kolom F: Ach Grup B',
+    ach_grup_c DOUBLE DEFAULT 0 COMMENT 'Kolom G: Ach Grup C',
+    ach_grup_d DOUBLE DEFAULT 0 COMMENT 'Kolom H: Ach Grup D',
+    total_batch DOUBLE DEFAULT 0 COMMENT 'Kolom I: Total Batch',
+    volume DOUBLE DEFAULT 0 COMMENT 'Kolom J: Volume',
+    
+    -- Kolom K - O: Availability (Jam/Waktu Tersedia)
+    avail_a DOUBLE DEFAULT 0 COMMENT 'Kolom K: Avail A',
+    avail_b DOUBLE DEFAULT 0 COMMENT 'Kolom L: Avail B',
+    avail_c DOUBLE DEFAULT 0 COMMENT 'Kolom M: Avail C',
+    avail_d DOUBLE DEFAULT 0 COMMENT 'Kolom N: Avail D',
+    total_availability DOUBLE DEFAULT 0 COMMENT 'Kolom O: total Availability',
+    
+    -- Kolom P - T: Planned Downtime
+    plan_a DOUBLE DEFAULT 0 COMMENT 'Kolom P: Plan A',
+    plan_b DOUBLE DEFAULT 0 COMMENT 'Kolom Q: Plan B',
+    plan_c DOUBLE DEFAULT 0 COMMENT 'Kolom R: Plan C',
+    plan_d DOUBLE DEFAULT 0 COMMENT 'Kolom S: Plan D',
+    total_plan_downtime DOUBLE DEFAULT 0 COMMENT 'Kolom T: total Plan Downtime',
+    
+    -- Kolom U - Y: Total Time (Loading Time)
+    total_time_a DOUBLE DEFAULT 0 COMMENT 'Kolom U: Total Time A',
+    total_time_b DOUBLE DEFAULT 0 COMMENT 'Kolom V: Total Time B',
+    total_time_c DOUBLE DEFAULT 0 COMMENT 'Kolom W: Total Time C',
+    total_time_d DOUBLE DEFAULT 0 COMMENT 'Kolom X: Total Time D',
+    total_time DOUBLE DEFAULT 0 COMMENT 'Kolom Y: total time',
+    
+    -- Kolom Z - AD: Unplanned Downtime
+    un_a DOUBLE DEFAULT 0 COMMENT 'Kolom Z: Un A',
+    un_b DOUBLE DEFAULT 0 COMMENT 'Kolom AA: Un B',
+    un_c DOUBLE DEFAULT 0 COMMENT 'Kolom AB: Un C',
+    un_d DOUBLE DEFAULT 0 COMMENT 'Kolom AC: Un D',
+    total_unplanned DOUBLE DEFAULT 0 COMMENT 'Kolom AD: total unplanned',
+    
+    -- Kolom AE - AI: Production Run (Operating Time)
+    run_a DOUBLE DEFAULT 0 COMMENT 'Kolom AE: Run A',
+    run_b DOUBLE DEFAULT 0 COMMENT 'Kolom AF: Run B',
+    run_c DOUBLE DEFAULT 0 COMMENT 'Kolom AG: Run C',
+    run_d DOUBLE DEFAULT 0 COMMENT 'Kolom AH: Run D',
+    total_production_run DOUBLE DEFAULT 0 COMMENT 'Kolom AI: total production run',
+    
+    -- Kolom AJ - AM: % Availability Rate (Zone C)
+    availability_a DOUBLE DEFAULT 0 COMMENT 'Kolom AJ: Availability A',
+    availability_b DOUBLE DEFAULT 0 COMMENT 'Kolom AK: Availability B',
+    availability_c DOUBLE DEFAULT 0 COMMENT 'Kolom AL: Availability C',
+    availability_d DOUBLE DEFAULT 0 COMMENT 'Kolom AM: Availability D',
+    
+    -- Kolom AN - AR: Counter + Reject Blow (Output Blow)
+    counter_reject_blow_a DOUBLE DEFAULT 0 COMMENT 'Kolom AN: Counter + Reject blow A',
+    counter_reject_blow_b DOUBLE DEFAULT 0 COMMENT 'Kolom AO: Counter + Reject blow B',
+    counter_reject_blow_c DOUBLE DEFAULT 0 COMMENT 'Kolom AP: Counter + Reject blow C',
+    counter_reject_blow_d DOUBLE DEFAULT 0 COMMENT 'Kolom AQ: Counter + Reject blow D',
+    total_counter_reject_blow DOUBLE DEFAULT 0 COMMENT 'Kolom AR: total counter + reject blow',
+    
+    -- Kolom AS - AX: Speed & Target Output (Zone C)
+    speed DOUBLE DEFAULT 0 COMMENT 'Kolom AS: Speed',
+    target_output_a DOUBLE DEFAULT 0 COMMENT 'Kolom AT: Target output A',
+    target_output_b DOUBLE DEFAULT 0 COMMENT 'Kolom AU: Target output B',
+    target_output_c DOUBLE DEFAULT 0 COMMENT 'Kolom AV: Target output C',
+    target_output_d DOUBLE DEFAULT 0 COMMENT 'Kolom AW: Target output D',
+    total_target_output DOUBLE DEFAULT 0 COMMENT 'Kolom AX: Total target output',
+    
+    -- Kolom AY - BB: % Performance Rate (Zone C)
+    performance_a DOUBLE DEFAULT 0 COMMENT 'Kolom AY: Performance A',
+    performance_b DOUBLE DEFAULT 0 COMMENT 'Kolom AZ: Performance B',
+    performance_c DOUBLE DEFAULT 0 COMMENT 'Kolom BA: Performance C',
+    performance_d DOUBLE DEFAULT 0 COMMENT 'Kolom BB: Performance D',
+    
+    -- Kolom BC - BG: Counter Fill (Zone C Output)
+    counter_a DOUBLE DEFAULT 0 COMMENT 'Kolom BC: Counter A',
+    counter_b DOUBLE DEFAULT 0 COMMENT 'Kolom BD: Counter B',
+    counter_c DOUBLE DEFAULT 0 COMMENT 'Kolom BE: Counter C',
+    counter_d DOUBLE DEFAULT 0 COMMENT 'Kolom BF: Counter D',
+    total_counter_fill DOUBLE DEFAULT 0 COMMENT 'Kolom BG: total counter fill',
+    
+    -- Kolom BH - BL: Goodcount (Zone C Output)
+    goodcount_a DOUBLE DEFAULT 0 COMMENT 'Kolom BH: Goodcount A',
+    goodcount_b DOUBLE DEFAULT 0 COMMENT 'Kolom BI: Goodcount B',
+    goodcount_c DOUBLE DEFAULT 0 COMMENT 'Kolom BJ: Goodcount C',
+    goodcount_d DOUBLE DEFAULT 0 COMMENT 'Kolom BK: Goodcount D',
+    total_goodcount DOUBLE DEFAULT 0 COMMENT 'Kolom BL: total Goodcount',
+    
+    -- Kolom BM - BP: % Quality Rate (Zone C)
+    quality_a DOUBLE DEFAULT 0 COMMENT 'Kolom BM: Quality A',
+    quality_b DOUBLE DEFAULT 0 COMMENT 'Kolom BN: Quality B',
+    quality_c DOUBLE DEFAULT 0 COMMENT 'Kolom BO: Quality C',
+    quality_d DOUBLE DEFAULT 0 COMMENT 'Kolom BP: Quality D',
+    
+    -- Kolom BQ - BX: % OEE & Summary Zone C
+    oee_a DOUBLE DEFAULT 0 COMMENT 'Kolom BQ: OEE A',
+    oee_b DOUBLE DEFAULT 0 COMMENT 'Kolom BR: OEE B',
+    oee_c DOUBLE DEFAULT 0 COMMENT 'Kolom BS: OEE C',
+    oee_d DOUBLE DEFAULT 0 COMMENT 'Kolom BT: OEE D',
+    pct_a DOUBLE DEFAULT 0 COMMENT 'Kolom BU: %A',
+    pct_p DOUBLE DEFAULT 0 COMMENT 'Kolom BV: %P',
+    pct_q DOUBLE DEFAULT 0 COMMENT 'Kolom BW: %Q',
+    pct_oee DOUBLE DEFAULT 0 COMMENT 'Kolom BX: %OEE',
+    
+    -- Kolom BY - CB: Goodcount F (Zone F Output Awal)
+    goodcount_f_a DOUBLE DEFAULT 0 COMMENT 'Kolom BY: Goodcount F (A)',
+    goodcount_f_b DOUBLE DEFAULT 0 COMMENT 'Kolom BZ: Goodcount F (B)',
+    goodcount_f_c DOUBLE DEFAULT 0 COMMENT 'Kolom CA: Goodcount F (C)',
+    goodcount_f_d DOUBLE DEFAULT 0 COMMENT 'Kolom CB: Goodcount F (D)',
+    
+    -- Kolom CC - CF: Available Time Zone F
+    available_f_a DOUBLE DEFAULT 0 COMMENT 'Kolom CC: Available A (F)',
+    available_f_b DOUBLE DEFAULT 0 COMMENT 'Kolom CD: Available B (F)',
+    available_f_c DOUBLE DEFAULT 0 COMMENT 'Kolom CE: Available C (F)',
+    available_f_d DOUBLE DEFAULT 0 COMMENT 'Kolom CF: Available D (F)',
+    
+    -- Kolom CG - CJ: Plan Downtime Zone F
+    plan_dt_f_a DOUBLE DEFAULT 0 COMMENT 'Kolom CG: Plan DT A (F)',
+    plan_dt_f_b DOUBLE DEFAULT 0 COMMENT 'Kolom CH: Plan DT B (F)',
+    plan_dt_f_c DOUBLE DEFAULT 0 COMMENT 'Kolom CI: Plan DT C (F)',
+    plan_dt_f_d DOUBLE DEFAULT 0 COMMENT 'Kolom CJ: Plan DT D (F)',
+    
+    -- Kolom CK - CN: Unplanned Downtime Zone F
+    undt_f_a DOUBLE DEFAULT 0 COMMENT 'Kolom CK: UnDT A (F)',
+    undt_f_b DOUBLE DEFAULT 0 COMMENT 'Kolom CL: UnDT B (F)',
+    undt_f_c DOUBLE DEFAULT 0 COMMENT 'Kolom CM: UnDT C (F)',
+    undt_f_d DOUBLE DEFAULT 0 COMMENT 'Kolom CN: UnDT D (F)',
+    
+    -- Kolom CO - CR: Total Run Zone F
+    total_run_f_a DOUBLE DEFAULT 0 COMMENT 'Kolom CO: total run A (F)',
+    total_run_f_b DOUBLE DEFAULT 0 COMMENT 'Kolom CP: total run B (F)',
+    total_run_f_c DOUBLE DEFAULT 0 COMMENT 'Kolom CQ: total run C (F)',
+    total_run_f_d DOUBLE DEFAULT 0 COMMENT 'Kolom CR: total run D (F)',
+    
+    -- Kolom CS - CV: Reject Blow Per Grup
+    reject_blow_a DOUBLE DEFAULT 0 COMMENT 'Kolom CS: Reject Blow A',
+    reject_blow_b DOUBLE DEFAULT 0 COMMENT 'Kolom CT: Reject Blow B',
+    reject_blow_c DOUBLE DEFAULT 0 COMMENT 'Kolom CU: Reject Blow C',
+    reject_blow_d DOUBLE DEFAULT 0 COMMENT 'Kolom CV: Reject Blow D',
+    
+    -- Kolom CW - CZ: Rincian Downtime / Activity
+    break_time DOUBLE DEFAULT 0 COMMENT 'Kolom CW: Break',
+    cip DOUBLE DEFAULT 0 COMMENT 'Kolom CX: CIP',
+    sip DOUBLE DEFAULT 0 COMMENT 'Kolom CY: SIP',
+    line_clearance DOUBLE DEFAULT 0 COMMENT 'Kolom CZ: Line Clearance',
+    
+    -- Kolom DA - DE: Reject Rincian
+    total_reject_c DOUBLE DEFAULT 0 COMMENT 'Kolom DA: Total reject C',
+    total_reject_f DOUBLE DEFAULT 0 COMMENT 'Kolom DB: Total reject F',
+    reject_tanpa_cap DOUBLE DEFAULT 0 COMMENT 'Kolom DC: Reject Tanpa Cap',
+    reject_seal_not_ok DOUBLE DEFAULT 0 COMMENT 'Kolom DD: Reject Seal Not OK',
+    reject_bocor DOUBLE DEFAULT 0 COMMENT 'Kolom DE: Reject Bocor',
+    
+    -- Kolom DF: Batch Size
+    batch_size DOUBLE DEFAULT 0 COMMENT 'Kolom DF: Batch Size',
+    
+    -- Kolom DG - DK: Availability F (Tahap 2 / Kalkulasi Final)
+    avail_f_a_2 DOUBLE DEFAULT 0 COMMENT 'Kolom DG: Avail A (F)',
+    avail_f_b_2 DOUBLE DEFAULT 0 COMMENT 'Kolom DH: Avail B (F)',
+    avail_f_c_2 DOUBLE DEFAULT 0 COMMENT 'Kolom DI: Avail C (F)',
+    avail_f_d_2 DOUBLE DEFAULT 0 COMMENT 'Kolom DJ: Avail D (F)',
+    total_availability_f_2 DOUBLE DEFAULT 0 COMMENT 'Kolom DK: total Availability (F)',
+    
+    -- Kolom DL - DP: Plan Downtime F (Tahap 2)
+    plan_f_a_2 DOUBLE DEFAULT 0 COMMENT 'Kolom DL: Plan A (F)',
+    plan_f_b_2 DOUBLE DEFAULT 0 COMMENT 'Kolom DM: Plan B (F)',
+    plan_f_c_2 DOUBLE DEFAULT 0 COMMENT 'Kolom DN: Plan C (F)',
+    plan_f_d_2 DOUBLE DEFAULT 0 COMMENT 'Kolom DO: Plan D (F)',
+    total_plan_downtime_f_2 DOUBLE DEFAULT 0 COMMENT 'Kolom DP: total Plan Downtime (F)',
+    
+    -- Kolom DQ - DU: Production Run F (Tahap 2)
+    run_f_a_2 DOUBLE DEFAULT 0 COMMENT 'Kolom DQ: Run A (F)',
+    run_f_b_2 DOUBLE DEFAULT 0 COMMENT 'Kolom DR: Run B (F)',
+    run_f_c_2 DOUBLE DEFAULT 0 COMMENT 'Kolom DS: Run C (F)',
+    run_f_d_2 DOUBLE DEFAULT 0 COMMENT 'Kolom DT: Run D (F)',
+    total_production_run_f_2 DOUBLE DEFAULT 0 COMMENT 'Kolom DU: total production run (F)',
+    
+    -- Kolom DV - DY: % Availability Rate F (Tahap 2)
+    availability_f_a_2 DOUBLE DEFAULT 0 COMMENT 'Kolom DV: Availability A (F)',
+    availability_f_b_2 DOUBLE DEFAULT 0 COMMENT 'Kolom DW: Availability B (F)',
+    availability_f_c_2 DOUBLE DEFAULT 0 COMMENT 'Kolom DX: Availability C (F)',
+    availability_f_d_2 DOUBLE DEFAULT 0 COMMENT 'Kolom DY: Availability D (F)',
+    
+    -- Kolom DZ - ED: Counter F (Tahap 2)
+    counter_f_a_2 DOUBLE DEFAULT 0 COMMENT 'Kolom DZ: Counter A (F)',
+    counter_f_b_2 DOUBLE DEFAULT 0 COMMENT 'Kolom EA: Counter B (F)',
+    counter_f_c_2 DOUBLE DEFAULT 0 COMMENT 'Kolom EB: Counter C (F)',
+    counter_f_d_2 DOUBLE DEFAULT 0 COMMENT 'Kolom EC: Counter D (F)',
+    total_counter_f_2 DOUBLE DEFAULT 0 COMMENT 'Kolom ED: total counter (F)',
+    
+    -- Kolom EE - EJ: Speed & Target Output F (Tahap 2)
+    speed_f_2 DOUBLE DEFAULT 0 COMMENT 'Kolom EE: Speed (F)',
+    target_output_f_a_2 DOUBLE DEFAULT 0 COMMENT 'Kolom EF: Target output A (F)',
+    target_output_f_b_2 DOUBLE DEFAULT 0 COMMENT 'Kolom EG: Target output B (F)',
+    target_output_f_c_2 DOUBLE DEFAULT 0 COMMENT 'Kolom EH: Target output C (F)',
+    target_output_f_d_2 DOUBLE DEFAULT 0 COMMENT 'Kolom EI: Target output D (F)',
+    total_target_output_f_2 DOUBLE DEFAULT 0 COMMENT 'Kolom EJ: Total target output (F)',
+    
+    -- Kolom EK - EN: % Performance Rate F (Tahap 2)
+    performance_f_a_2 DOUBLE DEFAULT 0 COMMENT 'Kolom EK: Performance A (F)',
+    performance_f_b_2 DOUBLE DEFAULT 0 COMMENT 'Kolom EL: Performance B (F)',
+    performance_f_c_2 DOUBLE DEFAULT 0 COMMENT 'Kolom EM: Performance C (F)',
+    performance_f_d_2 DOUBLE DEFAULT 0 COMMENT 'Kolom EN: Performance D (F)',
+    
+    -- Kolom EO - ER: % Quality Rate F (Tahap 2)
+    quality_f_a_2 DOUBLE DEFAULT 0 COMMENT 'Kolom EO: Quality A (F)',
+    quality_f_b_2 DOUBLE DEFAULT 0 COMMENT 'Kolom EP: Quality B (F)',
+    quality_f_c_2 DOUBLE DEFAULT 0 COMMENT 'Kolom EQ: Quality C (F)',
+    quality_f_d_2 DOUBLE DEFAULT 0 COMMENT 'Kolom ER: Quality D (F)',
+    
+    -- Kolom ES - ET: Output Akhir
+    finished_goods DOUBLE DEFAULT 0 COMMENT 'Kolom ES: Finished Goods',
+    sampel DOUBLE DEFAULT 0 COMMENT 'Kolom ET: Sampel',
+    
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_ba_l1_tanggal (tanggal)
+) AUTO_ID_CACHE = 1;
+
+
+-- 2. BATCH ACHIEVEMENT LINE 2
+DROP TABLE IF EXISTS batch_achievement_line2;
+CREATE TABLE batch_achievement_line2 LIKE batch_achievement_line1;
+
+-- 3. BATCH ACHIEVEMENT LINE 3
+DROP TABLE IF EXISTS batch_achievement_line3;
+CREATE TABLE batch_achievement_line3 LIKE batch_achievement_line1;
+
+-- 4. BATCH ACHIEVEMENT LINE 4
+DROP TABLE IF EXISTS batch_achievement_line4;
+CREATE TABLE batch_achievement_line4 LIKE batch_achievement_line1;

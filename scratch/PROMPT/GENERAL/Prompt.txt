@@ -1,3 +1,4 @@
 Tanggal         : 2026-07-14
-Prompt          :   - Sekarang fokus ke tabel data OEE C (INPUTC.jsx) tambahkan proses Preform dengan pilihan unit sebagai berikut : Robot Preform, Mold Preform, Conveyor buffer, Preform-Others
-                    -  Terapkan penambahan proses Preform disemua Line.
+Prompt          :   - Sekarang fokus ke BatchAchievement.jsx, berikut adalah revisinya :
+                    -  buat semua kolom data menjadi view only.
+                    

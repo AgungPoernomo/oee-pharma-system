@@ -1,7 +1,9 @@
 import db from './db.js';
 
-async function sendToGAS(url, payload, tableName, rowId) {
+async function sendToGAS(url, payload, tableName, rowId, lineNum) {
   if (!url) return;
+  const currentLine = String(lineNum || payload?.user?.line || '');
+  if (currentLine === '1' || currentLine === '4') return;
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
       const controller = new AbortController();
@@ -109,7 +111,7 @@ export default async function handler(req, res) {
           await db.query(`DELETE FROM ${tableName} WHERE id = ?`, [Number(delId)]);
           deletedCount++;
           deletedIds.push(Number(delId));
-          sendToGAS(process.env.GAS_URL, { action, data: { id: Number(delId), original_id: Number(delId) }, user: { ...user, line: lineNum }, tableName }, tableName, null).catch(err => void err);
+          sendToGAS(process.env.GAS_URL, { action, data: { id: Number(delId), original_id: Number(delId) }, user: { ...user, line: lineNum }, tableName }, tableName, null, lineNum).catch(err => void err);
         }
       }
 
@@ -137,12 +139,12 @@ export default async function handler(req, res) {
           dbPayload.synced_to_gas = 0;
           const [result] = await db.query(`INSERT INTO ${tableName} SET ?`, [dbPayload]);
           insertedIds.push(result.insertId);
-          sendToGAS(process.env.GAS_URL, { action, data: { ...dbPayload, id: result.insertId }, user: { ...user, line: lineNum }, tableName }, tableName, result.insertId).catch(err => void err);
+          sendToGAS(process.env.GAS_URL, { action, data: { ...dbPayload, id: result.insertId }, user: { ...user, line: lineNum }, tableName }, tableName, result.insertId, lineNum).catch(err => void err);
         } else {
           dbPayload.synced_to_gas = 0;
           await db.query(`UPDATE ${tableName} SET ? WHERE id = ?`, [dbPayload, Number(currentId)]);
           insertedIds.push(Number(currentId));
-          sendToGAS(process.env.GAS_URL, { action, data: { ...dbPayload, id: Number(currentId) }, user: { ...user, line: lineNum }, tableName }, tableName, Number(currentId)).catch(err => void err);
+          sendToGAS(process.env.GAS_URL, { action, data: { ...dbPayload, id: Number(currentId) }, user: { ...user, line: lineNum }, tableName }, tableName, Number(currentId), lineNum).catch(err => void err);
         }
       }
 

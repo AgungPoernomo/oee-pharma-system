@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useCallback, useState } from 'react';
+import React, { useEffect, useRef, useCallback, useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuth } from '../../../context/AuthContext';
 import { fetchTodayRejectF, fetchTodayDowntimeF, fetchAllRejectF, fetchAllDowntimeF } from '../../../services/api';
@@ -610,6 +610,7 @@ const SpreadsheetRow = React.memo(({
 
 export default function InputF() {
   const { user } = useAuth();
+  const line4User = useMemo(() => ({ ...(user || {}), line: "4", plant: "4" }), [user]);
 
   // [BUG-09 FIX] Kunci localStorage per-line (Line 4) agar data antar line tidak saling menimpa
   const LS_OEE = 'F_DATA_OEE_L4', LS_DT = 'F_DATA_DT_L4', LS_IDS_OEE = 'F_IDS_OEE_L4', LS_IDS_DT = 'F_IDS_DT_L4';
@@ -682,7 +683,7 @@ export default function InputF() {
 
       if (!isKeyComplete) {
         if (original_id) {
-          await sendAutoSave({ action: 'delete_reject_f', data: { original_id }, user });
+          await sendAutoSave({ action: 'delete_reject_f', data: { original_id }, user: line4User });
           oeeIds.current[rIdx] = null;
           localStorage.setItem(LS_IDS_OEE, JSON.stringify(oeeIds.current));
         }
@@ -741,14 +742,14 @@ export default function InputF() {
       };
 
       const actionType = payloadData.original_id ? 'update_reject_f' : 'submit_reject_f';
-      const res = await sendAutoSave({ action: actionType, data: payloadData, user });
+      const res = await sendAutoSave({ action: actionType, data: payloadData, user: line4User });
 
       if (res.status === 'success' && res.original_id) {
         oeeIds.current[rIdx] = res.original_id;
         localStorage.setItem(LS_IDS_OEE, JSON.stringify(oeeIds.current));
       }
     }, 1000);
-  }, [user]);
+  }, [line4User]);
 
   const triggerAutosaveDT = useCallback((rIdx, rowData) => {
     if (dtTimers.current[rIdx]) clearTimeout(dtTimers.current[rIdx]);
@@ -767,7 +768,7 @@ export default function InputF() {
 
       if (!isKeyComplete) {
         if (original_id) {
-          await sendAutoSave({ action: 'delete_downtime_f', data: { original_id }, user });
+          await sendAutoSave({ action: 'delete_downtime_f', data: { original_id }, user: line4User });
           dtIds.current[rIdx] = null;
           localStorage.setItem(LS_IDS_DT, JSON.stringify(dtIds.current));
         }
@@ -791,14 +792,14 @@ export default function InputF() {
       };
 
       const actionType = payloadData.original_id ? 'update_downtime_f' : 'submit_downtime_f';
-      const res = await sendAutoSave({ action: actionType, data: payloadData, user });
+      const res = await sendAutoSave({ action: actionType, data: payloadData, user: line4User });
 
       if (res.status === 'success' && res.original_id) {
         dtIds.current[rIdx] = res.original_id;
         localStorage.setItem(LS_IDS_DT, JSON.stringify(dtIds.current));
       }
     }, 1000);
-  }, [user]);
+  }, [line4User]);
 
   const handleUndo = useCallback((gridType) => {
     const histRef = gridType === 'oee' ? oeeHistory : dtHistory;
@@ -875,7 +876,7 @@ export default function InputF() {
       const original_id = idsRef.current[r];
       if (original_id) {
         const actionType = gridType === 'oee' ? 'delete_reject_f' : 'delete_downtime_f';
-        await sendAutoSave({ action: actionType, data: { original_id }, user });
+        await sendAutoSave({ action: actionType, data: { original_id }, user: line4User });
       }
     }
 
@@ -896,7 +897,7 @@ export default function InputF() {
     } else {
       setDtSelection({ startRow: 0, startCol: 0, endRow: 0, endCol: 0 });
     }
-  }, [oeeSelection, dtSelection, user]);
+  }, [oeeSelection, dtSelection, line4User]);
 
   const handleAdd1000Rows = useCallback((gridType) => {
     if (gridType === 'oee') {
@@ -1374,8 +1375,8 @@ export default function InputF() {
     if (!user) return;
     try {
       const [resOEE, resDT] = await Promise.all([
-        fetchTodayRejectF(user),
-        fetchTodayDowntimeF(user),
+        fetchTodayRejectF(line4User),
+        fetchTodayDowntimeF(line4User),
       ]);
 
       const now = new Date();
@@ -1484,7 +1485,7 @@ export default function InputF() {
     } catch (error) {
       console.error('Fetch data error:', error);
     }
-  }, [user]);
+  }, [line4User]);
 
   useEffect(() => {
     loadDataServer();

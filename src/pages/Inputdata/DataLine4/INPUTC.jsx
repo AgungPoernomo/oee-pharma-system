@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useCallback, useState } from 'react';
+import React, { useEffect, useRef, useCallback, useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuth } from '../../../context/AuthContext';
 import { fetchTodayRejectC, fetchTodayDowntimeC, fetchAllRejectC, fetchAllDowntimeC } from '../../../services/api';
@@ -668,6 +668,7 @@ const SpreadsheetRow = React.memo(({
 
 export default function InputC() {
   const { user } = useAuth();
+  const line4User = useMemo(() => ({ ...(user || {}), line: "4", plant: "4" }), [user]);
 
   // [BUG-09 FIX] Kunci localStorage per-line (Line 4) agar data antar line tidak saling menimpa
   const LS_OEE = 'C_DATA_OEE_L4', LS_DT = 'C_DATA_DT_L4', LS_IDS_OEE = 'C_IDS_OEE_L4', LS_IDS_DT = 'C_IDS_DT_L4';
@@ -740,7 +741,7 @@ export default function InputC() {
 
       if (!isKeyComplete) {
         if (original_id) {
-          await sendAutoSave({ action: 'delete_reject_c', data: { original_id }, user });
+          await sendAutoSave({ action: 'delete_reject_c', data: { original_id }, user: line4User });
           oeeIds.current[rIdx] = null;
           localStorage.setItem(LS_IDS_OEE, JSON.stringify(oeeIds.current));
         }
@@ -800,14 +801,14 @@ export default function InputC() {
       };
 
       const actionType = payloadData.original_id ? 'update_reject_c' : 'submit_reject_c';
-      const res = await sendAutoSave({ action: actionType, data: payloadData, user });
+      const res = await sendAutoSave({ action: actionType, data: payloadData, user: line4User });
 
       if (res.status === 'success' && res.original_id) {
         oeeIds.current[rIdx] = res.original_id;
         localStorage.setItem(LS_IDS_OEE, JSON.stringify(oeeIds.current));
       }
     }, 1000);
-  }, [user]);
+  }, [line4User]);
 
   const triggerAutosaveDT = useCallback((rIdx, rowData) => {
     if (dtTimers.current[rIdx]) clearTimeout(dtTimers.current[rIdx]);
@@ -826,7 +827,7 @@ export default function InputC() {
 
       if (!isKeyComplete) {
         if (original_id) {
-          await sendAutoSave({ action: 'delete_downtime_c', data: { original_id }, user });
+          await sendAutoSave({ action: 'delete_downtime_c', data: { original_id }, user: line4User });
           dtIds.current[rIdx] = null;
           localStorage.setItem(LS_IDS_DT, JSON.stringify(dtIds.current));
         }
@@ -850,14 +851,14 @@ export default function InputC() {
       };
 
       const actionType = payloadData.original_id ? 'update_downtime_c' : 'submit_downtime_c';
-      const res = await sendAutoSave({ action: actionType, data: payloadData, user });
+      const res = await sendAutoSave({ action: actionType, data: payloadData, user: line4User });
 
       if (res.status === 'success' && res.original_id) {
         dtIds.current[rIdx] = res.original_id;
         localStorage.setItem(LS_IDS_DT, JSON.stringify(dtIds.current));
       }
     }, 1000);
-  }, [user]);
+  }, [line4User]);
 
   useEffect(() => {
     const nextData = recalculateAllOEE(oeeData);
@@ -949,7 +950,7 @@ export default function InputC() {
       const original_id = idsRef.current[r];
       if (original_id) {
         const actionType = gridType === 'oee' ? 'delete_reject_c' : 'delete_downtime_c';
-        await sendAutoSave({ action: actionType, data: { original_id }, user });
+        await sendAutoSave({ action: actionType, data: { original_id }, user: line4User });
       }
     }
 
@@ -970,7 +971,7 @@ export default function InputC() {
     } else {
       setDtSelection({ startRow: 0, startCol: 0, endRow: 0, endCol: 0 });
     }
-  }, [oeeSelection, dtSelection, user]);
+  }, [oeeSelection, dtSelection, line4User]);
 
   const handleAdd1000Rows = useCallback((gridType) => {
     if (gridType === 'oee') {
@@ -1449,8 +1450,8 @@ export default function InputC() {
     if (!user) return;
     try {
       const [resOEE, resDT] = await Promise.all([
-        fetchTodayRejectC(user),
-        fetchTodayDowntimeC(user),
+        fetchTodayRejectC(line4User),
+        fetchTodayDowntimeC(line4User),
       ]);
 
       const now = new Date();
@@ -1517,7 +1518,7 @@ export default function InputC() {
     } catch (error) {
       console.error('[InputC] loadDataServer error:', error);
     }
-  }, [user]);
+  }, [line4User]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
