@@ -138,6 +138,12 @@ function doPost(e) {
     const userLine = params.user ? (params.user.line || params.user.plant || "2") : "2"; 
     let result = {};
 
+    if ((userLine === "1" || userLine === "4") && (
+      action.startsWith("submit_") || action.startsWith("update_") || action.startsWith("delete_")
+    )) {
+      return responseJSON({ status: "ignored", message: "Auto backup to Google Spreadsheet is disabled for Line " + userLine });
+    }
+
     switch (action) {
       case "sync_jdbc": result = syncAllTablesFromTiDbViaJDBC(params.line || userLine); break;
       case "register": result = handleRegister(params.data); break;
@@ -807,6 +813,7 @@ function syncAllTablesFromTiDbViaJDBC(filterLine) {
     
     for (var l = 0; l < linesToSync.length; l++) {
       var lineNum = linesToSync[l];
+      if (lineNum === "1" || lineNum === "4") continue;
       for (var z = 0; z < zones.length; z++) {
         var zone = zones[z];
         for (var t = 0; t < types.length; t++) {

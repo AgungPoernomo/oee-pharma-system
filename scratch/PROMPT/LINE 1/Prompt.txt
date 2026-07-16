@@ -1,6 +1,2 @@
-Folder saat ini     : scratch/PROMPT/LINE 1/Prompt.txt
-Tanggal             : 2026-07-10
-Prompt              : Lakukan Pengecekan Terhadap 4 File Berikut:
-                    : 1. src/pages/DailyOneSheet/OnesheetLine1/DailyOnesheet.jsx
-Subject             : DailyOnesheet
-PROBLEM             : Tunjukan cara perhitungan OEE Zone C dan Zone F pada file src/pages/DailyOneSheet/OnesheetLine1/DailyOnesheet.jsx. Selain cara perhitungan tunjukan sumber data yang digunakan. Disini ada masalah terkait perhitungannya atau mungkin cara pengambilan data yang tidak tepat.
+Tanggal         : 2026-07-10
+Prompt          : - Matikan auto BACK UP DATA ke google spreadsheet khusus untuk Line 1

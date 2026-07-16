@@ -63,6 +63,11 @@ function doPost(e) {
     else if (tblLower.indexOf('line3') !== -1) userLine = "3";
     else if (tblLower.indexOf('line4') !== -1) userLine = "4";
 
+    if (userLine === "1" || userLine === "4") {
+      return ContentService.createTextOutput(JSON.stringify({ status: 'ignored', message: 'Auto backup to Google Spreadsheet is disabled for Line ' + userLine }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
     var ss = SpreadsheetApp.openById(getDbIdByLine(userLine));
 
     // 2. Map nama tabel TiDB ke sheet standar Google Spreadsheet
