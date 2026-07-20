@@ -893,6 +893,26 @@ export default function InputF() {
     }
   }, [oeeSelection, dtSelection, user]);
 
+  const handleInsertRow = useCallback((gridType, rowIdx, position) => {
+    const idsRef = gridType === 'oee' ? oeeIds : dtIds;
+    const setData = gridType === 'oee' ? setOeeData : setDtData;
+    const emptyFunc = gridType === 'oee' ? getEmptyOEE : getEmptyDT;
+    
+    const insertIdx = position === 'above' ? rowIdx : rowIdx + 1;
+    
+    setData(prev => {
+      const next = [...prev];
+      next.splice(insertIdx, 0, emptyFunc());
+      
+      idsRef.current.splice(insertIdx, 0, null);
+      
+      localStorage.setItem(gridType === 'oee' ? LS_OEE : LS_DT, JSON.stringify(next));
+      localStorage.setItem(gridType === 'oee' ? LS_IDS_OEE : LS_IDS_DT, JSON.stringify(idsRef.current));
+      
+      return next;
+    });
+  }, []);
+
   const handleAdd1000Rows = useCallback((gridType) => {
     if (gridType === 'oee') {
       const newRows = Array.from({ length: 1000 }, getEmptyOEE);
@@ -1781,6 +1801,28 @@ export default function InputF() {
             className="fixed z-[9999] bg-white border border-slate-200 rounded-lg shadow-2xl py-1.5 min-w-[180px] animate-in fade-in zoom-in-95 duration-100"
             style={{ top: contextMenu.y, left: contextMenu.x }}
           >
+            <button
+              type="button"
+              onClick={() => {
+                handleInsertRow(contextMenu.gridType, contextMenu.rowIdx, 'above');
+                setContextMenu(null);
+              }}
+              className="w-full px-3 py-2 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors border-b border-slate-100"
+            >
+              <span>⬆️</span>
+              <span>Insert Row Atas</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                handleInsertRow(contextMenu.gridType, contextMenu.rowIdx, 'below');
+                setContextMenu(null);
+              }}
+              className="w-full px-3 py-2 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors border-b border-slate-100"
+            >
+              <span>⬇️</span>
+              <span>Insert Row Bawah</span>
+            </button>
             <button
               type="button"
               onClick={() => {

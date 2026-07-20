@@ -1,4 +1,2 @@
-Tanggal         : 2026-07-14
-Prompt          :   - Sekarang fokus ke BatchAchievement.jsx, berikut adalah revisinya :
-                    -  buat semua kolom data menjadi view only.
-                    
+Tanggal         : 2026-07-20
+Prompt          : - Tambahkan fungsi insert row atas dan bawah ketika user menekan kursor kanan.
