@@ -477,7 +477,8 @@ const SpreadsheetRow = React.memo(({
   onFillHandleMouseDown,
   onFinishEdit,
   onCancelEdit,
-  onRowContextMenu
+  onRowContextMenu,
+  onAction
 }) => {
   const prosesValue = gridType === 'dt' ? rowData[12] : '';
   const unitOptions = gridType === 'dt' ? (UNIT_MAP_F[prosesValue] || ALL_UNITS_F) : [];
@@ -592,6 +593,31 @@ const SpreadsheetRow = React.memo(({
           </td>
         );
       })}
+      {/* Aksi column */}
+      <td
+        className="p-1 border-r border-slate-200 align-middle text-center bg-white"
+        style={{ width: 170, minWidth: 170, maxWidth: 170 }}
+      >
+        {rowId ? (
+          <div className="flex justify-center gap-1">
+            <button
+              onClick={(e) => { e.stopPropagation(); onAction && onAction('update', rowIdx); }}
+              className="px-2 py-0.5 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded shadow text-[10px] leading-4"
+            >Update</button>
+            <button
+              onClick={(e) => { e.stopPropagation(); onAction && onAction('delete', rowIdx); }}
+              className="px-2 py-0.5 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded shadow text-[10px] leading-4"
+            >Delete</button>
+          </div>
+        ) : (
+          <div className="flex justify-center">
+            <button
+              onClick={(e) => { e.stopPropagation(); onAction && onAction('save', rowIdx); }}
+              className="px-2 py-0.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded shadow text-[10px] leading-4"
+            >Save</button>
+          </div>
+        )}
+      </td>
     </tr>
   );
 }, (prev, next) => {
@@ -600,6 +626,7 @@ const SpreadsheetRow = React.memo(({
   if (prev.editingColIdx !== next.editingColIdx) return false;
   if (prev.editMode !== next.editMode) return false;
   if (prev.editingInitialValue !== next.editingInitialValue) return false;
+  if (prev.rowId !== next.rowId) return false;
 
   if (prev.isSelectedRow || next.isSelectedRow) {
     if (prev.selectionMinCol !== next.selectionMinCol) return false;
@@ -794,6 +821,121 @@ export default function InputF() {
       }
     }, 1000);
   }, [user]);
+
+  // ── Manual Save / Update / Delete for OEE ──
+  const handleActionOEE = useCallback(async (actionType, targetRowIdx) => {
+    const rowData = oeeData[targetRowIdx];
+    const original_id = oeeIds.current[targetRowIdx] || null;
+    const toastId = toast.loading(`Memproses ${actionType} OEE baris ${targetRowIdx + 1}...`);
+    try {
+      if (actionType === 'delete') {
+        if (original_id) {
+          await sendAutoSave({ action: 'delete_reject_f', data: { original_id }, user, force_gas: false });
+          oeeIds.current[targetRowIdx] = null;
+          localStorage.setItem(LS_IDS_OEE, JSON.stringify(oeeIds.current));
+        }
+        setOeeData(prev => {
+          const next = prev.filter((_, i) => i !== targetRowIdx);
+          oeeIds.current = oeeIds.current.filter((_, i) => i !== targetRowIdx);
+          next.push(getEmptyOEE());
+          oeeIds.current.push(null);
+          localStorage.setItem(LS_OEE, JSON.stringify(next));
+          localStorage.setItem(LS_IDS_OEE, JSON.stringify(oeeIds.current));
+          return next;
+        });
+        toast.success(`Baris ${targetRowIdx + 1} berhasil dihapus`, { id: toastId });
+        return;
+      }
+      const isValidKey = (val) => val !== '' && val !== null && val !== undefined && String(val).trim() !== '';
+      const isKeyComplete =
+        isValidKey(rowData[2]) && isValidKey(rowData[0]) && isValidKey(rowData[3]) &&
+        isValidKey(rowData[35]) && isValidKey(rowData[36]) && isValidKey(rowData[37]) && isValidKey(rowData[38]);
+      if (!isKeyComplete) { toast.error('Data kunci belum lengkap (Tanggal, No Batch, Shift, Available Time wajib diisi)', { id: toastId }); return; }
+      const payloadData = {
+        original_id,
+        no_batch: rowData[0], lot_no: rowData[1], tanggal: rowData[2], shift: rowData[3], group: rowData[4],
+        volume_botol: rowData[5], steril_in: rowData[6], steril_bocor: rowData[7],
+        steril_h_patah_ring: rowData[8], steril_h_patah_lidah: rowData[9], steril_h_patah_leleh: rowData[10],
+        steril_no_hanger: rowData[11], steril_rej_total: rowData[12], steril_sample: rowData[13], steril_out: rowData[14],
+        vi_start: rowData[15], vi_end: rowData[16], vi_sub: rowData[17],
+        vi_partikel: rowData[19], vi_kotik: rowData[20], vi_rej_total: rowData[21],
+        vi_hasil_baik: rowData[22], vi_tf_packing: rowData[24],
+        pack_reject: rowData[25], pack_hasil_baik: rowData[26], pack_s_qc: rowData[27],
+        pack_s_others: rowData[28], pack_fg: rowData[29], pack_utuh: rowData[30],
+        pack_jml_batch: rowData[31],
+        av_sh: rowData[35], av_sm: rowData[36], av_eh: rowData[37], av_em: rowData[38],
+        av_sub: rowData[39], total_avail_shift: rowData[40],
+        run_sh: rowData[41], run_sm: rowData[42], run_eh: rowData[43], run_em: rowData[44], run_sub: rowData[45],
+        clear_sh: rowData[46], clear_sm: rowData[47], clear_eh: rowData[48], clear_em: rowData[49], clear_sub: rowData[50],
+        process_total: rowData[51],
+      };
+      const apiAction = actionType === 'save' ? 'submit_reject_f' : 'update_reject_f';
+      const force_gas = actionType === 'save';
+      const res = await sendAutoSave({ action: apiAction, data: payloadData, user, force_gas });
+      if (res.status === 'success' && res.original_id) {
+        oeeIds.current[targetRowIdx] = res.original_id;
+        localStorage.setItem(LS_IDS_OEE, JSON.stringify(oeeIds.current));
+        setOeeData(prev => { const next = [...prev]; next[targetRowIdx] = { ...next[targetRowIdx] }; return next; });
+        toast.success(`OEE baris ${targetRowIdx + 1} berhasil di-${actionType}`, { id: toastId });
+      } else {
+        toast.error(`Gagal ${actionType} OEE baris ${targetRowIdx + 1}`, { id: toastId });
+      }
+    } catch (err) {
+      toast.error(`Error: ${err.message}`, { id: toastId });
+    }
+  }, [oeeData, user]);
+
+  // ── Manual Save / Update / Delete for Downtime ──
+  const handleActionDT = useCallback(async (actionType, targetRowIdx) => {
+    const rowData = dtData[targetRowIdx];
+    const original_id = dtIds.current[targetRowIdx] || null;
+    const toastId = toast.loading(`Memproses ${actionType} Downtime baris ${targetRowIdx + 1}...`);
+    try {
+      if (actionType === 'delete') {
+        if (original_id) {
+          await sendAutoSave({ action: 'delete_downtime_f', data: { original_id }, user, force_gas: false });
+          dtIds.current[targetRowIdx] = null;
+          localStorage.setItem(LS_IDS_DT, JSON.stringify(dtIds.current));
+        }
+        setDtData(prev => {
+          const next = prev.filter((_, i) => i !== targetRowIdx);
+          dtIds.current = dtIds.current.filter((_, i) => i !== targetRowIdx);
+          next.push(getEmptyDT());
+          dtIds.current.push(null);
+          localStorage.setItem(LS_DT, JSON.stringify(next));
+          localStorage.setItem(LS_IDS_DT, JSON.stringify(dtIds.current));
+          return next;
+        });
+        toast.success(`Baris ${targetRowIdx + 1} berhasil dihapus`, { id: toastId });
+        return;
+      }
+      const isValidKey = (val) => val !== '' && val !== null && val !== undefined && String(val).trim() !== '';
+      const isKeyComplete =
+        isValidKey(rowData[0]) && isValidKey(rowData[3]) && isValidKey(rowData[1]) &&
+        isValidKey(rowData[5]) && isValidKey(rowData[6]) && isValidKey(rowData[7]) && isValidKey(rowData[8]);
+      if (!isKeyComplete) { toast.error('Data kunci belum lengkap (Tanggal, No Batch, Shift, Jam wajib diisi)', { id: toastId }); return; }
+      const payloadData = {
+        original_id,
+        tanggal: rowData[0], shift: rowData[1], group: rowData[2], no_batch: rowData[3], lot_no: rowData[4],
+        start_h: rowData[5], start_m: rowData[6], end_h: rowData[7], end_m: rowData[8],
+        duration: rowData[9], plan_unplan: rowData[10], root_cause: rowData[11],
+        proses: rowData[12], unit: rowData[13], kasus: rowData[14],
+      };
+      const apiAction = actionType === 'save' ? 'submit_downtime_f' : 'update_downtime_f';
+      const force_gas = actionType === 'save';
+      const res = await sendAutoSave({ action: apiAction, data: payloadData, user, force_gas });
+      if (res.status === 'success' && res.original_id) {
+        dtIds.current[targetRowIdx] = res.original_id;
+        localStorage.setItem(LS_IDS_DT, JSON.stringify(dtIds.current));
+        setDtData(prev => { const next = [...prev]; next[targetRowIdx] = { ...next[targetRowIdx] }; return next; });
+        toast.success(`Downtime baris ${targetRowIdx + 1} berhasil di-${actionType}`, { id: toastId });
+      } else {
+        toast.error(`Gagal ${actionType} Downtime baris ${targetRowIdx + 1}`, { id: toastId });
+      }
+    } catch (err) {
+      toast.error(`Error: ${err.message}`, { id: toastId });
+    }
+  }, [dtData, user]);
 
   const handleUndo = useCallback((gridType) => {
     const histRef = gridType === 'oee' ? oeeHistory : dtHistory;
@@ -1017,7 +1159,7 @@ export default function InputF() {
             targetRow[colIdx] = value;
             const calculatedRow = calculateOEERow(targetRow);
             next[rowIdx] = calculatedRow;
-            triggerAutosaveOEE(rowIdx, calculatedRow);
+            // No autosave — user must press Save button
             setTimeout(() => localStorage.setItem(LS_OEE, JSON.stringify(next)), 0);
           }
           return next;
@@ -1045,7 +1187,7 @@ export default function InputF() {
             if (colIdx === 12) targetRow[13] = '';
             const calculatedRow = calculateDTRow(targetRow);
             next[rowIdx] = calculatedRow;
-            triggerAutosaveDT(rowIdx, calculatedRow);
+            // No autosave — user must press Save button
             setTimeout(() => localStorage.setItem(LS_DT, JSON.stringify(next)), 0);
           }
           return next;
@@ -1064,7 +1206,7 @@ export default function InputF() {
         if (dtGridRef.current) dtGridRef.current.focus();
       }
     }, 0);
-  }, [oeeData.length, dtData.length, triggerAutosaveOEE, triggerAutosaveDT, pushHistory]);
+  }, [oeeData.length, dtData.length, pushHistory]);
 
   const handleCancelEdit = useCallback(() => {
     setOeeEditingCell(null);
@@ -1143,7 +1285,6 @@ export default function InputF() {
 
       const setData = gridType === 'oee' ? setOeeData : setDtData;
       const calcRow = gridType === 'oee' ? calculateOEERow : calculateDTRow;
-      const triggerSave = gridType === 'oee' ? triggerAutosaveOEE : triggerAutosaveDT;
 
       setTimeout(() => {
         setData(prev => {
@@ -1162,7 +1303,6 @@ export default function InputF() {
             if (changed) {
               const calculatedRow = calcRow(targetRow);
               next[r] = calculatedRow;
-              triggerSave(r, calculatedRow);
             }
           }
           if (changedAny) {
@@ -1179,7 +1319,7 @@ export default function InputF() {
         setTimeout(() => setEditing({ row: activeRow, col: activeCol, mode: 'direct', initialValue }), 0);
       }
     }
-  }, [oeeSelection, dtSelection, oeeEditingCell, dtEditingCell, oeeData, dtData, triggerAutosaveOEE, triggerAutosaveDT, handleUndo, handleRedo, pushHistory, handleDeleteRow]);
+  }, [oeeSelection, dtSelection, oeeEditingCell, dtEditingCell, oeeData, dtData, handleUndo, handleRedo, pushHistory, handleDeleteRow]);
 
   const handleCopy = useCallback((e, gridType) => {
     e.preventDefault();
@@ -1237,13 +1377,12 @@ export default function InputF() {
 
         const calculatedRow = calcRow(targetRow);
         nextData[targetRowIdx] = calculatedRow;
-        triggerSave(targetRowIdx, calculatedRow);
       });
 
       setTimeout(() => localStorage.setItem(gridType === 'oee' ? LS_OEE : LS_DT, JSON.stringify(nextData)), 0);
       return nextData;
     });
-  }, [oeeSelection, dtSelection, triggerAutosaveOEE, triggerAutosaveDT, pushHistory]);
+  }, [oeeSelection, dtSelection, pushHistory]);
 
   useEffect(() => {
     const handleMouseUp = (e) => {
@@ -1258,7 +1397,6 @@ export default function InputF() {
 
         const setData = gridType === 'oee' ? setOeeData : setDtData;
         const calcRow = gridType === 'oee' ? calculateOEERow : calculateDTRow;
-        const triggerSave = gridType === 'oee' ? triggerAutosaveOEE : triggerAutosaveDT;
         const colsMeta = gridType === 'oee' ? OEE_COLS_META : DT_COLS_META;
         const noBatchCol = gridType === 'oee' ? 0 : 3;
 
@@ -1297,7 +1435,6 @@ export default function InputF() {
               if (rowChanged) {
                 const calculatedRow = calcRow(targetRowArr);
                 nextData[r] = calculatedRow;
-                triggerSave(r, calculatedRow);
               }
             }
           } else if (targetRow < startRow) {
@@ -1341,7 +1478,7 @@ export default function InputF() {
     };
     window.addEventListener('mouseup', handleMouseUp);
     return () => window.removeEventListener('mouseup', handleMouseUp);
-  }, [pushHistory, triggerAutosaveOEE, triggerAutosaveDT]);
+  }, [pushHistory]);
 
   useEffect(() => {
     if (!oeeGridRef.current) return;
@@ -1658,6 +1795,12 @@ export default function InputF() {
                       {col.title}
                     </th>
                   ))}
+                  <th
+                    style={{ width: 170, minWidth: 170, maxWidth: 170 }}
+                    className="border-r border-b border-slate-300 px-1 py-2 text-center text-[10px] uppercase tracking-wide bg-slate-100"
+                  >
+                    Aksi
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -1693,6 +1836,7 @@ export default function InputF() {
                       onFinishEdit={handleFinishEdit}
                       onCancelEdit={handleCancelEdit}
                       onRowContextMenu={handleRowContextMenu}
+                      onAction={handleActionOEE}
                     />
                   );
                 })}
@@ -1744,6 +1888,12 @@ export default function InputF() {
                       {col.title}
                     </th>
                   ))}
+                  <th
+                    style={{ width: 170, minWidth: 170, maxWidth: 170 }}
+                    className="border-r border-b border-slate-300 px-1 py-2 text-center text-[10px] uppercase tracking-wide bg-slate-100"
+                  >
+                    Aksi
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -1779,6 +1929,7 @@ export default function InputF() {
                       onFinishEdit={handleFinishEdit}
                       onCancelEdit={handleCancelEdit}
                       onRowContextMenu={handleRowContextMenu}
+                      onAction={handleActionDT}
                     />
                   );
                 })}

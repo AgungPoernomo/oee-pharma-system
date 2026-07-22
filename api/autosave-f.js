@@ -94,9 +94,11 @@ export default async function handler(req, res) {
   if (typeof body === 'string') {
     try { body = JSON.parse(body); } catch (e) { body = {}; }
   }
-  const { action, data, user } = body;
+  const { action, data, user, force_gas } = body;
   const rawLine = user?.line || user?.plant || "4";
   const lineNum = rawLine.match(/\d+/) ? rawLine.match(/\d+/)[0] : "4";
+
+  const shouldSyncGAS = lineNum === '2' ? force_gas === true : true;
 
   let tableName = action.includes('reject') ? `oee_line${lineNum}_zonef` : `downtime_line${lineNum}_zonef`;
 
@@ -111,7 +113,9 @@ export default async function handler(req, res) {
           await db.query(`DELETE FROM ${tableName} WHERE id = ?`, [Number(delId)]);
           deletedCount++;
           deletedIds.push(Number(delId));
-          sendToGAS(process.env.GAS_URL, { action, data: { id: Number(delId), original_id: Number(delId) }, user: { ...user, line: lineNum }, tableName }, tableName, null, lineNum).catch(err => void err);
+          if (shouldSyncGAS) {
+            sendToGAS(process.env.GAS_URL, { action, data: { id: Number(delId), original_id: Number(delId) }, user: { ...user, line: lineNum }, tableName }, tableName, null, lineNum).catch(err => void err);
+          }
         }
       }
 
@@ -139,12 +143,16 @@ export default async function handler(req, res) {
           dbPayload.synced_to_gas = 0;
           const [result] = await db.query(`INSERT INTO ${tableName} SET ?`, [dbPayload]);
           insertedIds.push(result.insertId);
-          sendToGAS(process.env.GAS_URL, { action, data: { ...dbPayload, id: result.insertId }, user: { ...user, line: lineNum }, tableName }, tableName, result.insertId, lineNum).catch(err => void err);
+          if (shouldSyncGAS) {
+            sendToGAS(process.env.GAS_URL, { action, data: { ...dbPayload, id: result.insertId }, user: { ...user, line: lineNum }, tableName }, tableName, result.insertId, lineNum).catch(err => void err);
+          }
         } else {
           dbPayload.synced_to_gas = 0;
           await db.query(`UPDATE ${tableName} SET ? WHERE id = ?`, [dbPayload, Number(currentId)]);
           insertedIds.push(Number(currentId));
-          sendToGAS(process.env.GAS_URL, { action, data: { ...dbPayload, id: Number(currentId) }, user: { ...user, line: lineNum }, tableName }, tableName, Number(currentId), lineNum).catch(err => void err);
+          if (shouldSyncGAS) {
+            sendToGAS(process.env.GAS_URL, { action, data: { ...dbPayload, id: Number(currentId) }, user: { ...user, line: lineNum }, tableName }, tableName, Number(currentId), lineNum).catch(err => void err);
+          }
         }
       }
 

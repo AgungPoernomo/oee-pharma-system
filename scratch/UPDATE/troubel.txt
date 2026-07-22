@@ -1,0 +1,4 @@
+Uncaught ReferenceError: handleSelectRow is not defined
+    at INPUTF.jsx:1295:36
+    at Array.map (<anonymous>)
+    at InputF (INPUTF.jsx:1271:26)

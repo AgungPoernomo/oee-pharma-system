@@ -534,7 +534,8 @@ const SpreadsheetRow = React.memo(({
   onFillHandleMouseDown,
   onFinishEdit,
   onCancelEdit,
-  onRowContextMenu
+  onRowContextMenu,
+  onAction
 }) => {
   const prosesValue = gridType === 'dt' ? rowData[DC.PROSES] : '';
   const unitOptions = gridType === 'dt' ? (UNIT_MAP_C[prosesValue] || ALL_UNITS_C) : [];
@@ -649,6 +650,31 @@ const SpreadsheetRow = React.memo(({
           </td>
         );
       })}
+      {/* Aksi column */}
+      <td
+        className="p-1 border-r border-slate-200 align-middle text-center bg-white"
+        style={{ width: 170, minWidth: 170, maxWidth: 170 }}
+      >
+        {rowId ? (
+          <div className="flex justify-center gap-1">
+            <button
+              onClick={(e) => { e.stopPropagation(); onAction && onAction('update', rowIdx); }}
+              className="px-2 py-0.5 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded shadow text-[10px] leading-4"
+            >Update</button>
+            <button
+              onClick={(e) => { e.stopPropagation(); onAction && onAction('delete', rowIdx); }}
+              className="px-2 py-0.5 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded shadow text-[10px] leading-4"
+            >Delete</button>
+          </div>
+        ) : (
+          <div className="flex justify-center">
+            <button
+              onClick={(e) => { e.stopPropagation(); onAction && onAction('save', rowIdx); }}
+              className="px-2 py-0.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded shadow text-[10px] leading-4"
+            >Save</button>
+          </div>
+        )}
+      </td>
     </tr>
   );
 }, (prev, next) => {
@@ -657,6 +683,7 @@ const SpreadsheetRow = React.memo(({
   if (prev.editingColIdx !== next.editingColIdx) return false;
   if (prev.editMode !== next.editMode) return false;
   if (prev.editingInitialValue !== next.editingInitialValue) return false;
+  if (prev.rowId !== next.rowId) return false;
 
   if (prev.isSelectedRow || next.isSelectedRow) {
     if (prev.selectionMinCol !== next.selectionMinCol) return false;
@@ -852,20 +879,133 @@ export default function InputC() {
     }, 1000);
   }, [user]);
 
+  // ── Manual Save / Update / Delete for OEE ──
+  const handleActionOEE = useCallback(async (actionType, targetRowIdx) => {
+    const rowData = oeeData[targetRowIdx];
+    const original_id = oeeIds.current[targetRowIdx] || null;
+    const toastId = toast.loading(`Memproses ${actionType} OEE baris ${targetRowIdx + 1}...`);
+    try {
+      if (actionType === 'delete') {
+        if (original_id) {
+          await sendAutoSave({ action: 'delete_reject_c', data: { original_id }, user, force_gas: false });
+          oeeIds.current[targetRowIdx] = null;
+          localStorage.setItem(LS_IDS_OEE, JSON.stringify(oeeIds.current));
+        }
+        setOeeData(prev => {
+          const next = prev.filter((_, i) => i !== targetRowIdx);
+          oeeIds.current = oeeIds.current.filter((_, i) => i !== targetRowIdx);
+          next.push(getEmptyOEE());
+          oeeIds.current.push(null);
+          localStorage.setItem(LS_OEE, JSON.stringify(next));
+          localStorage.setItem(LS_IDS_OEE, JSON.stringify(oeeIds.current));
+          return next;
+        });
+        toast.success(`Baris ${targetRowIdx + 1} berhasil dihapus`, { id: toastId });
+        return;
+      }
+      const isValidKey = (val) => val !== '' && val !== null && val !== undefined && String(val).trim() !== '';
+      const isKeyComplete =
+        isValidKey(rowData[C.TANGGAL]) && isValidKey(rowData[C.NO_BATCH]) && isValidKey(rowData[C.SHIFT]) &&
+        isValidKey(rowData[C.AT_SH]) && isValidKey(rowData[C.AT_SM]) && isValidKey(rowData[C.AT_EH]) && isValidKey(rowData[C.AT_EM]);
+      if (!isKeyComplete) { toast.error('Data kunci belum lengkap (Tanggal, No Batch, Shift, Available Time wajib diisi)', { id: toastId }); return; }
+      const payloadData = {
+        original_id,
+        no_batch: rowData[C.NO_BATCH], tanggal: rowData[C.TANGGAL], shift: rowData[C.SHIFT], group: rowData[C.GROUP],
+        reject_botol: rowData[C.REJ_BOTOL], reject_preform: rowData[C.REJ_PREFORM], reject_blow: rowData[C.REJ_BLOW],
+        volume_botol: rowData[C.VOL_BOTOL], cnt_start: rowData[C.CNT_START], cnt_end: rowData[C.CNT_END], cnt_sub: rowData[C.CNT_SUB],
+        utuh: rowData[C.UTUH], jml_batch: rowData[C.JML_BATCH],
+        r_washing: rowData[C.WASH], r_vk: rowData[C.VK], r_vl: rowData[C.VL], r_nocap: rowData[C.TANPA_CAP_F],
+        r_sealnok: rowData[C.SEAL_NOK], r_others: rowData[C.OTHERS_F], r_sub: rowData[C.SUB_FILL],
+        s_ipc: rowData[C.IPC], s_others: rowData[C.OTHERS_S], s_sub: rowData[C.SUB_SAMPLES],
+        trf_st: rowData[C.TRF_TO_ST], pre_in: rowData[C.INPUT_STERIL],
+        pre_bocor: rowData[C.REJ_BOCOR], pre_nocap: rowData[C.REJ_TANPA_CAP], pre_vol: rowData[C.REJ_VOL],
+        pre_thermo: rowData[C.REJ_THERMO], pre_lain: rowData[C.REJ_LAINLAIN],
+        pre_rej_total: rowData[C.TOTAL_REJ_BS], pre_out: rowData[C.OUTPUT_CHAMBER],
+        av_sh: rowData[C.AT_SH], av_sm: rowData[C.AT_SM], av_eh: rowData[C.AT_EH], av_em: rowData[C.AT_EM],
+        av_sub: rowData[C.AT_SUB], total_avail_shift: rowData[C.AT_TOTAL],
+        run_sh: rowData[C.RT_SH], run_sm: rowData[C.RT_SM], run_eh: rowData[C.RT_EH], run_em: rowData[C.RT_EM], run_sub: rowData[C.RT_SUB],
+        lc_sh: rowData[C.LC_SH], lc_sm: rowData[C.LC_SM], lc_eh: rowData[C.LC_EH], lc_em: rowData[C.LC_EM], lc_sub: rowData[C.LC_SUB],
+      };
+      const apiAction = actionType === 'save' ? 'submit_reject_c' : 'update_reject_c';
+      const force_gas = actionType === 'save';
+      const res = await sendAutoSave({ action: apiAction, data: payloadData, user, force_gas });
+      if (res.status === 'success' && res.original_id) {
+        oeeIds.current[targetRowIdx] = res.original_id;
+        localStorage.setItem(LS_IDS_OEE, JSON.stringify(oeeIds.current));
+        // Force re-render of this row to show Update/Delete buttons
+        setOeeData(prev => { const next = [...prev]; next[targetRowIdx] = { ...next[targetRowIdx] }; return next; });
+        toast.success(`OEE baris ${targetRowIdx + 1} berhasil di-${actionType}`, { id: toastId });
+      } else {
+        toast.error(`Gagal ${actionType} OEE baris ${targetRowIdx + 1}`, { id: toastId });
+      }
+    } catch (err) {
+      toast.error(`Error: ${err.message}`, { id: toastId });
+    }
+  }, [oeeData, user]);
+
+  // ── Manual Save / Update / Delete for Downtime ──
+  const handleActionDT = useCallback(async (actionType, targetRowIdx) => {
+    const rowData = dtData[targetRowIdx];
+    const original_id = dtIds.current[targetRowIdx] || null;
+    const toastId = toast.loading(`Memproses ${actionType} Downtime baris ${targetRowIdx + 1}...`);
+    try {
+      if (actionType === 'delete') {
+        if (original_id) {
+          await sendAutoSave({ action: 'delete_downtime_c', data: { original_id }, user, force_gas: false });
+          dtIds.current[targetRowIdx] = null;
+          localStorage.setItem(LS_IDS_DT, JSON.stringify(dtIds.current));
+        }
+        setDtData(prev => {
+          const next = prev.filter((_, i) => i !== targetRowIdx);
+          dtIds.current = dtIds.current.filter((_, i) => i !== targetRowIdx);
+          next.push(getEmptyDT());
+          dtIds.current.push(null);
+          localStorage.setItem(LS_DT, JSON.stringify(next));
+          localStorage.setItem(LS_IDS_DT, JSON.stringify(dtIds.current));
+          return next;
+        });
+        toast.success(`Baris ${targetRowIdx + 1} berhasil dihapus`, { id: toastId });
+        return;
+      }
+      const isValidKey = (val) => val !== '' && val !== null && val !== undefined && String(val).trim() !== '';
+      const isKeyComplete =
+        isValidKey(rowData[DC.TANGGAL]) && isValidKey(rowData[DC.NO_BATCH]) && isValidKey(rowData[DC.SHIFT]) &&
+        isValidKey(rowData[DC.SH]) && isValidKey(rowData[DC.SM]) && isValidKey(rowData[DC.EH]) && isValidKey(rowData[DC.EM]);
+      if (!isKeyComplete) { toast.error('Data kunci belum lengkap (Tanggal, No Batch, Shift, Jam wajib diisi)', { id: toastId }); return; }
+      const payloadData = {
+        original_id,
+        tanggal: rowData[DC.TANGGAL], shift: rowData[DC.SHIFT], group: rowData[DC.GRUP], no_batch: rowData[DC.NO_BATCH],
+        start_h: rowData[DC.SH], start_m: rowData[DC.SM], end_h: rowData[DC.EH], end_m: rowData[DC.EM],
+        duration: rowData[DC.DURASI], plan_unplan: rowData[DC.TYPE], root_cause: rowData[DC.ROOT],
+        proses: rowData[DC.PROSES], unit: rowData[DC.UNIT], kasus: rowData[DC.KASUS],
+      };
+      const apiAction = actionType === 'save' ? 'submit_downtime_c' : 'update_downtime_c';
+      const force_gas = actionType === 'save';
+      const res = await sendAutoSave({ action: apiAction, data: payloadData, user, force_gas });
+      if (res.status === 'success' && res.original_id) {
+        dtIds.current[targetRowIdx] = res.original_id;
+        localStorage.setItem(LS_IDS_DT, JSON.stringify(dtIds.current));
+        setDtData(prev => { const next = [...prev]; next[targetRowIdx] = { ...next[targetRowIdx] }; return next; });
+        toast.success(`Downtime baris ${targetRowIdx + 1} berhasil di-${actionType}`, { id: toastId });
+      } else {
+        toast.error(`Gagal ${actionType} Downtime baris ${targetRowIdx + 1}`, { id: toastId });
+      }
+    } catch (err) {
+      toast.error(`Error: ${err.message}`, { id: toastId });
+    }
+  }, [dtData, user]);
+
   useEffect(() => {
     const nextData = recalculateAllOEE(oeeData);
     let changed = false;
     for (let i = 0; i < oeeData.length; i++) {
-      if (nextData[i] !== oeeData[i]) {
-        changed = true;
-        triggerAutosaveOEE(i, nextData[i]);
-      }
+      if (nextData[i] !== oeeData[i]) { changed = true; }
     }
     if (changed) {
       setOeeData(nextData);
       setTimeout(() => localStorage.setItem(LS_OEE, JSON.stringify(nextData)), 0);
     }
-  }, [oeeData, triggerAutosaveOEE]);
+  }, [oeeData]);
 
   const handleUndo = useCallback((gridType) => {
     const histRef = gridType === 'oee' ? oeeHistory : dtHistory;
@@ -969,18 +1109,18 @@ export default function InputC() {
     const idsRef = gridType === 'oee' ? oeeIds : dtIds;
     const setData = gridType === 'oee' ? setOeeData : setDtData;
     const emptyFunc = gridType === 'oee' ? getEmptyOEE : getEmptyDT;
-    
+
     const insertIdx = position === 'above' ? rowIdx : rowIdx + 1;
-    
+
     setData(prev => {
       const next = [...prev];
       next.splice(insertIdx, 0, emptyFunc());
-      
+
       idsRef.current.splice(insertIdx, 0, null);
-      
+
       localStorage.setItem(gridType === 'oee' ? LS_OEE : LS_DT, JSON.stringify(next));
       localStorage.setItem(gridType === 'oee' ? LS_IDS_OEE : LS_IDS_DT, JSON.stringify(idsRef.current));
-      
+
       return next;
     });
   }, []);
@@ -1089,7 +1229,7 @@ export default function InputC() {
             targetRow[colIdx] = value;
             const calculatedRow = calculateOEERow(targetRow);
             next[rowIdx] = calculatedRow;
-            triggerAutosaveOEE(rowIdx, calculatedRow);
+            // No autosave — user must press Save button
             setTimeout(() => localStorage.setItem(LS_OEE, JSON.stringify(next)), 0);
           }
           return next;
@@ -1117,7 +1257,7 @@ export default function InputC() {
             if (colIdx === DC.PROSES) targetRow[DC.UNIT] = '';
             const calculatedRow = calculateDTRow(targetRow);
             next[rowIdx] = calculatedRow;
-            triggerAutosaveDT(rowIdx, calculatedRow);
+            // No autosave — user must press Save button
             setTimeout(() => localStorage.setItem(LS_DT, JSON.stringify(next)), 0);
           }
           return next;
@@ -1136,7 +1276,7 @@ export default function InputC() {
         if (dtGridRef.current) dtGridRef.current.focus();
       }
     }, 0);
-  }, [oeeData.length, dtData.length, triggerAutosaveOEE, triggerAutosaveDT, pushHistory]);
+  }, [oeeData.length, dtData.length, pushHistory]);
 
   const handleCancelEdit = useCallback(() => {
     setOeeEditingCell(null);
@@ -1215,7 +1355,6 @@ export default function InputC() {
 
       const setData = gridType === 'oee' ? setOeeData : setDtData;
       const calcRow = gridType === 'oee' ? calculateOEERow : calculateDTRow;
-      const triggerSave = gridType === 'oee' ? triggerAutosaveOEE : triggerAutosaveDT;
 
       setTimeout(() => {
         setData(prev => {
@@ -1234,7 +1373,6 @@ export default function InputC() {
             if (changed) {
               const calculatedRow = calcRow(targetRow);
               next[r] = calculatedRow;
-              triggerSave(r, calculatedRow);
             }
           }
           if (changedAny) {
@@ -1251,7 +1389,7 @@ export default function InputC() {
         setTimeout(() => setEditing({ row: activeRow, col: activeCol, mode: 'direct', initialValue }), 0);
       }
     }
-  }, [oeeSelection, dtSelection, oeeEditingCell, dtEditingCell, oeeData, dtData, triggerAutosaveOEE, triggerAutosaveDT, handleUndo, handleRedo, pushHistory, handleDeleteRow]);
+  }, [oeeSelection, dtSelection, oeeEditingCell, dtEditingCell, oeeData, dtData, handleUndo, handleRedo, pushHistory, handleDeleteRow]);
 
   const handleCopy = useCallback((e, gridType) => {
     e.preventDefault();
@@ -1287,7 +1425,6 @@ export default function InputC() {
 
     const setData = gridType === 'oee' ? setOeeData : setDtData;
     const calcRow = gridType === 'oee' ? calculateOEERow : calculateDTRow;
-    const triggerSave = gridType === 'oee' ? triggerAutosaveOEE : triggerAutosaveDT;
     const colsMeta = gridType === 'oee' ? OEE_COLS_META : DT_COLS_META;
     const maxCols = colsMeta.length;
 
@@ -1309,13 +1446,12 @@ export default function InputC() {
 
         const calculatedRow = calcRow(targetRow);
         nextData[targetRowIdx] = calculatedRow;
-        triggerSave(targetRowIdx, calculatedRow);
       });
 
       setTimeout(() => localStorage.setItem(gridType === 'oee' ? LS_OEE : LS_DT, JSON.stringify(nextData)), 0);
       return nextData;
     });
-  }, [oeeSelection, dtSelection, triggerAutosaveOEE, triggerAutosaveDT, pushHistory]);
+  }, [oeeSelection, dtSelection, pushHistory]);
 
   useEffect(() => {
     const handleMouseUp = (e) => {
@@ -1330,7 +1466,6 @@ export default function InputC() {
 
         const setData = gridType === 'oee' ? setOeeData : setDtData;
         const calcRow = gridType === 'oee' ? calculateOEERow : calculateDTRow;
-        const triggerSave = gridType === 'oee' ? triggerAutosaveOEE : triggerAutosaveDT;
         const colsMeta = gridType === 'oee' ? OEE_COLS_META : DT_COLS_META;
         const noBatchCol = gridType === 'oee' ? C.NO_BATCH : DC.NO_BATCH;
 
@@ -1369,7 +1504,6 @@ export default function InputC() {
               if (rowChanged) {
                 const calculatedRow = calcRow(targetRowArr);
                 nextData[r] = calculatedRow;
-                triggerSave(r, calculatedRow);
               }
             }
           } else if (targetRow < startRow) {
@@ -1401,7 +1535,6 @@ export default function InputC() {
               if (rowChanged) {
                 const calculatedRow = calcRow(targetRowArr);
                 nextData[r] = calculatedRow;
-                triggerSave(r, calculatedRow);
               }
             }
           }
@@ -1413,7 +1546,7 @@ export default function InputC() {
     };
     window.addEventListener('mouseup', handleMouseUp);
     return () => window.removeEventListener('mouseup', handleMouseUp);
-  }, [pushHistory, triggerAutosaveOEE, triggerAutosaveDT]);
+  }, [pushHistory]);
 
   // Auto scroll into view on navigation
   useEffect(() => {
@@ -1633,6 +1766,7 @@ export default function InputC() {
                   <th colSpan={6} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Available Time</th>
                   <th colSpan={5} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Run Time</th>
                   <th colSpan={5} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Line Clearance</th>
+                  <th colSpan={5} className="border-r border-b border-slate-300 px-2 py-1.5 text-center"></th>
                 </tr>
                 <tr>
                   <th colSpan={4} className="border-r border-b border-slate-300 px-2 py-1.5 text-center sticky left-[60px] z-40 bg-slate-100 shadow-[1px_0_0_0_#cbd5e1]"></th>
@@ -1653,6 +1787,7 @@ export default function InputC() {
                   <th colSpan={6} className="border-r border-b border-slate-300 px-2 py-1.5 text-center"></th>
                   <th colSpan={5} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Filling</th>
                   <th colSpan={5} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">CIP Minor</th>
+                  <th colSpan={5} className="border-r border-b border-slate-300 px-2 py-1.5 text-center"></th>
                 </tr>
                 <tr>
                   {OEE_COLS_META.map((col, idx) => (
@@ -1669,6 +1804,12 @@ export default function InputC() {
                       {col.title}
                     </th>
                   ))}
+                  <th
+                    style={{ width: 170, minWidth: 170, maxWidth: 170 }}
+                    className="border-r border-b border-slate-300 px-1 py-2 text-center text-[10px] uppercase tracking-wide bg-slate-100"
+                  >
+                    Aksi
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -1700,6 +1841,7 @@ export default function InputC() {
                       onFinishEdit={handleFinishEdit}
                       onCancelEdit={handleCancelEdit}
                       onRowContextMenu={handleRowContextMenu}
+                      onAction={handleActionOEE}
                     />
                   );
                 })}
@@ -1758,6 +1900,12 @@ export default function InputC() {
                       </th>
                     );
                   })}
+                  <th
+                    style={{ width: 170, minWidth: 170, maxWidth: 170 }}
+                    className="py-2.5 px-2 text-center text-[10px] uppercase tracking-wide"
+                  >
+                    Aksi
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -1789,6 +1937,7 @@ export default function InputC() {
                       onFinishEdit={handleFinishEdit}
                       onCancelEdit={handleCancelEdit}
                       onRowContextMenu={handleRowContextMenu}
+                      onAction={handleActionDT}
                     />
                   );
                 })}
