@@ -501,11 +501,14 @@ function directAppendC(data, user, userLine) {
   
   var newRow = Math.max(4, sheet.getLastRow() + 1);
   var userName = (user && user.nama) ? user.nama : "Unknown";
+  var tidbId = data.original_id ? String(data.original_id).trim() : "";
   
   // A = Timestamp, B = Nama User
   sheet.getRange(newRow, 1, 1, 2).setValues([[new Date(), userName]]);
-  // C (col 3) to BB (col 54) = 52 elements
+  // C (col 3) to BB (col 54) = 52 elements data
   sheet.getRange(newRow, 3, 1, 52).setValues([rowData]);
+  // BC (col 55) = TiDB original_id, digunakan untuk operasi delete
+  if (tidbId) sheet.getRange(newRow, 55, 1, 1).setValue(tidbId);
   
   SpreadsheetApp.flush();
   return { status: 'success', message: 'Data appended directly to C4:BB4!' };
@@ -525,31 +528,18 @@ function directDeleteC(data, user, userLine) {
   if (lastRow < 4) return { status: 'success', message: 'Sheet kosong, tidak ada yang dihapus' };
   
   var numRows = lastRow - 4 + 1;
-  var lastCol = sheet.getLastColumn();
   
-  // Cek di kolom terakhir (tempat TiDB ID disimpan)
-  var colVals = sheet.getRange(4, lastCol, numRows, 1).getValues();
-  for (var i = 0; i < colVals.length; i++) {
-    if (String(colVals[i][0]).trim() === tidbId) {
+  // Cari di kolom BC (col 55) = tempat original_id disimpan oleh directAppendC
+  var idCol = sheet.getRange(4, 55, numRows, 1).getValues();
+  for (var i = 0; i < idCol.length; i++) {
+    if (String(idCol[i][0]).trim() === tidbId) {
       sheet.deleteRow(4 + i);
       SpreadsheetApp.flush();
-      return { status: 'success', message: 'Row berhasil dihapus dari Spreadsheet!' };
+      return { status: 'success', message: 'Row berhasil dihapus dari Spreadsheet! (col BC)' };
     }
   }
   
-  // Fallback: cek di semua kolom dengan nilai numerik yang cocok
-  var allVals = sheet.getRange(4, 1, numRows, Math.min(lastCol, 5)).getValues();
-  for (var j = 0; j < allVals.length; j++) {
-    for (var k = 0; k < allVals[j].length; k++) {
-      if (String(allVals[j][k]).trim() === tidbId) {
-        sheet.deleteRow(4 + j);
-        SpreadsheetApp.flush();
-        return { status: 'success', message: 'Row berhasil dihapus (fallback)!' };
-      }
-    }
-  }
-  
-  return { status: 'success', message: 'ID tidak ditemukan di Spreadsheet, dilewati' };
+  return { status: 'success', message: 'ID tidak ditemukan di kolom BC Spreadsheet, dilewati' };
 }
 
 function updateRejectZoneF(data, user, userLine) { return saveRejectZoneF(data, user, userLine); }

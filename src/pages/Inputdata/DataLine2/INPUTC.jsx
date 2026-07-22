@@ -954,7 +954,7 @@ export default function InputC() {
           const gasPayload = {
             action: 'direct_append_c',
             user: { ...(user || {}), line: '2' },
-            data: { rowData: [...rowData] }
+            data: { rowData: [...rowData], original_id: res.original_id }
           };
           fetch('https://script.google.com/macros/s/AKfycbyO_Rh0wzfpLPO83RuPh-mSHfeCmHMbfW1WkazHKbGmUT1RobjNTUTwrmsEhxv5lhit/exec', {
             method: 'POST',
