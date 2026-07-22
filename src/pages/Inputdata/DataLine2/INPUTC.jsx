@@ -891,21 +891,27 @@ export default function InputC() {
     const toastId = toast.loading(`Memproses ${actionType} OEE baris ${targetRowIdx + 1}...`);
     try {
       if (actionType === 'delete') {
+        const promises = [];
         if (original_id) {
-          await sendAutoSave({ action: 'delete_reject_c', data: { original_id }, user, force_gas: false });
+          promises.push(sendAutoSave({ action: 'delete_reject_c', data: { original_id }, user, force_gas: false }));
+        }
+        promises.push(fetch('https://script.google.com/macros/s/AKfycbyO_Rh0wzfpLPO83RuPh-mSHfeCmHMbfW1WkazHKbGmUT1RobjNTUTwrmsEhxv5lhit/exec', {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({
+            action: 'direct_delete_c',
+            user: { ...(user || {}), line: '2' },
+            data: { row_number: targetRowIdx + 4 }
+          })
+        }));
+        
+        await Promise.allSettled(promises);
+        
+        if (original_id) {
           oeeIds.current[targetRowIdx] = null;
           localStorage.setItem(LS_IDS_OEE, JSON.stringify(oeeIds.current));
-          // Kirim perintah hapus langsung ke GAS (karena backend Line 2 tidak forward ke GAS)
-          fetch('https://script.google.com/macros/s/AKfycbyO_Rh0wzfpLPO83RuPh-mSHfeCmHMbfW1WkazHKbGmUT1RobjNTUTwrmsEhxv5lhit/exec', {
-            method: 'POST',
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-            body: JSON.stringify({
-              action: 'direct_delete_c',
-              user: { ...(user || {}), line: '2' },
-              data: { original_id, id: original_id }
-            })
-          }).catch(err => console.error('GAS direct delete error', err));
         }
+        
         setOeeData(prev => {
           const next = prev.filter((_, i) => i !== targetRowIdx);
           oeeIds.current = oeeIds.current.filter((_, i) => i !== targetRowIdx);
@@ -942,26 +948,30 @@ export default function InputC() {
         lc_sh: rowData[C.LC_SH], lc_sm: rowData[C.LC_SM], lc_eh: rowData[C.LC_EH], lc_em: rowData[C.LC_EM], lc_sub: rowData[C.LC_SUB],
       };
       const apiAction = actionType === 'save' ? 'submit_reject_c' : 'update_reject_c';
-      const force_gas = actionType === 'save';
-      const res = await sendAutoSave({ action: apiAction, data: payloadData, user, force_gas });
+      const promises = [];
+      promises.push(sendAutoSave({ action: apiAction, data: payloadData, user, force_gas: false }));
+      
+      if (actionType === 'save') {
+        const gasPayload = {
+          action: 'direct_append_c',
+          user: { ...(user || {}), line: '2' },
+          data: { rowData: [...rowData] }
+        };
+        promises.push(fetch('https://script.google.com/macros/s/AKfycbyO_Rh0wzfpLPO83RuPh-mSHfeCmHMbfW1WkazHKbGmUT1RobjNTUTwrmsEhxv5lhit/exec', {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify(gasPayload)
+        }));
+      }
+
+      const results = await Promise.allSettled(promises);
+      const res = results[0].status === 'fulfilled' ? results[0].value : { status: 'error' };
+
       if (res.status === 'success' && res.original_id) {
         oeeIds.current[targetRowIdx] = res.original_id;
         localStorage.setItem(LS_IDS_OEE, JSON.stringify(oeeIds.current));
         // Force re-render of this row to show Update/Delete buttons
         setOeeData(prev => { const next = [...prev]; next[targetRowIdx] = [...next[targetRowIdx]]; return next; });
-
-        if (actionType === 'save') {
-          const gasPayload = {
-            action: 'direct_append_c',
-            user: { ...(user || {}), line: '2' },
-            data: { rowData: [...rowData], original_id: res.original_id }
-          };
-          fetch('https://script.google.com/macros/s/AKfycbyO_Rh0wzfpLPO83RuPh-mSHfeCmHMbfW1WkazHKbGmUT1RobjNTUTwrmsEhxv5lhit/exec', {
-            method: 'POST',
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-            body: JSON.stringify(gasPayload)
-          }).catch(err => console.error("GAS direct save error", err));
-        }
 
         toast.success(`OEE baris ${targetRowIdx + 1} berhasil di-${actionType}`, { id: toastId });
       } else {
@@ -979,21 +989,27 @@ export default function InputC() {
     const toastId = toast.loading(`Memproses ${actionType} Downtime baris ${targetRowIdx + 1}...`);
     try {
       if (actionType === 'delete') {
+        const promises = [];
         if (original_id) {
-          await sendAutoSave({ action: 'delete_downtime_c', data: { original_id }, user, force_gas: false });
+          promises.push(sendAutoSave({ action: 'delete_downtime_c', data: { original_id }, user, force_gas: false }));
+        }
+        promises.push(fetch('https://script.google.com/macros/s/AKfycbyO_Rh0wzfpLPO83RuPh-mSHfeCmHMbfW1WkazHKbGmUT1RobjNTUTwrmsEhxv5lhit/exec', {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({
+            action: 'direct_delete_dt_c',
+            user: { ...(user || {}), line: '2' },
+            data: { row_number: targetRowIdx + 2 }
+          })
+        }));
+
+        await Promise.allSettled(promises);
+        
+        if (original_id) {
           dtIds.current[targetRowIdx] = null;
           localStorage.setItem(LS_IDS_DT, JSON.stringify(dtIds.current));
-          // Kirim perintah hapus langsung ke GAS
-          fetch('https://script.google.com/macros/s/AKfycbyO_Rh0wzfpLPO83RuPh-mSHfeCmHMbfW1WkazHKbGmUT1RobjNTUTwrmsEhxv5lhit/exec', {
-            method: 'POST',
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-            body: JSON.stringify({
-              action: 'delete_downtime_c',
-              user: { ...(user || {}), line: '2' },
-              data: { original_id, id: original_id }
-            })
-          }).catch(err => console.error('GAS direct delete DT error', err));
         }
+        
         setDtData(prev => {
           const next = prev.filter((_, i) => i !== targetRowIdx);
           dtIds.current = dtIds.current.filter((_, i) => i !== targetRowIdx);
@@ -1019,8 +1035,25 @@ export default function InputC() {
         proses: rowData[DC.PROSES], unit: rowData[DC.UNIT], kasus: rowData[DC.KASUS],
       };
       const apiAction = actionType === 'save' ? 'submit_downtime_c' : 'update_downtime_c';
-      const force_gas = actionType === 'save';
-      const res = await sendAutoSave({ action: apiAction, data: payloadData, user, force_gas });
+      const promises = [];
+      promises.push(sendAutoSave({ action: apiAction, data: payloadData, user, force_gas: false }));
+
+      if (actionType === 'save') {
+        const gasPayload = {
+          action: 'direct_append_dt_c',
+          user: { ...(user || {}), line: '2' },
+          data: { rowData: [...rowData] }
+        };
+        promises.push(fetch('https://script.google.com/macros/s/AKfycbyO_Rh0wzfpLPO83RuPh-mSHfeCmHMbfW1WkazHKbGmUT1RobjNTUTwrmsEhxv5lhit/exec', {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify(gasPayload)
+        }));
+      }
+
+      const results = await Promise.allSettled(promises);
+      const res = results[0].status === 'fulfilled' ? results[0].value : { status: 'error' };
+
       if (res.status === 'success' && res.original_id) {
         dtIds.current[targetRowIdx] = res.original_id;
         localStorage.setItem(LS_IDS_DT, JSON.stringify(dtIds.current));

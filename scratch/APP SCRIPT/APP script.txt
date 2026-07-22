@@ -161,6 +161,8 @@ function doPost(e) {
       
       case "direct_append_c": result = directAppendC(params.data, params.user, userLine); break;
       case "direct_delete_c": result = directDeleteC(params.data, params.user, userLine); break;
+      case "direct_append_dt_c": result = directAppendDtC(params.data, params.user, userLine); break;
+      case "direct_delete_dt_c": result = directDeleteDtC(params.data, params.user, userLine); break;
       
       case "submit_reject_c": result = saveRejectZoneC(params.data, params.user, userLine); break; 
       case "submit_reject_f": result = saveRejectZoneF(params.data, params.user, userLine); break; 
@@ -501,14 +503,11 @@ function directAppendC(data, user, userLine) {
   
   var newRow = Math.max(4, sheet.getLastRow() + 1);
   var userName = (user && user.nama) ? user.nama : "Unknown";
-  var tidbId = data.original_id ? String(data.original_id).trim() : "";
   
   // A = Timestamp, B = Nama User
   sheet.getRange(newRow, 1, 1, 2).setValues([[new Date(), userName]]);
   // C (col 3) to BB (col 54) = 52 elements data
   sheet.getRange(newRow, 3, 1, 52).setValues([rowData]);
-  // BC (col 55) = TiDB original_id, digunakan untuk operasi delete
-  if (tidbId) sheet.getRange(newRow, 55, 1, 1).setValue(tidbId);
   
   SpreadsheetApp.flush();
   return { status: 'success', message: 'Data appended directly to C4:BB4!' };
@@ -519,27 +518,57 @@ function directDeleteC(data, user, userLine) {
   const sheet = ss.getSheetByName(SHEET_DL_REJECT_C);
   if (!sheet) return { status: 'error', message: 'Sheet Missing!' };
   
-  var tidbId = String(data.original_id || data.id || '').trim();
-  if (!tidbId || tidbId === '' || tidbId === 'null') {
-    return { status: 'error', message: 'ID tidak valid untuk delete di Spreadsheet' };
+  var rowNum = parseInt(data.row_number, 10);
+  if (isNaN(rowNum) || rowNum < 4) {
+    return { status: 'error', message: 'Row number tidak valid untuk delete di Spreadsheet' };
   }
   
   var lastRow = sheet.getLastRow();
-  if (lastRow < 4) return { status: 'success', message: 'Sheet kosong, tidak ada yang dihapus' };
+  if (lastRow < rowNum) return { status: 'success', message: 'Baris melebihi batas data, tidak ada yang dihapus' };
   
-  var numRows = lastRow - 4 + 1;
+  sheet.deleteRow(rowNum);
+  SpreadsheetApp.flush();
   
-  // Cari di kolom BC (col 55) = tempat original_id disimpan oleh directAppendC
-  var idCol = sheet.getRange(4, 55, numRows, 1).getValues();
-  for (var i = 0; i < idCol.length; i++) {
-    if (String(idCol[i][0]).trim() === tidbId) {
-      sheet.deleteRow(4 + i);
-      SpreadsheetApp.flush();
-      return { status: 'success', message: 'Row berhasil dihapus dari Spreadsheet! (col BC)' };
-    }
+  return { status: 'success', message: 'Row berhasil dihapus dari Spreadsheet! (Baris ' + rowNum + ')' };
+}
+
+function directAppendDtC(data, user, userLine) {
+  const ss = SpreadsheetApp.openById(getDbIdByLine(userLine));
+  const sheet = ss.getSheetByName(SHEET_DL_DOWNTIME_C);
+  if (!sheet) return { status: 'error', message: 'Sheet Missing!' };
+  
+  var rowData = data.rowData;
+  if (!rowData || !Array.isArray(rowData)) return { status: 'error', message: 'rowData invalid' };
+  
+  if (rowData[0]) rowData[0] = formatTglIndo(rowData[0]);
+  
+  var newRow = Math.max(2, sheet.getLastRow() + 1);
+  var userName = (user && user.nama) ? user.nama : "Unknown";
+  
+  sheet.getRange(newRow, 1, 1, 2).setValues([[new Date(), userName]]);
+  sheet.getRange(newRow, 3, 1, rowData.length).setValues([rowData]);
+  
+  SpreadsheetApp.flush();
+  return { status: 'success', message: 'Data downtime appended directly!' };
+}
+
+function directDeleteDtC(data, user, userLine) {
+  const ss = SpreadsheetApp.openById(getDbIdByLine(userLine));
+  const sheet = ss.getSheetByName(SHEET_DL_DOWNTIME_C);
+  if (!sheet) return { status: 'error', message: 'Sheet Missing!' };
+  
+  var rowNum = parseInt(data.row_number, 10);
+  if (isNaN(rowNum) || rowNum < 2) {
+    return { status: 'error', message: 'Row number tidak valid untuk delete downtime di Spreadsheet' };
   }
   
-  return { status: 'success', message: 'ID tidak ditemukan di kolom BC Spreadsheet, dilewati' };
+  var lastRow = sheet.getLastRow();
+  if (lastRow < rowNum) return { status: 'success', message: 'Baris melebihi batas data, tidak ada yang dihapus' };
+  
+  sheet.deleteRow(rowNum);
+  SpreadsheetApp.flush();
+  
+  return { status: 'success', message: 'Row downtime berhasil dihapus dari Spreadsheet! (Baris ' + rowNum + ')' };
 }
 
 function updateRejectZoneF(data, user, userLine) { return saveRejectZoneF(data, user, userLine); }
