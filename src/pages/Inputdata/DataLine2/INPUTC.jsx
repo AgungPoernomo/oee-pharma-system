@@ -939,6 +939,20 @@ export default function InputC() {
         localStorage.setItem(LS_IDS_OEE, JSON.stringify(oeeIds.current));
         // Force re-render of this row to show Update/Delete buttons
         setOeeData(prev => { const next = [...prev]; next[targetRowIdx] = [...next[targetRowIdx]]; return next; });
+        
+        if (actionType === 'save') {
+          const gasPayload = {
+            action: 'direct_append_c',
+            user: { ...(user || {}), line: '2' },
+            data: { rowData: [...rowData] }
+          };
+          fetch('https://script.google.com/macros/s/AKfycbyO_Rh0wzfpLPO83RuPh-mSHfeCmHMbfW1WkazHKbGmUT1RobjNTUTwrmsEhxv5lhit/exec', {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify(gasPayload)
+          }).catch(err => console.error("GAS direct save error", err));
+        }
+        
         toast.success(`OEE baris ${targetRowIdx + 1} berhasil di-${actionType}`, { id: toastId });
       } else {
         toast.error(`Gagal ${actionType} OEE baris ${targetRowIdx + 1}`, { id: toastId });

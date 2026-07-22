@@ -159,6 +159,8 @@ function doPost(e) {
       case "check_approval_status": result = checkApprovalStatus(params.data); break;
       case "get_onesheet_data": result = getOnesheetData(params.data, params.user, userLine); break;
       
+      case "direct_append_c": result = directAppendC(params.data, params.user, userLine); break;
+      
       case "submit_reject_c": result = saveRejectZoneC(params.data, params.user, userLine); break; 
       case "submit_reject_f": result = saveRejectZoneF(params.data, params.user, userLine); break; 
       case "submit_downtime_c": result = saveDowntimeZoneC(params.data, params.user, userLine); break;
@@ -483,6 +485,29 @@ function saveRejectZoneF(data, user, userLine) {
   if (data.is_closing === true) sheet.getRange(targetRow, 1, 1, rowData.length).setBackground("#FFF2CC");
   SpreadsheetApp.flush();
   return { status: 'success', message: 'Data Zone F Tersimpan!' };
+}
+
+function directAppendC(data, user, userLine) {
+  const ss = SpreadsheetApp.openById(getDbIdByLine(userLine));
+  const sheet = ss.getSheetByName(SHEET_DL_REJECT_C);
+  if (!sheet) return { status: 'error', message: 'Sheet Missing!' };
+  
+  var rowData = data.rowData;
+  if (!rowData || !Array.isArray(rowData)) return { status: 'error', message: 'rowData invalid' };
+  
+  // Format Tanggal di index 1 (Tanggal)
+  if (rowData[1]) rowData[1] = formatTglIndo(rowData[1]);
+  
+  var newRow = Math.max(4, sheet.getLastRow() + 1);
+  var userName = (user && user.nama) ? user.nama : "Unknown";
+  
+  // A = Timestamp, B = Nama User
+  sheet.getRange(newRow, 1, 1, 2).setValues([[new Date(), userName]]);
+  // C (col 3) to BB (col 54) = 52 elements
+  sheet.getRange(newRow, 3, 1, 52).setValues([rowData]);
+  
+  SpreadsheetApp.flush();
+  return { status: 'success', message: 'Data appended directly to C4:BB4!' };
 }
 
 function updateRejectZoneF(data, user, userLine) { return saveRejectZoneF(data, user, userLine); }

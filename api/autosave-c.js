@@ -98,7 +98,8 @@ export default async function handler(req, res) {
   const rawLine = user?.line || user?.plant || "4";
   const lineNum = rawLine.match(/\d+/) ? rawLine.match(/\d+/)[0] : "4";
 
-  const shouldSyncGAS = lineNum === '2' ? force_gas === true : true;
+  // Line 2 now sends data directly from the frontend to Google Spreadsheet.
+  const shouldSyncGAS = lineNum === '2' ? false : true;
 
   let tableName = action.includes('reject') ? `oee_line${lineNum}_zonec` : `downtime_line${lineNum}_zonec`;
 
