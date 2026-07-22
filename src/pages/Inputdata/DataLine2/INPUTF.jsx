@@ -646,6 +646,7 @@ export default function InputF() {
 
   // [BUG-09 FIX] Kunci localStorage per-line (Line 2) agar data antar line tidak saling menimpa
   const LS_OEE = 'F_DATA_OEE_L2', LS_DT = 'F_DATA_DT_L2', LS_IDS_OEE = 'F_IDS_OEE_L2', LS_IDS_DT = 'F_IDS_DT_L2';
+  const LS_GAS_IDS_OEE = 'F_GAS_IDS_OEE_L2', LS_GAS_IDS_DT = 'F_GAS_IDS_DT_L2';
 
   const [oeeData, setOeeData] = useState(() => getCachedData(LS_OEE, getEmptyOEE, 100));
   const [dtData, setDtData] = useState(() => getCachedData(LS_DT, getEmptyDT, 100));
@@ -675,6 +676,8 @@ export default function InputF() {
 
   const oeeIds = useRef(getCachedIds(LS_IDS_OEE));
   const dtIds = useRef(getCachedIds(LS_IDS_DT));
+  const gasOeeIds = useRef(getCachedIds(LS_GAS_IDS_OEE));
+  const gasDtIds = useRef(getCachedIds(LS_GAS_IDS_DT));
   const oeeTimers = useRef({});
   const dtTimers = useRef({});
 
@@ -834,18 +837,45 @@ export default function InputF() {
     const toastId = toast.loading(`Memproses ${actionType} OEE baris ${targetRowIdx + 1}...`);
     try {
       if (actionType === 'delete') {
+        const promises = [];
         if (original_id) {
-          await sendAutoSave({ action: 'delete_reject_f', data: { original_id }, user, force_gas: false });
+          promises.push(sendAutoSave({ action: 'delete_reject_f', data: { original_id }, user, force_gas: false }));
+        }
+
+        const gas_id = gasOeeIds.current[targetRowIdx];
+        if (gas_id) {
+          promises.push(fetch('https://script.google.com/macros/s/AKfycbyO_Rh0wzfpLPO83RuPh-mSHfeCmHMbfW1WkazHKbGmUT1RobjNTUTwrmsEhxv5lhit/exec', {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({
+              action: 'direct_delete_f',
+              user: { ...(user || {}), line: '2' },
+              data: { gas_id }
+            })
+          }));
+        }
+
+        await Promise.allSettled(promises);
+
+        if (original_id) {
           oeeIds.current[targetRowIdx] = null;
           localStorage.setItem(LS_IDS_OEE, JSON.stringify(oeeIds.current));
         }
+        if (gas_id) {
+          gasOeeIds.current[targetRowIdx] = null;
+          localStorage.setItem(LS_GAS_IDS_OEE, JSON.stringify(gasOeeIds.current));
+        }
+
         setOeeData(prev => {
           const next = prev.filter((_, i) => i !== targetRowIdx);
           oeeIds.current = oeeIds.current.filter((_, i) => i !== targetRowIdx);
+          gasOeeIds.current = gasOeeIds.current.filter((_, i) => i !== targetRowIdx);
           next.push(getEmptyOEE());
           oeeIds.current.push(null);
+          gasOeeIds.current.push(null);
           localStorage.setItem(LS_OEE, JSON.stringify(next));
           localStorage.setItem(LS_IDS_OEE, JSON.stringify(oeeIds.current));
+          localStorage.setItem(LS_GAS_IDS_OEE, JSON.stringify(gasOeeIds.current));
           return next;
         });
         toast.success(`Baris ${targetRowIdx + 1} berhasil dihapus`, { id: toastId });
@@ -875,8 +905,33 @@ export default function InputF() {
         process_total: rowData[51],
       };
       const apiAction = actionType === 'save' ? 'submit_reject_f' : 'update_reject_f';
-      const force_gas = actionType === 'save';
-      const res = await sendAutoSave({ action: apiAction, data: payloadData, user, force_gas });
+      const promises = [];
+      promises.push(sendAutoSave({ action: apiAction, data: payloadData, user, force_gas: false }));
+
+      let gas_id = gasOeeIds.current[targetRowIdx];
+      if (actionType === 'save' && !gas_id) {
+        gas_id = `GAS_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
+        gasOeeIds.current[targetRowIdx] = gas_id;
+        localStorage.setItem(LS_GAS_IDS_OEE, JSON.stringify(gasOeeIds.current));
+      }
+
+      if ((actionType === 'save' || actionType === 'update') && gas_id) {
+        const gasAction = actionType === 'save' ? 'direct_append_f' : 'direct_update_f';
+        const gasPayload = {
+          action: gasAction,
+          user: { ...(user || {}), line: '2' },
+          data: { rowData: [...rowData], gas_id }
+        };
+        promises.push(fetch('https://script.google.com/macros/s/AKfycbyO_Rh0wzfpLPO83RuPh-mSHfeCmHMbfW1WkazHKbGmUT1RobjNTUTwrmsEhxv5lhit/exec', {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify(gasPayload)
+        }));
+      }
+
+      const results = await Promise.allSettled(promises);
+      const res = results[0].status === 'fulfilled' ? results[0].value : { status: 'error' };
+
       if (res.status === 'success' && res.original_id) {
         oeeIds.current[targetRowIdx] = res.original_id;
         localStorage.setItem(LS_IDS_OEE, JSON.stringify(oeeIds.current));
@@ -897,18 +952,45 @@ export default function InputF() {
     const toastId = toast.loading(`Memproses ${actionType} Downtime baris ${targetRowIdx + 1}...`);
     try {
       if (actionType === 'delete') {
+        const promises = [];
         if (original_id) {
-          await sendAutoSave({ action: 'delete_downtime_f', data: { original_id }, user, force_gas: false });
+          promises.push(sendAutoSave({ action: 'delete_downtime_f', data: { original_id }, user, force_gas: false }));
+        }
+
+        const gas_id = gasDtIds.current[targetRowIdx];
+        if (gas_id) {
+          promises.push(fetch('https://script.google.com/macros/s/AKfycbyO_Rh0wzfpLPO83RuPh-mSHfeCmHMbfW1WkazHKbGmUT1RobjNTUTwrmsEhxv5lhit/exec', {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({
+              action: 'direct_delete_dt_f',
+              user: { ...(user || {}), line: '2' },
+              data: { gas_id }
+            })
+          }));
+        }
+
+        await Promise.allSettled(promises);
+
+        if (original_id) {
           dtIds.current[targetRowIdx] = null;
           localStorage.setItem(LS_IDS_DT, JSON.stringify(dtIds.current));
         }
+        if (gas_id) {
+          gasDtIds.current[targetRowIdx] = null;
+          localStorage.setItem(LS_GAS_IDS_DT, JSON.stringify(gasDtIds.current));
+        }
+
         setDtData(prev => {
           const next = prev.filter((_, i) => i !== targetRowIdx);
           dtIds.current = dtIds.current.filter((_, i) => i !== targetRowIdx);
+          gasDtIds.current = gasDtIds.current.filter((_, i) => i !== targetRowIdx);
           next.push(getEmptyDT());
           dtIds.current.push(null);
+          gasDtIds.current.push(null);
           localStorage.setItem(LS_DT, JSON.stringify(next));
           localStorage.setItem(LS_IDS_DT, JSON.stringify(dtIds.current));
+          localStorage.setItem(LS_GAS_IDS_DT, JSON.stringify(gasDtIds.current));
           return next;
         });
         toast.success(`Baris ${targetRowIdx + 1} berhasil dihapus`, { id: toastId });
@@ -927,8 +1009,33 @@ export default function InputF() {
         proses: rowData[12], unit: rowData[13], kasus: rowData[14],
       };
       const apiAction = actionType === 'save' ? 'submit_downtime_f' : 'update_downtime_f';
-      const force_gas = actionType === 'save';
-      const res = await sendAutoSave({ action: apiAction, data: payloadData, user, force_gas });
+      const promises = [];
+      promises.push(sendAutoSave({ action: apiAction, data: payloadData, user, force_gas: false }));
+
+      let gas_id = gasDtIds.current[targetRowIdx];
+      if (actionType === 'save' && !gas_id) {
+        gas_id = `GAS_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
+        gasDtIds.current[targetRowIdx] = gas_id;
+        localStorage.setItem(LS_GAS_IDS_DT, JSON.stringify(gasDtIds.current));
+      }
+
+      if ((actionType === 'save' || actionType === 'update') && gas_id) {
+        const gasAction = actionType === 'save' ? 'direct_append_dt_f' : 'direct_update_dt_f';
+        const gasPayload = {
+          action: gasAction,
+          user: { ...(user || {}), line: '2' },
+          data: { rowData: [...rowData], gas_id }
+        };
+        promises.push(fetch('https://script.google.com/macros/s/AKfycbyO_Rh0wzfpLPO83RuPh-mSHfeCmHMbfW1WkazHKbGmUT1RobjNTUTwrmsEhxv5lhit/exec', {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify(gasPayload)
+        }));
+      }
+
+      const results = await Promise.allSettled(promises);
+      const res = results[0].status === 'fulfilled' ? results[0].value : { status: 'error' };
+
       if (res.status === 'success' && res.original_id) {
         dtIds.current[targetRowIdx] = res.original_id;
         localStorage.setItem(LS_IDS_DT, JSON.stringify(dtIds.current));

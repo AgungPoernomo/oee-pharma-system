@@ -166,13 +166,6 @@ function doPost(e) {
       case "direct_delete_dt_c": result = directDeleteDtC(params.data, params.user, userLine); break;
       case "direct_update_dt_c": result = directUpdateDtC(params.data, params.user, userLine); break;
       
-      case "direct_append_f": result = directAppendF(params.data, params.user, userLine); break;
-      case "direct_delete_f": result = directDeleteF(params.data, params.user, userLine); break;
-      case "direct_update_f": result = directUpdateF(params.data, params.user, userLine); break;
-      case "direct_append_dt_f": result = directAppendDtF(params.data, params.user, userLine); break;
-      case "direct_delete_dt_f": result = directDeleteDtF(params.data, params.user, userLine); break;
-      case "direct_update_dt_f": result = directUpdateDtF(params.data, params.user, userLine); break;
-      
       case "submit_reject_c": result = saveRejectZoneC(params.data, params.user, userLine); break; 
       case "submit_reject_f": result = saveRejectZoneF(params.data, params.user, userLine); break; 
       case "submit_downtime_c": result = saveDowntimeZoneC(params.data, params.user, userLine); break;
@@ -631,7 +624,7 @@ function directUpdateDtC(data, user, userLine) {
     }
   }
   
-  return { status: 'error', message: 'ID tidak ditemukan untuk diupdate' };
+  return { status: 'error', message: 'ID tidak ditemukan untuk diupdate downtime' };
 }
 
 function directDeleteDtC(data, user, userLine) {
@@ -640,7 +633,7 @@ function directDeleteDtC(data, user, userLine) {
   if (!sheet) return { status: 'error', message: 'Sheet Missing!' };
   
   var targetId = data.gas_id || data.id_to_delete;
-  if (!targetId) return { status: 'error', message: 'Tidak ada ID yang diberikan untuk dihapus' };
+  if (!targetId) return { status: 'error', message: 'Tidak ada ID yang diberikan untuk dihapus downtime' };
   
   var lastRow = sheet.getLastRow();
   if (lastRow < 2) return { status: 'success', message: 'Sheet kosong, tidak ada yang dihapus' };
@@ -652,167 +645,7 @@ function directDeleteDtC(data, user, userLine) {
     if (String(ids[i][0]).trim() === String(targetId).trim()) {
       sheet.deleteRow(2 + i);
       SpreadsheetApp.flush();
-      return { status: 'success', message: 'Downtime berhasil dihapus! (' + targetId + ')' };
-    }
-  }
-  
-  return { status: 'success', message: 'ID tidak ditemukan, tidak ada yang dihapus' };
-}
-
-function directAppendF(data, user, userLine) {
-  const ss = SpreadsheetApp.openById(getDbIdByLine(userLine));
-  const sheet = ss.getSheetByName(SHEET_DL_REJECT_F);
-  if (!sheet) return { status: 'error', message: 'Sheet Missing!' };
-  
-  var rowData = data.rowData;
-  var gasId = data.gas_id;
-  if (!rowData || !Array.isArray(rowData)) return { status: 'error', message: 'rowData invalid' };
-  
-  if (rowData[1]) rowData[1] = formatTglIndo(rowData[1]);
-  
-  var newRow = Math.max(4, sheet.getLastRow() + 1);
-  var userName = (user && user.nama) ? user.nama : "Unknown";
-  
-  sheet.getRange(newRow, 1, 1, 2).setValues([[new Date(), userName]]);
-  sheet.getRange(newRow, 3, 1, rowData.length).setValues([rowData]);
-  if (gasId) {
-    sheet.getRange(newRow, 85, 1, 1).setValue(gasId);
-  }
-  
-  SpreadsheetApp.flush();
-  return { status: 'success', message: 'Data appended directly with ID ' + gasId };
-}
-
-function directUpdateF(data, user, userLine) {
-  const ss = SpreadsheetApp.openById(getDbIdByLine(userLine));
-  const sheet = ss.getSheetByName(SHEET_DL_REJECT_F);
-  if (!sheet) return { status: 'error', message: 'Sheet Missing!' };
-  
-  var targetId = data.gas_id;
-  var rowData = data.rowData;
-  if (!targetId || !rowData) return { status: 'error', message: 'ID atau data tidak valid' };
-  
-  if (rowData[1]) rowData[1] = formatTglIndo(rowData[1]);
-  
-  var lastRow = sheet.getLastRow();
-  if (lastRow < 4) return { status: 'error', message: 'Sheet kosong' };
-  
-  var numRows = lastRow - 3;
-  var ids = sheet.getRange(4, 85, numRows, 1).getValues();
-  
-  for (var i = 0; i < ids.length; i++) {
-    if (String(ids[i][0]).trim() === String(targetId).trim()) {
-      var targetRow = 4 + i;
-      sheet.getRange(targetRow, 3, 1, rowData.length).setValues([rowData]);
-      var userName = (user && user.nama) ? user.nama : "Unknown";
-      sheet.getRange(targetRow, 1, 1, 2).setValues([[new Date(), userName + " (Updated)"]]);
-      SpreadsheetApp.flush();
-      return { status: 'success', message: 'Data updated for ID ' + targetId };
-    }
-  }
-  
-  return { status: 'error', message: 'ID tidak ditemukan untuk diupdate' };
-}
-
-function directDeleteF(data, user, userLine) {
-  const ss = SpreadsheetApp.openById(getDbIdByLine(userLine));
-  const sheet = ss.getSheetByName(SHEET_DL_REJECT_F);
-  if (!sheet) return { status: 'error', message: 'Sheet Missing!' };
-  
-  var targetId = data.gas_id || data.id_to_delete;
-  if (!targetId) return { status: 'error', message: 'Tidak ada ID yang diberikan untuk dihapus' };
-  
-  var lastRow = sheet.getLastRow();
-  if (lastRow < 4) return { status: 'success', message: 'Sheet kosong, tidak ada yang dihapus' };
-  
-  var numRows = lastRow - 3;
-  var ids = sheet.getRange(4, 85, numRows, 1).getValues();
-  
-  for (var i = 0; i < ids.length; i++) {
-    if (String(ids[i][0]).trim() === String(targetId).trim()) {
-      sheet.deleteRow(4 + i);
-      SpreadsheetApp.flush();
-      return { status: 'success', message: 'Row berhasil dihapus dari Spreadsheet! (' + targetId + ')' };
-    }
-  }
-  
-  return { status: 'success', message: 'ID tidak ditemukan, tidak ada yang dihapus' };
-}
-
-function directAppendDtF(data, user, userLine) {
-  const ss = SpreadsheetApp.openById(getDbIdByLine(userLine));
-  const sheet = ss.getSheetByName(SHEET_DL_DOWNTIME_F);
-  if (!sheet) return { status: 'error', message: 'Sheet Missing!' };
-  
-  var rowData = data.rowData;
-  var gasId = data.gas_id;
-  if (!rowData || !Array.isArray(rowData)) return { status: 'error', message: 'rowData invalid' };
-  
-  if (rowData[0]) rowData[0] = formatTglIndo(rowData[0]);
-  
-  var newRow = Math.max(2, sheet.getLastRow() + 1);
-  var userName = (user && user.nama) ? user.nama : "Unknown";
-  
-  sheet.getRange(newRow, 1, 1, 2).setValues([[new Date(), userName]]);
-  sheet.getRange(newRow, 3, 1, rowData.length).setValues([rowData]);
-  if (gasId) {
-    sheet.getRange(newRow, 18, 1, 1).setValue(gasId);
-  }
-  
-  SpreadsheetApp.flush();
-  return { status: 'success', message: 'Data downtime appended directly!' };
-}
-
-function directUpdateDtF(data, user, userLine) {
-  const ss = SpreadsheetApp.openById(getDbIdByLine(userLine));
-  const sheet = ss.getSheetByName(SHEET_DL_DOWNTIME_F);
-  if (!sheet) return { status: 'error', message: 'Sheet Missing!' };
-  
-  var targetId = data.gas_id;
-  var rowData = data.rowData;
-  if (!targetId || !rowData) return { status: 'error', message: 'ID atau data tidak valid' };
-  
-  if (rowData[0]) rowData[0] = formatTglIndo(rowData[0]);
-  
-  var lastRow = sheet.getLastRow();
-  if (lastRow < 2) return { status: 'error', message: 'Sheet kosong' };
-  
-  var numRows = lastRow - 1;
-  var ids = sheet.getRange(2, 18, numRows, 1).getValues();
-  
-  for (var i = 0; i < ids.length; i++) {
-    if (String(ids[i][0]).trim() === String(targetId).trim()) {
-      var targetRow = 2 + i;
-      sheet.getRange(targetRow, 3, 1, rowData.length).setValues([rowData]);
-      var userName = (user && user.nama) ? user.nama : "Unknown";
-      sheet.getRange(targetRow, 1, 1, 2).setValues([[new Date(), userName + " (Updated)"]]);
-      SpreadsheetApp.flush();
-      return { status: 'success', message: 'Data downtime updated for ID ' + targetId };
-    }
-  }
-  
-  return { status: 'error', message: 'ID tidak ditemukan untuk diupdate' };
-}
-
-function directDeleteDtF(data, user, userLine) {
-  const ss = SpreadsheetApp.openById(getDbIdByLine(userLine));
-  const sheet = ss.getSheetByName(SHEET_DL_DOWNTIME_F);
-  if (!sheet) return { status: 'error', message: 'Sheet Missing!' };
-  
-  var targetId = data.gas_id || data.id_to_delete;
-  if (!targetId) return { status: 'error', message: 'Tidak ada ID yang diberikan untuk dihapus' };
-  
-  var lastRow = sheet.getLastRow();
-  if (lastRow < 2) return { status: 'success', message: 'Sheet kosong, tidak ada yang dihapus' };
-  
-  var numRows = lastRow - 1;
-  var ids = sheet.getRange(2, 18, numRows, 1).getValues();
-  
-  for (var i = 0; i < ids.length; i++) {
-    if (String(ids[i][0]).trim() === String(targetId).trim()) {
-      sheet.deleteRow(2 + i);
-      SpreadsheetApp.flush();
-      return { status: 'success', message: 'Downtime berhasil dihapus! (' + targetId + ')' };
+      return { status: 'success', message: 'Row downtime berhasil dihapus dari Spreadsheet! (' + targetId + ')' };
     }
   }
   

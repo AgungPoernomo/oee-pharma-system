@@ -140,3 +140,8 @@ NO | MASALAH                          | DAMPAK     | PRIORITAS
    Solusi: Cek hasil setiap promise dari Promise.allSettled.
    Jika salah satu gagal, simpan data ke localStorage sebagai
    "pending_sync" dan coba kirim ulang saat berikutnya user membuka halaman.
+
+4. Catatan :
+    Tombol update dan deleted belum bekerja untuk tabel downtime.
+    Berikut adalah variabel data untuk tabel downtime : Tanggal,Shift,Grup,No. Batch,Start (jam),Start (menit),End (jam),End (menit),Sub Total,Planned / Unplanned,Root Cause,Proses,Unit,Kasus,ID.
+    Variabel data tersebut terletak di sel C1:Q1
