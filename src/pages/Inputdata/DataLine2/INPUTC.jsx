@@ -949,7 +949,7 @@ export default function InputC() {
         localStorage.setItem(LS_IDS_OEE, JSON.stringify(oeeIds.current));
         // Force re-render of this row to show Update/Delete buttons
         setOeeData(prev => { const next = [...prev]; next[targetRowIdx] = [...next[targetRowIdx]]; return next; });
-        
+
         if (actionType === 'save') {
           const gasPayload = {
             action: 'direct_append_c',
@@ -962,7 +962,7 @@ export default function InputC() {
             body: JSON.stringify(gasPayload)
           }).catch(err => console.error("GAS direct save error", err));
         }
-        
+
         toast.success(`OEE baris ${targetRowIdx + 1} berhasil di-${actionType}`, { id: toastId });
       } else {
         toast.error(`Gagal ${actionType} OEE baris ${targetRowIdx + 1}`, { id: toastId });
@@ -1908,7 +1908,7 @@ export default function InputC() {
             className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg shadow-md hover:shadow-lg transition-all flex items-center gap-2 text-sm border border-indigo-500"
           >
             <Download size={16} />
-            <span>Download Excel (Downtime)</span>
+            <span>Download (Downtime)</span>
           </button>
         </div>
 
