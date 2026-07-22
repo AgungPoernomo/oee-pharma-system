@@ -73,7 +73,12 @@ const getEmptyDT = () => {
 const getCachedData = (key, emptyGenerator, count = 100) => {
   try {
     const cached = localStorage.getItem(key);
-    if (cached) return JSON.parse(cached);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (Array.isArray(parsed)) {
+        return parsed.map(row => Array.isArray(row) ? row : Object.values(row));
+      }
+    }
   } catch (e) { console.error('Cache read error', e); }
   return Array.from({ length: count }, emptyGenerator);
 };
