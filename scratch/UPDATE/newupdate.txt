@@ -1,1 +1,142 @@
-Sekarang saya ingin anda melakukan perubahan terkait proses backup data menjadi doubel database. Database pertama tetap menggunakan TiDB dan database kedua menggunakan appscript. Sehingga pada awalnya logika backup data adalah sebagai berikut app script mengambil data dari TiDB. Sekarang saya ingin front end melakukan pengiriman data langsung ke spreadsheet. Maka sekarang saya ingin anda memperbarui autosave-c.js dan autosave-f.js untuk mendukung ide saya ini. Dan karena sekarang frontend akan bekerja ektra karena harus mengirimkan 2 data ke 2 sumber yang berbeda yaitu TiDB dan google spreadsheet. Maka saya ingin anda memikirkan cara agar integrasi kedua hal ini dapat berjalan dengan cepat dan efektif tanpa hambatan sedikitpun. Oleh karena itu karena ini adalah konsep baru dan untuk menghindari error kita akan melakukan uji coba khusus Line 3 terlebih dahulu untuk melihat apakah data yang dikirimkan oleh front end ke TiDb dan google spreadsheet dapat berjalan dengan cepat dan efisien. 
+============================================================
+  ANALISA TOMBOL SAVE / UPDATE / DELETE - INPUTC.jsx LINE 2
+  Tanggal Analisa: 22 Juli 2026
+============================================================
+
+FILE YANG DIANALISA:
+  - src/pages/Inputdata/DataLine2/INPUTC.jsx
+  - api/autosave-c.js
+  - scratch/APP SCRIPT/APP script.txt
+
+=== I. ARSITEKTUR DUAL-DATABASE (TiDB + Google Spreadsheet) ===
+
+Sejak pembaruan terakhir, semua aksi tombol di Line 2 sekarang
+mengirim data ke DUA sumber database secara bersamaan (paralel):
+  1. TiDB    : Melalui backend Vercel (api/autosave-c.js)
+  2. GAS/GSheets : Langsung dari frontend ke Google Apps Script URL
+
+Keduanya dieksekusi menggunakan Promise.allSettled() sehingga
+tidak ada yang saling menunggu.
+
+============================================================
+  TABEL OEE (handleActionOEE)
+============================================================
+
+--- [1] TOMBOL SAVE ---
+KONDISI AKTIF : Saat baris belum pernah disimpan (original_id = null)
+FLOW :
+  a. Validasi data kunci (Tanggal, No Batch, Shift, Available Time).
+  b. Jalankan dua proses secara PARALEL :
+     - Kirim ke TiDB via sendAutoSave({ action: 'submit_reject_c' })
+     - Kirim ke Google Spreadsheet via fetch(GAS, action: 'direct_append_c')
+       Payload GAS: array mentah rowData[0..51] (52 kolom)
+  c. Tunggu Promise.allSettled().
+  d. Jika TiDB sukses dan mengembalikan original_id:
+     - Simpan original_id ke oeeIds.current[idx]
+     - Simpan ke localStorage
+     - Re-render baris untuk menampilkan tombol Update & Delete
+     - Tampilkan toast.success
+  e. Jika TiDB gagal: tampilkan toast.error
+
+STATUS SAAT INI : Berjalan dengan benar.
+
+--- [2] TOMBOL UPDATE ---
+KONDISI AKTIF : Saat baris SUDAH tersimpan (original_id != null)
+FLOW :
+  a. Validasi data kunci (sama seperti Save).
+  b. Jalankan HANYA proses TiDB (sendAutoSave action: 'update_reject_c')
+  c. Tunggu hasil.
+  d. Jika sukses: toast.success
+  e. Jika gagal: toast.error
+  
+CATATAN : Update TIDAK mengirim apapun ke Google Spreadsheet.
+  Ini adalah desain yang disengaja karena tidak ada mekanisme
+  "cari baris yang sama lalu update" di GAS.
+
+STATUS SAAT INI : Berjalan dengan benar (untuk TiDB).
+POTENSI MASALAH : Data di Google Spreadsheet TIDAK ikut terupdate
+  ketika tombol Update ditekan. Data lama tetap ada di GSheets.
+
+--- [3] TOMBOL DELETE ---
+KONDISI AKTIF : Saat baris SUDAH tersimpan (original_id != null)
+FLOW :
+  a. Jalankan dua proses secara PARALEL:
+     - Kirim ke TiDB: sendAutoSave({ action: 'delete_reject_c' })
+     - Kirim ke GAS: fetch(GAS, action: 'direct_delete_c')
+       Payload GAS: id_to_delete = "ID" + (targetRowIdx + 1)
+         Contoh: Hapus baris ke-3 di UI → kirim id_to_delete: "ID3"
+  b. Tunggu Promise.allSettled().
+  c. Bersihkan oeeIds dari localStorage.
+  d. Filter baris dari state, geser baris ke atas, tambah baris kosong baru.
+  e. Tampilkan toast.success
+
+Di Sisi Google Apps Script (directDeleteC):
+  - Mencari "ID3" di Kolom BC (kolom 55)
+  - Jika ketemu, hapus baris tersebut
+  - Setelah hapus, REGENERASI ulang semua ID di bulan berjalan
+    (ex: ID4 → ID3, ID5 → ID4, dst.)
+
+STATUS SAAT INI : Desain sudah benar secara teori.
+POTENSI MASALAH :
+  ** KRITIS ** - Sinkronisasi ID antara UI dan GSheets bisa meleset!
+  Contoh skenario masalah:
+    - Baris ke-1 (ID1) dihapus di UI
+    - GSheets hapus "ID1", lalu regenerasi: ID2 → ID1, ID3 → ID2
+    - Di UI, baris ke-2 sebelumnya menjadi baris ke-1 (karena difilter)
+    - TETAPI jika user langsung hapus baris ke-1 lagi di UI (tanpa refresh),
+      maka payload GAS akan mengirim id_to_delete: "ID1"
+      yang sebenarnya adalah data BERBEDA dengan yang dihapus sebelumnya!
+
+============================================================
+  TABEL DOWNTIME (handleActionDT)
+============================================================
+
+--- [1] TOMBOL SAVE ---
+FLOW sama dengan OEE Save, tetapi:
+  - TiDB: action 'submit_downtime_c'
+  - GAS: action 'direct_append_dt_c', ID kolom Q (kolom 17), startRow 2
+
+--- [2] TOMBOL UPDATE ---
+FLOW sama dengan OEE Update. Hanya TiDB yang terupdate.
+GSheets TIDAK terupdate.
+
+--- [3] TOMBOL DELETE ---
+FLOW sama dengan OEE Delete, tetapi:
+  - TiDB: action 'delete_downtime_c'
+  - GAS: action 'direct_delete_dt_c'
+  - Payload GAS: id_to_delete = "ID" + (targetRowIdx + 1)
+  - GAS: mencari di Kolom Q (17), regenerasi setelah hapus
+
+============================================================
+  RINGKASAN MASALAH UTAMA YANG TERIDENTIFIKASI
+============================================================
+
+NO | MASALAH                          | DAMPAK     | PRIORITAS
+---|----------------------------------|------------|----------
+1  | Tombol UPDATE tidak update GSheets| Data stale | MEDIUM
+2  | Potensi ID mismatch saat delete  | Data salah | TINGGI
+   | berulang tanpa refresh           | terhapus   |
+3  | Tidak ada mekanisme retry jika   | Data hilang| MEDIUM
+   | salah satu DB (TiDB/GSheets)     | di satu DB |
+   | gagal saat Save                  |            |
+
+============================================================
+  REKOMENDASI PERBAIKAN
+============================================================
+
+1. MASALAH #2 (Prioritas Tinggi):
+   Solusi: Setelah Delete berhasil, lakukan "resync" state UI
+   dengan memanggil endpoint GAS untuk membaca ulang nomor ID
+   aktual dari GSheets, sehingga ID di state UI selalu sinkron.
+   Atau, simpan referensi ID GSheets (misal "ID3") di state/localStorage
+   per baris, sehingga saat delete, kita selalu mengirim ID yang tepat.
+
+2. MASALAH #1 (Tombol Update):
+   Solusi: Tambahkan aksi 'direct_update_c' di GAS yang menerima
+   id_to_update dan data baru, lalu menimpa baris yang sesuai.
+   Di frontend, saat Update, ikut kirim fetch ke GAS secara paralel.
+
+3. MASALAH #3 (Retry):
+   Solusi: Cek hasil setiap promise dari Promise.allSettled.
+   Jika salah satu gagal, simpan data ke localStorage sebagai
+   "pending_sync" dan coba kirim ulang saat berikutnya user membuka halaman.
