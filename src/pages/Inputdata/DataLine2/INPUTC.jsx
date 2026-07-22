@@ -901,7 +901,7 @@ export default function InputC() {
           body: JSON.stringify({
             action: 'direct_delete_c',
             user: { ...(user || {}), line: '2' },
-            data: { row_number: targetRowIdx + 4 }
+            data: { id_to_delete: "ID" + (targetRowIdx + 1) }
           })
         }));
 
@@ -999,7 +999,7 @@ export default function InputC() {
           body: JSON.stringify({
             action: 'direct_delete_dt_c',
             user: { ...(user || {}), line: '2' },
-            data: { row_number: targetRowIdx + 2 }
+            data: { id_to_delete: "ID" + (targetRowIdx + 1) }
           })
         }));
 

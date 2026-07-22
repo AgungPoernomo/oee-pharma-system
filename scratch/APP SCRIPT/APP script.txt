@@ -490,6 +490,43 @@ function saveRejectZoneF(data, user, userLine) {
   return { status: 'success', message: 'Data Zone F Tersimpan!' };
 }
 
+function regenerateMonthlyIDs(sheet, dateCol, idCol, startRow) {
+  var lastRow = sheet.getLastRow();
+  if (lastRow < startRow) return;
+  
+  var today = new Date();
+  var currentMonth = today.getMonth();
+  var currentYear = today.getFullYear();
+  
+  var numRows = lastRow - startRow + 1;
+  var dates = sheet.getRange(startRow, dateCol, numRows, 1).getValues();
+  var idRange = sheet.getRange(startRow, idCol, numRows, 1);
+  var idValues = idRange.getValues();
+  
+  var counter = 1;
+  var isChanged = false;
+  
+  for (var i = 0; i < dates.length; i++) {
+    var rowDateStr = dates[i][0];
+    if (rowDateStr) {
+      var rowDate = new Date(rowDateStr);
+      if (!isNaN(rowDate.getTime()) && rowDate.getMonth() === currentMonth && rowDate.getFullYear() === currentYear) {
+        var newId = "ID" + counter;
+        if (idValues[i][0] !== newId) {
+          idValues[i][0] = newId;
+          isChanged = true;
+        }
+        counter++;
+      }
+    }
+  }
+  
+  if (isChanged) {
+    idRange.setValues(idValues);
+    SpreadsheetApp.flush();
+  }
+}
+
 function directAppendC(data, user, userLine) {
   const ss = SpreadsheetApp.openById(getDbIdByLine(userLine));
   const sheet = ss.getSheetByName(SHEET_DL_REJECT_C);
@@ -510,6 +547,8 @@ function directAppendC(data, user, userLine) {
   sheet.getRange(newRow, 3, 1, 52).setValues([rowData]);
   
   SpreadsheetApp.flush();
+  regenerateMonthlyIDs(sheet, 4, 55, 4); // Date=D(4), ID=BC(55), startRow=4
+  
   return { status: 'success', message: 'Data appended directly to C4:BB4!' };
 }
 
@@ -518,18 +557,25 @@ function directDeleteC(data, user, userLine) {
   const sheet = ss.getSheetByName(SHEET_DL_REJECT_C);
   if (!sheet) return { status: 'error', message: 'Sheet Missing!' };
   
-  var rowNum = parseInt(data.row_number, 10);
-  if (isNaN(rowNum) || rowNum < 4) {
-    return { status: 'error', message: 'Row number tidak valid untuk delete di Spreadsheet' };
-  }
+  var targetId = data.id_to_delete;
+  if (!targetId) return { status: 'error', message: 'Tidak ada ID yang diberikan untuk dihapus' };
   
   var lastRow = sheet.getLastRow();
-  if (lastRow < rowNum) return { status: 'success', message: 'Baris melebihi batas data, tidak ada yang dihapus' };
+  if (lastRow < 4) return { status: 'success', message: 'Sheet kosong, tidak ada yang dihapus' };
   
-  sheet.deleteRow(rowNum);
-  SpreadsheetApp.flush();
+  var numRows = lastRow - 3;
+  var ids = sheet.getRange(4, 55, numRows, 1).getValues(); // Kolom BC(55)
   
-  return { status: 'success', message: 'Row berhasil dihapus dari Spreadsheet! (Baris ' + rowNum + ')' };
+  for (var i = 0; i < ids.length; i++) {
+    if (String(ids[i][0]).trim() === targetId) {
+      sheet.deleteRow(4 + i);
+      SpreadsheetApp.flush();
+      regenerateMonthlyIDs(sheet, 4, 55, 4);
+      return { status: 'success', message: 'Row berhasil dihapus dari Spreadsheet! (' + targetId + ')' };
+    }
+  }
+  
+  return { status: 'success', message: 'ID tidak ditemukan, tidak ada yang dihapus' };
 }
 
 function directAppendDtC(data, user, userLine) {
@@ -549,6 +595,8 @@ function directAppendDtC(data, user, userLine) {
   sheet.getRange(newRow, 3, 1, rowData.length).setValues([rowData]);
   
   SpreadsheetApp.flush();
+  regenerateMonthlyIDs(sheet, 3, 17, 2); // Date=C(3), ID=Q(17), startRow=2
+  
   return { status: 'success', message: 'Data downtime appended directly!' };
 }
 
@@ -557,18 +605,25 @@ function directDeleteDtC(data, user, userLine) {
   const sheet = ss.getSheetByName(SHEET_DL_DOWNTIME_C);
   if (!sheet) return { status: 'error', message: 'Sheet Missing!' };
   
-  var rowNum = parseInt(data.row_number, 10);
-  if (isNaN(rowNum) || rowNum < 2) {
-    return { status: 'error', message: 'Row number tidak valid untuk delete downtime di Spreadsheet' };
-  }
+  var targetId = data.id_to_delete;
+  if (!targetId) return { status: 'error', message: 'Tidak ada ID yang diberikan untuk dihapus downtime' };
   
   var lastRow = sheet.getLastRow();
-  if (lastRow < rowNum) return { status: 'success', message: 'Baris melebihi batas data, tidak ada yang dihapus' };
+  if (lastRow < 2) return { status: 'success', message: 'Sheet kosong, tidak ada yang dihapus' };
   
-  sheet.deleteRow(rowNum);
-  SpreadsheetApp.flush();
+  var numRows = lastRow - 1;
+  var ids = sheet.getRange(2, 17, numRows, 1).getValues(); // Kolom Q(17)
   
-  return { status: 'success', message: 'Row downtime berhasil dihapus dari Spreadsheet! (Baris ' + rowNum + ')' };
+  for (var i = 0; i < ids.length; i++) {
+    if (String(ids[i][0]).trim() === targetId) {
+      sheet.deleteRow(2 + i);
+      SpreadsheetApp.flush();
+      regenerateMonthlyIDs(sheet, 3, 17, 2);
+      return { status: 'success', message: 'Row downtime berhasil dihapus dari Spreadsheet! (' + targetId + ')' };
+    }
+  }
+  
+  return { status: 'success', message: 'ID tidak ditemukan, tidak ada yang dihapus' };
 }
 
 function updateRejectZoneF(data, user, userLine) { return saveRejectZoneF(data, user, userLine); }
