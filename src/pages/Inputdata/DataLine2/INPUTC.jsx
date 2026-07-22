@@ -895,6 +895,16 @@ export default function InputC() {
           await sendAutoSave({ action: 'delete_reject_c', data: { original_id }, user, force_gas: false });
           oeeIds.current[targetRowIdx] = null;
           localStorage.setItem(LS_IDS_OEE, JSON.stringify(oeeIds.current));
+          // Kirim perintah hapus langsung ke GAS (karena backend Line 2 tidak forward ke GAS)
+          fetch('https://script.google.com/macros/s/AKfycbyO_Rh0wzfpLPO83RuPh-mSHfeCmHMbfW1WkazHKbGmUT1RobjNTUTwrmsEhxv5lhit/exec', {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({
+              action: 'direct_delete_c',
+              user: { ...(user || {}), line: '2' },
+              data: { original_id, id: original_id }
+            })
+          }).catch(err => console.error('GAS direct delete error', err));
         }
         setOeeData(prev => {
           const next = prev.filter((_, i) => i !== targetRowIdx);
@@ -973,6 +983,16 @@ export default function InputC() {
           await sendAutoSave({ action: 'delete_downtime_c', data: { original_id }, user, force_gas: false });
           dtIds.current[targetRowIdx] = null;
           localStorage.setItem(LS_IDS_DT, JSON.stringify(dtIds.current));
+          // Kirim perintah hapus langsung ke GAS
+          fetch('https://script.google.com/macros/s/AKfycbyO_Rh0wzfpLPO83RuPh-mSHfeCmHMbfW1WkazHKbGmUT1RobjNTUTwrmsEhxv5lhit/exec', {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({
+              action: 'delete_downtime_c',
+              user: { ...(user || {}), line: '2' },
+              data: { original_id, id: original_id }
+            })
+          }).catch(err => console.error('GAS direct delete DT error', err));
         }
         setDtData(prev => {
           const next = prev.filter((_, i) => i !== targetRowIdx);
