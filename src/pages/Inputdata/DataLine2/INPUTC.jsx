@@ -904,14 +904,14 @@ export default function InputC() {
             data: { row_number: targetRowIdx + 4 }
           })
         }));
-        
+
         await Promise.allSettled(promises);
-        
+
         if (original_id) {
           oeeIds.current[targetRowIdx] = null;
           localStorage.setItem(LS_IDS_OEE, JSON.stringify(oeeIds.current));
         }
-        
+
         setOeeData(prev => {
           const next = prev.filter((_, i) => i !== targetRowIdx);
           oeeIds.current = oeeIds.current.filter((_, i) => i !== targetRowIdx);
@@ -950,7 +950,7 @@ export default function InputC() {
       const apiAction = actionType === 'save' ? 'submit_reject_c' : 'update_reject_c';
       const promises = [];
       promises.push(sendAutoSave({ action: apiAction, data: payloadData, user, force_gas: false }));
-      
+
       if (actionType === 'save') {
         const gasPayload = {
           action: 'direct_append_c',
@@ -1004,12 +1004,12 @@ export default function InputC() {
         }));
 
         await Promise.allSettled(promises);
-        
+
         if (original_id) {
           dtIds.current[targetRowIdx] = null;
           localStorage.setItem(LS_IDS_DT, JSON.stringify(dtIds.current));
         }
-        
+
         setDtData(prev => {
           const next = prev.filter((_, i) => i !== targetRowIdx);
           dtIds.current = dtIds.current.filter((_, i) => i !== targetRowIdx);
