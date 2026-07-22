@@ -1,4 +1,11 @@
-Uncaught ReferenceError: handleSelectRow is not defined
-    at INPUTF.jsx:1295:36
+Uncaught TypeError: e is not iterable
+    at INPUTC-B-3nOttY.js:1:5701
     at Array.map (<anonymous>)
-    at InputF (INPUTF.jsx:1271:26)
+    at te (INPUTC-B-3nOttY.js:1:5400)
+    at INPUTC-B-3nOttY.js:1:24616
+    at Hc (index-DvaDATjb.js:9:91710)
+    at Ol (index-DvaDATjb.js:9:107775)
+    at Dl (index-DvaDATjb.js:9:107438)
+    at El (index-DvaDATjb.js:9:106719)
+    at Dl (index-DvaDATjb.js:9:107301)
+    at El (index-DvaDATjb.js:9:106719)

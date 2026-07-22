@@ -875,7 +875,7 @@ export default function InputF() {
       if (res.status === 'success' && res.original_id) {
         oeeIds.current[targetRowIdx] = res.original_id;
         localStorage.setItem(LS_IDS_OEE, JSON.stringify(oeeIds.current));
-        setOeeData(prev => { const next = [...prev]; next[targetRowIdx] = { ...next[targetRowIdx] }; return next; });
+        setOeeData(prev => { const next = [...prev]; next[targetRowIdx] = [...next[targetRowIdx]]; return next; });
         toast.success(`OEE baris ${targetRowIdx + 1} berhasil di-${actionType}`, { id: toastId });
       } else {
         toast.error(`Gagal ${actionType} OEE baris ${targetRowIdx + 1}`, { id: toastId });
@@ -927,7 +927,7 @@ export default function InputF() {
       if (res.status === 'success' && res.original_id) {
         dtIds.current[targetRowIdx] = res.original_id;
         localStorage.setItem(LS_IDS_DT, JSON.stringify(dtIds.current));
-        setDtData(prev => { const next = [...prev]; next[targetRowIdx] = { ...next[targetRowIdx] }; return next; });
+        setDtData(prev => { const next = [...prev]; next[targetRowIdx] = [...next[targetRowIdx]]; return next; });
         toast.success(`Downtime baris ${targetRowIdx + 1} berhasil di-${actionType}`, { id: toastId });
       } else {
         toast.error(`Gagal ${actionType} Downtime baris ${targetRowIdx + 1}`, { id: toastId });
