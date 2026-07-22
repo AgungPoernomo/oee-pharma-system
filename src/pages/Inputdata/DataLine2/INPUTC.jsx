@@ -1809,7 +1809,7 @@ export default function InputC() {
             className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg shadow-md hover:shadow-lg transition-all flex items-center gap-2 text-sm border border-emerald-500"
           >
             <Download size={16} />
-            <span>Download Excel (OEE)</span>
+            <span>Download (OEE)</span>
           </button>
         </div>
 
