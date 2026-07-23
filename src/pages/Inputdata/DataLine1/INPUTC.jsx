@@ -553,7 +553,6 @@ const SpreadsheetRow = React.memo(({
   onFinishEdit,
   onCancelEdit,
   onRowContextMenu,
-  onTypingAutoSave,
   onAction
 }) => {
   const prosesValue = gridType === 'dt' ? rowData[DC.PROSES] : '';
@@ -624,9 +623,7 @@ const SpreadsheetRow = React.memo(({
                       el.selectionStart = el.selectionEnd = el.value.length;
                     }
                   }}
-                  onChange={(e) => {
-                    if (onTypingAutoSave) onTypingAutoSave(rowIdx, colIdx, e.target.value, gridType);
-                  }}
+                  
                   onBlur={(e) => onFinishEdit(rowIdx, colIdx, e.target.value, gridType)}
                   onKeyDown={(e) => {
                     e.stopPropagation();
@@ -670,7 +667,7 @@ const SpreadsheetRow = React.memo(({
       })}
       <td
         className="bg-slate-50 z-0 text-center font-bold text-slate-500 border-l border-r border-slate-300 text-xs px-1 select-none whitespace-nowrap align-middle"
-        style={{ minWidth: 70, maxWidth: 70, height: 29 }}
+        style={{ minWidth: 120, maxWidth: 120, height: 29 }}
       >
         {rowId ? (
           <div className="flex flex-col gap-0.5 items-center justify-center h-full">
@@ -700,7 +697,6 @@ const SpreadsheetRow = React.memo(({
   if (prev.editingColIdx !== next.editingColIdx) return false;
   if (prev.editMode !== next.editMode) return false;
   if (prev.editingInitialValue !== next.editingInitialValue) return false;
-  if (prev.onTypingAutoSave !== next.onTypingAutoSave) return false;
 
   if (prev.isSelectedRow || next.isSelectedRow) {
     if (prev.selectionMinCol !== next.selectionMinCol) return false;
@@ -918,39 +914,6 @@ export default function InputC() {
   // Real-time autosave per-keystroke: dipanggil dari onChange input yang sedang aktif diedit.
   // Menggunakan debounce 1 detik agar tidak spam request tiap karakter.
   // Kalkulasi row & simpan ke localStorage langsung; autosave ke server dipanggil via triggerAutosaveOEE/DT.
-  const handleTypingAutoSave = useCallback((rowIdx, colIdx, typingValue, gridType) => {
-    const colsMeta = gridType === 'oee' ? OEE_COLS_META : DT_COLS_META;
-    if (colsMeta[colIdx]?.readOnly) return;
-
-    if (gridType === 'oee') {
-      setOeeData(prev => {
-        const next = [...prev];
-        const targetRow = [...next[rowIdx]];
-        targetRow[colIdx] = typingValue;
-        const calculatedRow = calculateOEERow(targetRow);
-        const recalculatedAll = recalculateAllOEE([...next.slice(0, rowIdx), calculatedRow, ...next.slice(rowIdx + 1)]);
-        recalculatedAll.forEach((row, rIdx) => {
-          if (row !== next[rIdx]) {
-            triggerAutosaveOEE(rIdx, row);
-          }
-        });
-        setTimeout(() => localStorage.setItem(LS_OEE, JSON.stringify(recalculatedAll)), 0);
-        return recalculatedAll;
-      });
-    } else {
-      setDtData(prev => {
-        const next = [...prev];
-        const targetRow = [...next[rowIdx]];
-        targetRow[colIdx] = typingValue;
-        const calculatedRow = calculateDTRow(targetRow);
-        next[rowIdx] = calculatedRow;
-        triggerAutosaveDT(rowIdx, calculatedRow);
-        setTimeout(() => localStorage.setItem(LS_DT, JSON.stringify(next)), 0);
-        return next;
-      });
-    }
-  }, [triggerAutosaveOEE, triggerAutosaveDT]);
-
   const handleUndo = useCallback((gridType) => {
     const histRef = gridType === 'oee' ? oeeHistory : dtHistory;
     const redoRef = gridType === 'oee' ? oeeRedo : dtRedo;
@@ -1470,7 +1433,6 @@ export default function InputC() {
             const calculatedRow = calculateOEERow(targetRow);
             next[rowIdx] = calculatedRow;
             const recalculatedAll = recalculateAllOEE(next);
-            triggerAutosaveOEE(rowIdx, recalculatedAll[rowIdx]);
             setTimeout(() => localStorage.setItem(LS_OEE, JSON.stringify(recalculatedAll)), 0);
             return recalculatedAll;
           }
@@ -1499,7 +1461,6 @@ export default function InputC() {
             if (colIdx === DC.PROSES) targetRow[DC.UNIT] = '';
             const calculatedRow = calculateDTRow(targetRow);
             next[rowIdx] = calculatedRow;
-            triggerAutosaveDT(rowIdx, calculatedRow);
             setTimeout(() => localStorage.setItem(LS_DT, JSON.stringify(next)), 0);
           }
           return next;
@@ -2049,7 +2010,7 @@ export default function InputC() {
                   <th colSpan={6} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Available Time</th>
                   <th colSpan={5} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Run Time</th>
                   <th colSpan={5} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Line Clearance</th>
-                  <th rowSpan={3} className="border-r border-b border-slate-300 px-2 py-1.5 text-center bg-slate-200 text-slate-800" style={{ minWidth: 70, maxWidth: 70 }}>Action</th>
+                  <th rowSpan={3} className="border-r border-b border-slate-300 px-2 py-1.5 text-center bg-slate-200 text-slate-800" style={{ minWidth: 120, maxWidth: 120 }}>Action</th>
                 </tr>
                 <tr>
                   <th colSpan={4} className="border-r border-b border-slate-300 px-2 py-1.5 text-center sticky left-[60px] z-40 bg-slate-100 shadow-[1px_0_0_0_#cbd5e1]"></th>
@@ -2121,7 +2082,6 @@ export default function InputC() {
                             onFinishEdit={handleFinishEdit}
                             onCancelEdit={handleCancelEdit}
                             onRowContextMenu={handleRowContextMenu}
-                            onTypingAutoSave={handleTypingAutoSave}
                             onAction={handleActionOEE}
                           />
                         );
@@ -2184,7 +2144,7 @@ export default function InputC() {
                       </th>
                     );
                   })}
-                  <th className="py-2.5 px-2 text-center leading-tight whitespace-normal break-words bg-indigo-950 text-white" style={{ minWidth: 70, maxWidth: 70 }}>Action</th>
+                  <th className="py-2.5 px-2 text-center leading-tight whitespace-normal break-words bg-indigo-950 text-white" style={{ minWidth: 120, maxWidth: 120 }}>Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -2225,7 +2185,6 @@ export default function InputC() {
                             onFinishEdit={handleFinishEdit}
                             onCancelEdit={handleCancelEdit}
                             onRowContextMenu={handleRowContextMenu}
-                            onTypingAutoSave={handleTypingAutoSave}
                             onAction={handleActionDT}
                           />
                         );

@@ -1,1 +1,2 @@
-Sekarang fokus ke INPUTC.jsx di Line 1. Lokasi tombol tidak benar. Seharusnya tombol berada dipojok paling kanan, bukan di kolom ID.
+1. Perbaiki bug di INPUTC.jsx dan INPUTF.jsx di Line 1 karena terjadi bug ketika saya mencoba menginputkan data hingga semua variabel terpenuhi tanpa saya menekan tombol save. Tiba-tiba tombol action berubah menjadi update dan deleted. Disini samakan cara kerja savae data di Line 1 dengan Line 2.
+2. Perbesar ukuran kolom "Action"

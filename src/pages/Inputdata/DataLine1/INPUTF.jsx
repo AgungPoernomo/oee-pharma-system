@@ -479,7 +479,6 @@ const SpreadsheetRow = React.memo(({
   onFinishEdit,
   onCancelEdit,
   onRowContextMenu,
-  onTypingAutoSave,
   onAction
 }) => {
   const isEditing = editingColIdx !== null;
@@ -552,9 +551,7 @@ const SpreadsheetRow = React.memo(({
                       el.selectionStart = el.selectionEnd = el.value.length;
                     }
                   }}
-                  onChange={(e) => {
-                    if (onTypingAutoSave) onTypingAutoSave(rowIdx, colIdx, e.target.value, gridType);
-                  }}
+                  
                   onBlur={(e) => onFinishEdit(rowIdx, colIdx, e.target.value, gridType)}
                   onKeyDown={(e) => {
                     e.stopPropagation();
@@ -598,7 +595,7 @@ const SpreadsheetRow = React.memo(({
       })}
       <td
         className="bg-slate-50 z-0 text-center font-bold text-slate-500 border-l border-r border-slate-300 text-xs px-1 select-none whitespace-nowrap align-middle"
-        style={{ minWidth: 70, maxWidth: 70, height: 29 }}
+        style={{ minWidth: 120, maxWidth: 120, height: 29 }}
       >
         {rowId ? (
           <div className="flex flex-col gap-0.5 items-center justify-center h-full">
@@ -628,7 +625,6 @@ const SpreadsheetRow = React.memo(({
   if (prev.editingColIdx !== next.editingColIdx) return false;
   if (prev.editMode !== next.editMode) return false;
   if (prev.editingInitialValue !== next.editingInitialValue) return false;
-  if (prev.onTypingAutoSave !== next.onTypingAutoSave) return false;
 
   if (prev.isSelectedRow || next.isSelectedRow) {
     if (prev.selectionMinCol !== next.selectionMinCol) return false;
@@ -841,35 +837,6 @@ export default function InputF() {
       }
     }, 1000);
   }, [line1User]);
-
-  const handleTypingAutoSave = useCallback((rowIdx, colIdx, typingValue, gridType) => {
-    const colsMeta = gridType === 'oee' ? OEE_COLS_META : DT_COLS_META;
-    if (colsMeta[colIdx]?.readOnly) return;
-
-    if (gridType === 'oee') {
-      setOeeData(prev => {
-        const next = [...prev];
-        const targetRow = [...next[rowIdx]];
-        targetRow[colIdx] = typingValue;
-        const calculatedRow = calculateOEERow(targetRow);
-        next[rowIdx] = calculatedRow;
-        triggerAutosaveOEE(rowIdx, calculatedRow);
-        requestAnimationFrame(() => localStorage.setItem(LS_OEE, JSON.stringify(next)));
-        return next;
-      });
-    } else {
-      setDtData(prev => {
-        const next = [...prev];
-        const targetRow = [...next[rowIdx]];
-        targetRow[colIdx] = typingValue;
-        const calculatedRow = calculateDTRow(targetRow);
-        next[rowIdx] = calculatedRow;
-        triggerAutosaveDT(rowIdx, calculatedRow);
-        requestAnimationFrame(() => localStorage.setItem(LS_DT, JSON.stringify(next)));
-        return next;
-      });
-    }
-  }, [triggerAutosaveOEE, triggerAutosaveDT]);
 
   const handleUndo = useCallback((gridType) => {
     const histRef = gridType === 'oee' ? oeeHistory : dtHistory;
@@ -1324,7 +1291,6 @@ export default function InputF() {
             targetRow[colIdx] = value;
             const calculatedRow = calculateOEERow(targetRow);
             next[rowIdx] = calculatedRow;
-            triggerAutosaveOEE(rowIdx, calculatedRow);
             requestAnimationFrame(() => localStorage.setItem(LS_OEE, JSON.stringify(next)));
           }
           return next;
@@ -1352,7 +1318,6 @@ export default function InputF() {
             if (colIdx === 11) targetRow[12] = '';
             const calculatedRow = calculateDTRow(targetRow);
             next[rowIdx] = calculatedRow;
-            triggerAutosaveDT(rowIdx, calculatedRow);
             requestAnimationFrame(() => localStorage.setItem(LS_DT, JSON.stringify(next)));
           }
           return next;
@@ -1925,7 +1890,7 @@ export default function InputF() {
                   <th colSpan={5} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Available Time</th>
                   <th colSpan={1} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">TOTAL per Shift</th>
                   <th colSpan={11} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Process Details</th>
-                  <th rowSpan={3} className="border-r border-b border-slate-300 px-2 py-1.5 text-center bg-slate-200 text-slate-800" style={{ minWidth: 70, maxWidth: 70 }}>Action</th>
+                  <th rowSpan={3} className="border-r border-b border-slate-300 px-2 py-1.5 text-center bg-slate-200 text-slate-800" style={{ minWidth: 120, maxWidth: 120 }}>Action</th>
                 </tr>
                 <tr>
                   <th colSpan={6} className="border-r border-b border-slate-300 px-2 py-1.5 text-center"></th>
@@ -2010,7 +1975,6 @@ export default function InputF() {
                             onFinishEdit={handleFinishEdit}
                             onCancelEdit={handleCancelEdit}
                             onRowContextMenu={handleRowContextMenu}
-                            onTypingAutoSave={handleTypingAutoSave}
                             onAction={handleActionOEE}
                           />
                         );
@@ -2075,7 +2039,7 @@ export default function InputF() {
                       {col.title}
                     </th>
                   ))}
-                  <th className="py-1.5 px-2 bg-slate-200 text-slate-800 font-bold text-center" style={{ minWidth: 70, maxWidth: 70 }}>Action</th>
+                  <th className="py-1.5 px-2 bg-slate-200 text-slate-800 font-bold text-center" style={{ minWidth: 120, maxWidth: 120 }}>Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -2119,7 +2083,6 @@ export default function InputF() {
                             onFinishEdit={handleFinishEdit}
                             onCancelEdit={handleCancelEdit}
                             onRowContextMenu={handleRowContextMenu}
-                            onTypingAutoSave={handleTypingAutoSave}
                             onAction={handleActionDT}
                           />
                         );
