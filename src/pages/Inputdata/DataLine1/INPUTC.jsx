@@ -1003,59 +1003,7 @@ export default function InputC() {
             user: line1User,
             data: {
               gas_id: gas_id,
-              rowData: [
-                '', '',
-                payloadData.no_batch,
-                payloadData.tanggal,
-                payloadData.shift,
-                payloadData.group,
-                payloadData.reject_botol,
-                payloadData.reject_preform,
-                payloadData.reject_blow,
-                payloadData.volume_botol,
-                payloadData.cnt_start,
-                payloadData.cnt_end,
-                payloadData.cnt_sub,
-                payloadData.utuh,
-                payloadData.jml_batch,
-                '',
-                payloadData.r_washing,
-                payloadData.r_vk,
-                payloadData.r_vl,
-                payloadData.r_nocap,
-                payloadData.r_sealnok,
-                payloadData.r_others,
-                payloadData.r_sub,
-                payloadData.s_ipc,
-                payloadData.s_others,
-                payloadData.s_sub,
-                payloadData.trf_st,
-                '', '', '', '',
-                payloadData.pre_bocor,
-                payloadData.pre_nocap,
-                payloadData.pre_vol,
-                payloadData.pre_thermo,
-                payloadData.pre_lain,
-                payloadData.pre_rej_total,
-                payloadData.pre_out,
-                payloadData.av_sh,
-                payloadData.av_sm,
-                payloadData.av_eh,
-                payloadData.av_em,
-                payloadData.av_sub,
-                payloadData.total_avail_shift,
-                payloadData.run_sh,
-                payloadData.run_sm,
-                payloadData.run_eh,
-                payloadData.run_em,
-                payloadData.run_sub,
-                payloadData.lc_sh,
-                payloadData.lc_sm,
-                payloadData.lc_eh,
-                payloadData.lc_em,
-                payloadData.lc_sub,
-                gas_id
-              ]
+              rowData: [...rowData]
             }
           })
         }).then(r => r.json()).catch(() => ({ status: 'error' })));
@@ -1168,24 +1116,7 @@ export default function InputC() {
             user: line1User,
             data: {
               gas_id: gas_id,
-              rowData: [
-                '', '',
-                payloadData.tanggal,
-                payloadData.shift,
-                payloadData.group,
-                payloadData.no_batch,
-                payloadData.start_h,
-                payloadData.start_m,
-                payloadData.end_h,
-                payloadData.end_m,
-                payloadData.duration,
-                payloadData.plan_unplan,
-                payloadData.root_cause,
-                payloadData.proses,
-                payloadData.unit,
-                payloadData.kasus,
-                gas_id
-              ]
+              rowData: [...rowData]
             }
           })
         }).then(r => r.json()).catch(() => ({ status: 'error' })));

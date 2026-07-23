@@ -1,1 +1,1 @@
-Matikan autosave di Line 1
+Saya telah menekan tombol save, namun data tidak berhasil terkirim ke google spreadsheet. data yang terkirim hanyalah timestamp dan source.
