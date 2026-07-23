@@ -2055,7 +2055,7 @@ export default function InputC() {
                 onClick={() => handleAdd1000Rows('dt')}
                 className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded shadow transition-colors text-xs flex items-center gap-1.5 sticky left-2 z-30"
               >
-                <span>+ Tambah Baris</span>
+                <span>+ Baris</span>
               </button>
             </div>
           </div>
