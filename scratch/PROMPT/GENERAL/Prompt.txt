@@ -1,1 +1,1 @@
-1. Lakukan Analisa kenapa Line 1 gagal meniru sistem kerja save, update dan deleted seperti di Line 2
+Perbaiki posisi tombol update dan deleted di Line 1. Buat posisinya bersebelahan bukan saling tumpuk atas dan bawah.

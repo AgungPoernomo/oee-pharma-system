@@ -667,10 +667,10 @@ const SpreadsheetRow = React.memo(({
       })}
       <td
         className="bg-slate-50 z-0 text-center font-bold text-slate-500 border-l border-r border-slate-300 text-xs px-1 select-none whitespace-nowrap align-middle"
-        style={{ minWidth: 120, maxWidth: 120, height: 29 }}
+        style={{ minWidth: 150, maxWidth: 150, height: 29 }}
       >
         {rowId ? (
-          <div className="flex flex-col gap-0.5 items-center justify-center h-full">
+          <div className="flex justify-center gap-1">
             <button
               onClick={(e) => { e.stopPropagation(); onAction && onAction('update', rowIdx); }}
               className="px-2 py-0.5 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded shadow text-[10px] leading-4"
