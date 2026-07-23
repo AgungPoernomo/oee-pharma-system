@@ -676,7 +676,7 @@ function directAppendF(data, user, userLine) {
   sheet.getRange(newRow, 1, 1, 2).setValues([[new Date(), userName]]);
   sheet.getRange(newRow, 3, 1, rowData.length).setValues([rowData]);
   if (gasId) {
-    sheet.getRange(newRow, 85, 1, 1).setValue(gasId);
+    sheet.getRange(newRow, 55, 1, 1).setValue(gasId);
   }
   
   SpreadsheetApp.flush();
@@ -698,7 +698,7 @@ function directUpdateF(data, user, userLine) {
   if (lastRow < 4) return { status: 'error', message: 'Sheet kosong' };
   
   var numRows = lastRow - 3;
-  var ids = sheet.getRange(4, 85, numRows, 1).getValues();
+  var ids = sheet.getRange(4, 55, numRows, 1).getValues();
   
   for (var i = 0; i < ids.length; i++) {
     if (String(ids[i][0]).trim() === String(targetId).trim()) {
@@ -726,7 +726,7 @@ function directDeleteF(data, user, userLine) {
   if (lastRow < 4) return { status: 'success', message: 'Sheet kosong, tidak ada yang dihapus' };
   
   var numRows = lastRow - 3;
-  var ids = sheet.getRange(4, 85, numRows, 1).getValues();
+  var ids = sheet.getRange(4, 55, numRows, 1).getValues();
   
   for (var i = 0; i < ids.length; i++) {
     if (String(ids[i][0]).trim() === String(targetId).trim()) {

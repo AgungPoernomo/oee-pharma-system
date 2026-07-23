@@ -154,7 +154,7 @@ const calculateOEERow = (row) => {
   setV(39, timeDiff(35, 36, 37, 38));
   setV(45, timeDiff(41, 42, 43, 44));
   let lc = timeDiff(46, 47, 48, 49);
-  setV(50, lc); setV(52, lc); setV(53, lc);
+  setV(50, lc);
 
   let rSub = v(45); let lSub = v(50);
   if (rSub > 0 || lSub > 0) setV(51, rSub + lSub);
