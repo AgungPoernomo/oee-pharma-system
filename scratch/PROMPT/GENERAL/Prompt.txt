@@ -1,2 +1,1 @@
-- Data apa yang dikirim oleh frontend ke sel BD.
-- Pada saat saya menekan tombol update data, data tersebut berhasil terupdate. Namun data IDnya berubah menjadi data yang dikirim oleh frontend ke sel BD.
+Sekarang fokus ke INPUTC.jsx di Line 1. Lokasi tombol tidak benar. Seharusnya tombol berada dipojok paling kanan, bukan di kolom ID.

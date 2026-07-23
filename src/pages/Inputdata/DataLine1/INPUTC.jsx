@@ -553,7 +553,8 @@ const SpreadsheetRow = React.memo(({
   onFinishEdit,
   onCancelEdit,
   onRowContextMenu,
-  onTypingAutoSave
+  onTypingAutoSave,
+  onAction
 }) => {
   const prosesValue = gridType === 'dt' ? rowData[DC.PROSES] : '';
   const unitOptions = gridType === 'dt' ? (UNIT_MAP_C[prosesValue] || ALL_UNITS_C) : [];
@@ -561,10 +562,8 @@ const SpreadsheetRow = React.memo(({
   return (
     <tr className="border-b border-slate-200 text-xs hover:bg-slate-50/60" onContextMenu={(e) => onRowContextMenu && onRowContextMenu(e, rowIdx, gridType)}>
       <td
-        className="p-1 bg-slate-200 text-slate-700 font-mono text-center text-xs sticky left-0 z-30 cursor-pointer hover:bg-red-200 hover:text-red-800 transition-colors shadow-[1px_0_0_0_#cbd5e1] font-bold select-none"
-        style={ID_CELL_STYLE}
-        onClick={() => onSelectRow && onSelectRow(rowIdx, gridType)}
-        title="Klik untuk memilih baris ini"
+        className="sticky left-0 bg-slate-200 z-10 text-center font-bold text-slate-500 border-r border-slate-300 text-xs px-1 select-none whitespace-nowrap align-middle"
+        style={{ minWidth: 60, maxWidth: 60, height: 29 }}
       >
         {rowIdx + 1}
       </td>
@@ -669,6 +668,30 @@ const SpreadsheetRow = React.memo(({
           </td>
         );
       })}
+      <td
+        className="bg-slate-50 z-0 text-center font-bold text-slate-500 border-l border-r border-slate-300 text-xs px-1 select-none whitespace-nowrap align-middle"
+        style={{ minWidth: 70, maxWidth: 70, height: 29 }}
+      >
+        {rowId ? (
+          <div className="flex flex-col gap-0.5 items-center justify-center h-full">
+            <button
+              onClick={(e) => { e.stopPropagation(); onAction && onAction('update', rowIdx); }}
+              className="px-2 py-0.5 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded shadow text-[10px] leading-4"
+            >Update</button>
+            <button
+              onClick={(e) => { e.stopPropagation(); onAction && onAction('delete', rowIdx); }}
+              className="px-2 py-0.5 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded shadow text-[10px] leading-4"
+            >Delete</button>
+          </div>
+        ) : (
+          <div className="flex justify-center">
+            <button
+              onClick={(e) => { e.stopPropagation(); onAction && onAction('save', rowIdx); }}
+              className="px-2 py-0.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded shadow text-[10px] leading-4"
+            >Save</button>
+          </div>
+        )}
+      </td>
     </tr>
   );
 }, (prev, next) => {
@@ -693,6 +716,7 @@ export default function InputC() {
 
   // [BUG-09 FIX] Gunakan kunci localStorage per-line agar data antar line tidak saling menimpa
   const LS_OEE = 'C_DATA_OEE_L1', LS_DT = 'C_DATA_DT_L1', LS_IDS_OEE = 'C_IDS_OEE_L1', LS_IDS_DT = 'C_IDS_DT_L1';
+  const LS_GAS_IDS_OEE = 'C_GAS_IDS_OEE_L1', LS_GAS_IDS_DT = 'C_GAS_IDS_DT_L1';
 
   const [oeeData, setOeeData] = useState(() => getCachedData(LS_OEE, getEmptyOEE, 100));
   const [dtData, setDtData] = useState(() => getCachedData(LS_DT, getEmptyDT, 100));
@@ -732,6 +756,8 @@ export default function InputC() {
 
   const oeeIds = useRef(getCachedIds(LS_IDS_OEE));
   const dtIds = useRef(getCachedIds(LS_IDS_DT));
+  const gasOeeIds = useRef(getCachedIds(LS_GAS_IDS_OEE));
+  const gasDtIds = useRef(getCachedIds(LS_GAS_IDS_DT));
   const oeeTimers = useRef({});
   const dtTimers = useRef({});
 
@@ -1027,22 +1053,314 @@ export default function InputC() {
     }
   }, [oeeSelection, dtSelection, line1User]);
 
+  const handleActionOEE = useCallback(async (actionType, targetRowIdx) => {
+    const rowData = oeeData[targetRowIdx];
+    const original_id = oeeIds.current[targetRowIdx] || null;
+    const toastId = toast.loading(`Memproses ${actionType} OEE baris ${targetRowIdx + 1}...`);
+    try {
+      if (actionType === 'delete') {
+        const promises = [];
+        if (original_id) {
+          promises.push(sendAutoSave({ action: 'delete_reject_c', data: { original_id }, user: line1User }));
+        }
+
+        const gas_id = gasOeeIds.current[targetRowIdx];
+        if (gas_id) {
+          promises.push(fetch('https://script.google.com/macros/s/AKfycbyO_Rh0wzfpLPO83RuPh-mSHfeCmHMbfW1WkazHKbGmUT1RobjNTUTwrmsEhxv5lhit/exec', {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({
+              action: 'direct_delete_c',
+              user: line1User,
+              data: { gas_id }
+            })
+          }));
+        }
+
+        await Promise.allSettled(promises);
+
+        oeeIds.current[targetRowIdx] = null;
+        gasOeeIds.current[targetRowIdx] = null;
+        localStorage.setItem(LS_IDS_OEE, JSON.stringify(oeeIds.current));
+        localStorage.setItem(LS_GAS_IDS_OEE, JSON.stringify(gasOeeIds.current));
+
+        setOeeData(prev => {
+          const next = [...prev];
+          next[targetRowIdx] = getEmptyOEE();
+          localStorage.setItem(LS_OEE, JSON.stringify(next));
+          return next;
+        });
+        toast.success(`Baris ${targetRowIdx + 1} berhasil dihapus!`, { id: toastId });
+        return;
+      }
+
+      const payloadData = {
+        original_id: original_id,
+        no_batch: rowData[C.NO_BATCH],
+        tanggal: parseToYMD(rowData[C.TANGGAL]) || rowData[C.TANGGAL],
+        shift: rowData[C.SHIFT],
+        group: rowData[C.GROUP],
+        reject_botol: rowData[C.REJ_BOTOL],
+        reject_preform: rowData[C.REJ_PREFORM],
+        reject_blow: rowData[C.REJ_BLOW],
+        volume_botol: rowData[C.VOL_BOTOL],
+        cnt_start: rowData[C.CNT_START],
+        cnt_end: rowData[C.CNT_END],
+        cnt_sub: rowData[C.CNT_SUB],
+        utuh: rowData[C.UTUH],
+        jml_batch: rowData[C.JML_BATCH],
+        r_washing: rowData[C.WASH],
+        r_vk: rowData[C.VK],
+        r_vl: rowData[C.VL],
+        r_nocap: rowData[C.TANPA_CAP_F],
+        r_sealnok: rowData[C.SEAL_NOK],
+        r_others: rowData[C.OTHERS_F],
+        r_sub: rowData[C.SUB_FILL],
+        s_ipc: rowData[C.IPC],
+        s_others: rowData[C.OTHERS_S],
+        s_sub: rowData[C.SUB_SAMPLES],
+        trf_st: rowData[C.TRF_TO_ST],
+        pre_in: rowData[C.INPUT_STERIL],
+        pre_bocor: rowData[C.REJ_BOCOR],
+        pre_nocap: rowData[C.REJ_TANPA_CAP],
+        pre_vol: rowData[C.REJ_VOL],
+        pre_thermo: rowData[C.REJ_THERMO],
+        pre_lain: rowData[C.REJ_LAINLAIN],
+        pre_rej_total: rowData[C.TOTAL_REJ_BS],
+        pre_out: rowData[C.OUTPUT_CHAMBER],
+        av_sh: rowData[C.AT_SH],
+        av_sm: rowData[C.AT_SM],
+        av_eh: rowData[C.AT_EH],
+        av_em: rowData[C.AT_EM],
+        av_sub: rowData[C.AT_SUB],
+        total_avail_shift: rowData[C.AT_TOTAL],
+        run_sh: rowData[C.RT_SH],
+        run_sm: rowData[C.RT_SM],
+        run_eh: rowData[C.RT_EH],
+        run_em: rowData[C.RT_EM],
+        run_sub: rowData[C.RT_SUB],
+        lc_sh: rowData[C.LC_SH],
+        lc_sm: rowData[C.LC_SM],
+        lc_eh: rowData[C.LC_EH],
+        lc_em: rowData[C.LC_EM],
+        lc_sub: rowData[C.LC_SUB]
+      };
+
+      const tidbAction = original_id ? 'update_reject_c' : 'submit_reject_c';
+      const pTiDB = sendAutoSave({ action: tidbAction, data: payloadData, user: line1User });
+
+      const gas_id = gasOeeIds.current[targetRowIdx] || `GAS_OEE_C_L1_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const gasAction = gasOeeIds.current[targetRowIdx] ? 'direct_update_c' : 'direct_append_c';
+      const pGAS = fetch('https://script.google.com/macros/s/AKfycbyO_Rh0wzfpLPO83RuPh-mSHfeCmHMbfW1WkazHKbGmUT1RobjNTUTwrmsEhxv5lhit/exec', {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          action: gasAction,
+          user: line1User,
+          data: {
+            gas_id: gas_id,
+            rowData: [
+              '', '',
+              payloadData.no_batch,
+              payloadData.tanggal,
+              payloadData.shift,
+              payloadData.group,
+              payloadData.reject_botol,
+              payloadData.reject_preform,
+              payloadData.reject_blow,
+              payloadData.volume_botol,
+              payloadData.cnt_start,
+              payloadData.cnt_end,
+              payloadData.cnt_sub,
+              payloadData.utuh,
+              payloadData.jml_batch,
+              '',
+              payloadData.r_washing,
+              payloadData.r_vk,
+              payloadData.r_vl,
+              payloadData.r_nocap,
+              payloadData.r_sealnok,
+              payloadData.r_others,
+              payloadData.r_sub,
+              payloadData.s_ipc,
+              payloadData.s_others,
+              payloadData.s_sub,
+              payloadData.trf_st,
+              '', '', '', '',
+              payloadData.pre_bocor,
+              payloadData.pre_nocap,
+              payloadData.pre_vol,
+              payloadData.pre_thermo,
+              payloadData.pre_lain,
+              payloadData.pre_rej_total,
+              payloadData.pre_out,
+              payloadData.av_sh,
+              payloadData.av_sm,
+              payloadData.av_eh,
+              payloadData.av_em,
+              payloadData.av_sub,
+              payloadData.total_avail_shift,
+              payloadData.run_sh,
+              payloadData.run_sm,
+              payloadData.run_eh,
+              payloadData.run_em,
+              payloadData.run_sub,
+              payloadData.lc_sh,
+              payloadData.lc_sm,
+              payloadData.lc_eh,
+              payloadData.lc_em,
+              payloadData.lc_sub,
+              gas_id
+            ]
+          }
+        })
+      }).then(r => r.json()).catch(() => ({ status: 'error' }));
+
+      const results = await Promise.allSettled([pTiDB, pGAS]);
+      const resTiDB = results[0].status === 'fulfilled' ? results[0].value : { status: 'error' };
+      const resGAS = results[1].status === 'fulfilled' ? results[1].value : { status: 'error' };
+
+      if (resTiDB?.status === 'success' && resTiDB.original_id) {
+        oeeIds.current[targetRowIdx] = resTiDB.original_id;
+        localStorage.setItem(LS_IDS_OEE, JSON.stringify(oeeIds.current));
+      }
+
+      gasOeeIds.current[targetRowIdx] = gas_id;
+      localStorage.setItem(LS_GAS_IDS_OEE, JSON.stringify(gasOeeIds.current));
+
+      toast.success(`Data baris ${targetRowIdx + 1} berhasil di${actionType === 'save' ? 'simpan' : 'update'}!`, { id: toastId });
+
+    } catch (err) {
+      toast.error(`Gagal memproses baris ${targetRowIdx + 1}`, { id: toastId });
+    }
+  }, [oeeData, line1User]);
+
+  const handleActionDT = useCallback(async (actionType, targetRowIdx) => {
+    const rowData = dtData[targetRowIdx];
+    const original_id = dtIds.current[targetRowIdx] || null;
+    const toastId = toast.loading(`Memproses ${actionType} Downtime baris ${targetRowIdx + 1}...`);
+    try {
+      if (actionType === 'delete') {
+        const promises = [];
+        if (original_id) {
+          promises.push(sendAutoSave({ action: 'delete_downtime_c', data: { original_id }, user: line1User }));
+        }
+
+        const gas_id = gasDtIds.current[targetRowIdx];
+        if (gas_id) {
+          promises.push(fetch('https://script.google.com/macros/s/AKfycbyO_Rh0wzfpLPO83RuPh-mSHfeCmHMbfW1WkazHKbGmUT1RobjNTUTwrmsEhxv5lhit/exec', {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({
+              action: 'direct_delete_dt_c',
+              user: line1User,
+              data: { gas_id }
+            })
+          }));
+        }
+
+        await Promise.allSettled(promises);
+
+        dtIds.current[targetRowIdx] = null;
+        gasDtIds.current[targetRowIdx] = null;
+        localStorage.setItem(LS_IDS_DT, JSON.stringify(dtIds.current));
+        localStorage.setItem(LS_GAS_IDS_DT, JSON.stringify(gasDtIds.current));
+
+        setDtData(prev => {
+          const next = [...prev];
+          next[targetRowIdx] = getEmptyDT();
+          localStorage.setItem(LS_DT, JSON.stringify(next));
+          return next;
+        });
+        toast.success(`Baris ${targetRowIdx + 1} berhasil dihapus!`, { id: toastId });
+        return;
+      }
+
+      const payloadData = {
+        original_id: original_id,
+        tanggal: parseToYMD(rowData[DC.TANGGAL]) || rowData[DC.TANGGAL],
+        shift: rowData[DC.SHIFT],
+        group: rowData[DC.GROUP],
+        no_batch: rowData[DC.NO_BATCH],
+        start_h: rowData[DC.START_H], start_m: rowData[DC.START_M],
+        end_h: rowData[DC.END_H], end_m: rowData[DC.END_M],
+        duration: rowData[DC.DURATION],
+        plan_unplan: rowData[DC.PLAN_UNPLAN],
+        root_cause: rowData[DC.ROOT_CAUSE],
+        proses: rowData[DC.PROSES],
+        unit: rowData[DC.UNIT],
+        kasus: rowData[DC.KASUS]
+      };
+
+      const tidbAction = original_id ? 'update_downtime_c' : 'submit_downtime_c';
+      const pTiDB = sendAutoSave({ action: tidbAction, data: payloadData, user: line1User });
+
+      const gas_id = gasDtIds.current[targetRowIdx] || `GAS_DT_C_L1_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const gasAction = gasDtIds.current[targetRowIdx] ? 'direct_update_dt_c' : 'direct_append_dt_c';
+      const pGAS = fetch('https://script.google.com/macros/s/AKfycbyO_Rh0wzfpLPO83RuPh-mSHfeCmHMbfW1WkazHKbGmUT1RobjNTUTwrmsEhxv5lhit/exec', {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          action: gasAction,
+          user: line1User,
+          data: {
+            gas_id: gas_id,
+            rowData: [
+              '', '',
+              payloadData.tanggal,
+              payloadData.shift,
+              payloadData.group,
+              payloadData.no_batch,
+              payloadData.start_h,
+              payloadData.start_m,
+              payloadData.end_h,
+              payloadData.end_m,
+              payloadData.duration,
+              payloadData.plan_unplan,
+              payloadData.root_cause,
+              payloadData.proses,
+              payloadData.unit,
+              payloadData.kasus,
+              gas_id
+            ]
+          }
+        })
+      }).then(r => r.json()).catch(() => ({ status: 'error' }));
+
+      const results = await Promise.allSettled([pTiDB, pGAS]);
+      const resTiDB = results[0].status === 'fulfilled' ? results[0].value : { status: 'error' };
+
+      if (resTiDB?.status === 'success' && resTiDB.original_id) {
+        dtIds.current[targetRowIdx] = resTiDB.original_id;
+        localStorage.setItem(LS_IDS_DT, JSON.stringify(dtIds.current));
+      }
+
+      gasDtIds.current[targetRowIdx] = gas_id;
+      localStorage.setItem(LS_GAS_IDS_DT, JSON.stringify(gasDtIds.current));
+
+      toast.success(`Downtime baris ${targetRowIdx + 1} berhasil di${actionType === 'save' ? 'simpan' : 'update'}!`, { id: toastId });
+
+    } catch (err) {
+      toast.error(`Gagal memproses baris ${targetRowIdx + 1}`, { id: toastId });
+    }
+  }, [dtData, line1User]);
+
   const handleInsertRow = useCallback((gridType, rowIdx, position) => {
     const idsRef = gridType === 'oee' ? oeeIds : dtIds;
     const setData = gridType === 'oee' ? setOeeData : setDtData;
     const emptyFunc = gridType === 'oee' ? getEmptyOEE : getEmptyDT;
-    
+
     const insertIdx = position === 'above' ? rowIdx : rowIdx + 1;
-    
+
     setData(prev => {
       const next = [...prev];
       next.splice(insertIdx, 0, emptyFunc());
-      
+
       idsRef.current.splice(insertIdx, 0, null);
-      
+
       localStorage.setItem(gridType === 'oee' ? LS_OEE : LS_DT, JSON.stringify(next));
       localStorage.setItem(gridType === 'oee' ? LS_IDS_OEE : LS_IDS_DT, JSON.stringify(idsRef.current));
-      
+
       return next;
     });
   }, []);
@@ -1544,9 +1862,11 @@ export default function InputC() {
 
       let mappedOEE = [];
       let mappedOEEIds = [];
+      let mappedGasOEEIds = [];
       if (resOEE?.status === 'success' && Array.isArray(resOEE.data)) {
         mappedOEE = resOEE.data.filter(filterCurrentMonth).reverse().map((row) => {
           mappedOEEIds.push(row.id);
+          mappedGasOEEIds.push(row.gas_id || null);
           const r = [
             row.no_batch ?? '', parseToYMD(row.tanggal), row.shift ?? '', row.group ?? '', row.reject_botol ?? '', row.reject_preform ?? '',
             row.reject_blow ?? '', row.volume_botol ?? '', row.cnt_start ?? '', row.cnt_end ?? '', row.cnt_sub ?? '', row.utuh ?? 'Y',
@@ -1564,9 +1884,11 @@ export default function InputC() {
 
       let mappedDT = [];
       let mappedDTIds = [];
+      let mappedGasDTIds = [];
       if (resDT?.status === 'success' && Array.isArray(resDT.data)) {
         mappedDT = resDT.data.filter(filterCurrentMonth).reverse().map((row) => {
           mappedDTIds.push(row.id);
+          mappedGasDTIds.push(row.gas_id || null);
           const r = [
             parseToYMD(row.tanggal), row.shift ?? '', row.group ?? '', row.no_batch ?? '', row.start_h ?? '', row.start_m ?? '',
             row.end_h ?? '', row.end_m ?? '', row.duration ?? '', row.plan_unplan ?? 'Unplanned', row.root_cause ?? '', row.proses ?? '',
@@ -1583,7 +1905,9 @@ export default function InputC() {
       const finalDT = [...mappedDT, ...Array.from({ length: EMPTY_ROWS }, getEmptyDT)];
 
       oeeIds.current = [...mappedOEEIds, ...Array(EMPTY_ROWS).fill(null)];
+      gasOeeIds.current = [...mappedGasOEEIds, ...Array(EMPTY_ROWS).fill(null)];
       dtIds.current = [...mappedDTIds, ...Array(EMPTY_ROWS).fill(null)];
+      gasDtIds.current = [...mappedGasDTIds, ...Array(EMPTY_ROWS).fill(null)];
 
       setOeeData(finalOEE);
       setDtData(finalDT);
@@ -1592,6 +1916,8 @@ export default function InputC() {
       localStorage.setItem(LS_DT, JSON.stringify(finalDT));
       localStorage.setItem(LS_IDS_OEE, JSON.stringify(oeeIds.current));
       localStorage.setItem(LS_IDS_DT, JSON.stringify(dtIds.current));
+      localStorage.setItem(LS_GAS_IDS_OEE, JSON.stringify(gasOeeIds.current));
+      localStorage.setItem(LS_GAS_IDS_DT, JSON.stringify(gasDtIds.current));
 
     } catch (error) {
       console.error('[InputC] loadDataServer error:', error);
@@ -1711,7 +2037,7 @@ export default function InputC() {
             <table className="w-max min-w-full border-collapse text-xs table-fixed text-left">
               <thead className="bg-slate-100 text-slate-700 font-semibold shadow-sm sticky top-0 z-40 will-change-transform">
                 <tr>
-                  <th rowSpan={3} style={ID_HEADER_STYLE} className="py-1.5 px-2 bg-slate-200 text-slate-800 font-mono text-center shadow-[1px_0_0_0_#cbd5e1]">ID</th>
+                  <th rowSpan={3} style={ID_HEADER_STYLE} className="py-1.5 px-2 bg-slate-200 text-slate-800 font-mono text-center shadow-[1px_0_0_0_#cbd5e1]">No</th>
                   <th colSpan={4} className="border-r border-b border-slate-300 px-2 py-1.5 text-center sticky left-[60px] z-40 bg-slate-100 shadow-[1px_0_0_0_#cbd5e1]">General Info</th>
                   <th colSpan={4} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Reject Botol & Volume</th>
                   <th colSpan={6} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Counter Filling</th>
@@ -1723,6 +2049,7 @@ export default function InputC() {
                   <th colSpan={6} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Available Time</th>
                   <th colSpan={5} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Run Time</th>
                   <th colSpan={5} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Line Clearance</th>
+                  <th rowSpan={3} className="border-r border-b border-slate-300 px-2 py-1.5 text-center bg-slate-200 text-slate-800" style={{ minWidth: 70, maxWidth: 70 }}>Action</th>
                 </tr>
                 <tr>
                   <th colSpan={4} className="border-r border-b border-slate-300 px-2 py-1.5 text-center sticky left-[60px] z-40 bg-slate-100 shadow-[1px_0_0_0_#cbd5e1]"></th>
@@ -1795,6 +2122,7 @@ export default function InputC() {
                             onCancelEdit={handleCancelEdit}
                             onRowContextMenu={handleRowContextMenu}
                             onTypingAutoSave={handleTypingAutoSave}
+                            onAction={handleActionOEE}
                           />
                         );
                       })}
@@ -1843,7 +2171,7 @@ export default function InputC() {
             <table className="w-max min-w-full border-collapse text-xs table-fixed text-left">
               <thead className="bg-indigo-950 text-white text-[11px] uppercase tracking-wider font-bold sticky top-0 z-20 will-change-transform">
                 <tr className="border-b border-indigo-900 text-center divide-x divide-indigo-900">
-                  <th style={ID_HEADER_STYLE} className="py-2.5 px-2 bg-indigo-950 text-white font-mono text-center shadow-[1px_0_0_0_#312e81]">ID</th>
+                  <th style={ID_HEADER_STYLE} className="py-2.5 px-2 bg-indigo-950 text-white font-mono text-center shadow-[1px_0_0_0_#312e81]">No</th>
                   {DT_COLS_META.map((col, idx) => {
                     const isSticky = col.stickyLeft !== undefined;
                     return (
@@ -1856,6 +2184,7 @@ export default function InputC() {
                       </th>
                     );
                   })}
+                  <th className="py-2.5 px-2 text-center leading-tight whitespace-normal break-words bg-indigo-950 text-white" style={{ minWidth: 70, maxWidth: 70 }}>Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -1897,6 +2226,7 @@ export default function InputC() {
                             onCancelEdit={handleCancelEdit}
                             onRowContextMenu={handleRowContextMenu}
                             onTypingAutoSave={handleTypingAutoSave}
+                            onAction={handleActionDT}
                           />
                         );
                       })}

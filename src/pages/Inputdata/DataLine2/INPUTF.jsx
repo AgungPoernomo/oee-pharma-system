@@ -1151,18 +1151,18 @@ export default function InputF() {
     const idsRef = gridType === 'oee' ? oeeIds : dtIds;
     const setData = gridType === 'oee' ? setOeeData : setDtData;
     const emptyFunc = gridType === 'oee' ? getEmptyOEE : getEmptyDT;
-    
+
     const insertIdx = position === 'above' ? rowIdx : rowIdx + 1;
-    
+
     setData(prev => {
       const next = [...prev];
       next.splice(insertIdx, 0, emptyFunc());
-      
+
       idsRef.current.splice(insertIdx, 0, null);
-      
+
       localStorage.setItem(gridType === 'oee' ? LS_OEE : LS_DT, JSON.stringify(next));
       localStorage.setItem(gridType === 'oee' ? LS_IDS_OEE : LS_IDS_DT, JSON.stringify(idsRef.current));
-      
+
       return next;
     });
   }, []);
@@ -1634,7 +1634,7 @@ export default function InputF() {
         const filteredOEE = [...resOEE.data].reverse().filter(filterCurrentMonth);
         mappedOEE = filteredOEE.map((row) => {
           mappedOEEIds.push(row.id);
-          const arr = Array(55).fill('');
+          const arr = Array(52).fill('');
           arr[0] = row.no_batch ?? '';
           arr[1] = row.lot_no ?? '';
           arr[2] = parseToYMD(row.tanggal);
@@ -1736,7 +1736,7 @@ export default function InputF() {
       if (res?.status === 'success' && Array.isArray(res.data)) {
         const headers = OEE_COLS_META.map(col => col.title);
         const exportRows = res.data.map((row) => {
-          const arr = Array(55).fill('');
+          const arr = Array(52).fill('');
           arr[0] = row.no_batch ?? '';
           arr[1] = row.lot_no ?? '';
           arr[2] = parseToYMD(row.tanggal);
@@ -1857,7 +1857,7 @@ export default function InputF() {
             <table className="w-max min-w-full border-collapse text-xs table-fixed">
               <thead className="bg-slate-100 text-slate-700 font-semibold shadow-sm sticky top-0 z-40">
                 <tr>
-                  <th rowSpan={3} className="py-1.5 px-2 bg-slate-200 text-slate-800 font-mono text-center sticky top-0 left-0 z-50 w-[60px] min-w-[60px] max-w-[60px] shadow-[1px_0_0_0_#cbd5e1]">ID</th>
+                  <th rowSpan={3} className="py-1.5 px-2 bg-slate-200 text-slate-800 font-mono text-center sticky top-0 left-0 z-50 w-[60px] min-w-[60px] max-w-[60px] shadow-[1px_0_0_0_#cbd5e1]">No</th>
                   <th colSpan={6} className="border-r border-b border-slate-300 px-2 py-1.5 text-center sticky left-[60px] z-40 bg-slate-100 shadow-[1px_0_0_0_#cbd5e1]">General Info</th>
                   <th colSpan={9} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Output After Steril</th>
                   <th colSpan={10} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Output Visual Inspeksi</th>
@@ -1985,7 +1985,7 @@ export default function InputF() {
             <table className="w-max min-w-full border-collapse text-xs table-fixed">
               <thead className="bg-slate-100 text-slate-700 font-semibold shadow-sm sticky top-0 z-40">
                 <tr>
-                  <th className="py-2 px-1 bg-slate-200 text-slate-800 font-mono text-center sticky left-0 z-50 w-[60px] min-w-[60px] max-w-[60px] shadow-[1px_0_0_0_#cbd5e1]">ID</th>
+                  <th className="py-2 px-1 bg-slate-200 text-slate-800 font-mono text-center sticky left-0 z-50 w-[60px] min-w-[60px] max-w-[60px] shadow-[1px_0_0_0_#cbd5e1]">No</th>
                   {DT_COLS_META.map((col, idx) => (
                     <th
                       key={idx}

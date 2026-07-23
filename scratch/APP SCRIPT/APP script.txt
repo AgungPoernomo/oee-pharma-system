@@ -279,7 +279,7 @@ function normalizeDateStr(val) {
 
 function findRowByBusinessKeys(sheet, rowData, startRowVal, numRows) {
   var sheetName = sheet.getName().toUpperCase();
-  var maxCols = Math.min(18, sheet.getLastColumn() || 18);
+  var maxCols = Math.min(17, sheet.getLastColumn() || 17);
   var values = sheet.getRange(startRowVal, 1, numRows, maxCols).getValues();
   
   if (sheetName.includes("DOWNTIME")) {
@@ -756,7 +756,7 @@ function directAppendDtF(data, user, userLine) {
   sheet.getRange(newRow, 1, 1, 2).setValues([[new Date(), userName]]);
   sheet.getRange(newRow, 3, 1, rowData.length).setValues([rowData]);
   if (gasId) {
-    sheet.getRange(newRow, 18, 1, 1).setValue(gasId);
+    sheet.getRange(newRow, 17, 1, 1).setValue(gasId);
   }
   
   SpreadsheetApp.flush();
@@ -778,7 +778,7 @@ function directUpdateDtF(data, user, userLine) {
   if (lastRow < 2) return { status: 'error', message: 'Sheet kosong' };
   
   var numRows = lastRow - 1;
-  var ids = sheet.getRange(2, 18, numRows, 1).getValues();
+  var ids = sheet.getRange(2, 17, numRows, 1).getValues();
   
   for (var i = 0; i < ids.length; i++) {
     if (String(ids[i][0]).trim() === String(targetId).trim()) {
@@ -806,7 +806,7 @@ function directDeleteDtF(data, user, userLine) {
   if (lastRow < 2) return { status: 'success', message: 'Sheet kosong, tidak ada yang dihapus' };
   
   var numRows = lastRow - 1;
-  var ids = sheet.getRange(2, 18, numRows, 1).getValues();
+  var ids = sheet.getRange(2, 17, numRows, 1).getValues();
   
   for (var i = 0; i < ids.length; i++) {
     if (String(ids[i][0]).trim() === String(targetId).trim()) {

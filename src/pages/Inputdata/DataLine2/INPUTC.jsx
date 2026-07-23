@@ -898,7 +898,7 @@ export default function InputC() {
         if (original_id) {
           promises.push(sendAutoSave({ action: 'delete_reject_c', data: { original_id }, user, force_gas: false }));
         }
-        
+
         const gas_id = gasOeeIds.current[targetRowIdx];
         if (gas_id) {
           promises.push(fetch('https://script.google.com/macros/s/AKfycbyO_Rh0wzfpLPO83RuPh-mSHfeCmHMbfW1WkazHKbGmUT1RobjNTUTwrmsEhxv5lhit/exec', {
@@ -964,7 +964,7 @@ export default function InputC() {
       const apiAction = actionType === 'save' ? 'submit_reject_c' : 'update_reject_c';
       const promises = [];
       promises.push(sendAutoSave({ action: apiAction, data: payloadData, user, force_gas: false }));
-      
+
       let gas_id = gasOeeIds.current[targetRowIdx];
       if (actionType === 'save' && !gas_id) {
         gas_id = `GAS_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
@@ -1015,7 +1015,7 @@ export default function InputC() {
         if (original_id) {
           promises.push(sendAutoSave({ action: 'delete_downtime_c', data: { original_id }, user, force_gas: false }));
         }
-        
+
         const gas_id = gasDtIds.current[targetRowIdx];
         if (gas_id) {
           promises.push(fetch('https://script.google.com/macros/s/AKfycbyO_Rh0wzfpLPO83RuPh-mSHfeCmHMbfW1WkazHKbGmUT1RobjNTUTwrmsEhxv5lhit/exec', {
@@ -1867,7 +1867,7 @@ export default function InputC() {
             <table className="border-collapse w-max min-w-full text-left">
               <thead className="bg-slate-100 text-slate-700 font-semibold shadow-sm sticky top-0 z-40">
                 <tr>
-                  <th rowSpan={3} className="py-1.5 px-2 bg-slate-200 text-slate-800 font-mono text-center sticky top-0 left-0 z-50 w-[60px] min-w-[60px] max-w-[60px] shadow-[1px_0_0_0_#cbd5e1]">ID</th>
+                  <th rowSpan={3} className="py-1.5 px-2 bg-slate-200 text-slate-800 font-mono text-center sticky top-0 left-0 z-50 w-[60px] min-w-[60px] max-w-[60px] shadow-[1px_0_0_0_#cbd5e1]">No</th>
                   <th colSpan={4} className="border-r border-b border-slate-300 px-2 py-1.5 text-center sticky left-[60px] z-40 bg-slate-100 shadow-[1px_0_0_0_#cbd5e1]">General Info</th>
                   <th colSpan={4} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Reject Botol & Volume</th>
                   <th colSpan={6} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Counter Filling</th>
@@ -1879,7 +1879,7 @@ export default function InputC() {
                   <th colSpan={6} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Available Time</th>
                   <th colSpan={5} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Run Time</th>
                   <th colSpan={5} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Line Clearance</th>
-                  <th colSpan={5} className="border-r border-b border-slate-300 px-2 py-1.5 text-center"></th>
+                  <th rowSpan={3} className="border-r border-b border-slate-300 px-2 py-1.5 text-center bg-slate-200 text-slate-800" style={{ minWidth: 70, maxWidth: 70 }}>Action</th>
                 </tr>
                 <tr>
                   <th colSpan={4} className="border-r border-b border-slate-300 px-2 py-1.5 text-center sticky left-[60px] z-40 bg-slate-100 shadow-[1px_0_0_0_#cbd5e1]"></th>
@@ -1900,7 +1900,6 @@ export default function InputC() {
                   <th colSpan={6} className="border-r border-b border-slate-300 px-2 py-1.5 text-center"></th>
                   <th colSpan={5} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Filling</th>
                   <th colSpan={5} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">CIP Minor</th>
-                  <th colSpan={5} className="border-r border-b border-slate-300 px-2 py-1.5 text-center"></th>
                 </tr>
                 <tr>
                   {OEE_COLS_META.map((col, idx) => (
@@ -1917,12 +1916,6 @@ export default function InputC() {
                       {col.title}
                     </th>
                   ))}
-                  <th
-                    style={{ width: 170, minWidth: 170, maxWidth: 170 }}
-                    className="border-r border-b border-slate-300 px-1 py-2 text-center text-[10px] uppercase tracking-wide bg-slate-100"
-                  >
-                    Aksi
-                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -1999,7 +1992,7 @@ export default function InputC() {
             <table className="border-collapse w-max min-w-full text-left">
               <thead className="bg-indigo-950 text-white text-[11px] uppercase tracking-wider font-bold sticky top-0 z-20">
                 <tr className="border-b border-indigo-900 text-center divide-x divide-indigo-900">
-                  <th className="py-2.5 px-2 bg-indigo-950 text-white font-mono text-center sticky left-0 z-40 w-[60px] min-w-[60px] max-w-[60px] shadow-[1px_0_0_0_#312e81]">ID</th>
+                  <th className="py-2.5 px-2 bg-indigo-950 text-white font-mono text-center shadow-[1px_0_0_0_#312e81]">123</th>
                   {DT_COLS_META.map((col, idx) => {
                     const isSticky = col.stickyLeft !== undefined;
                     const stickyStyle = isSticky ? { position: 'sticky', left: col.stickyLeft, zIndex: 30 } : {};
@@ -2103,7 +2096,7 @@ export default function InputC() {
               }}
               className="w-full px-3 py-2 text-left text-xs font-semibold text-rose-600 hover:bg-rose-50 flex items-center gap-2 transition-colors"
             >
-              <span>🗑️</span>
+              <span></span>
               <span>Delete {contextMenu.gridType === 'oee' ? 'OEE' : 'Downtime'} Row</span>
             </button>
           </div>,

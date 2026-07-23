@@ -479,18 +479,17 @@ const SpreadsheetRow = React.memo(({
   onFinishEdit,
   onCancelEdit,
   onRowContextMenu,
-  onTypingAutoSave
+  onTypingAutoSave,
+  onAction
 }) => {
-  const prosesValue = gridType === 'dt' ? rowData[11] : '';
-  const unitOptions = gridType === 'dt' ? (UNIT_MAP_F[prosesValue] || ALL_UNITS_F) : [];
+  const isEditing = editingColIdx !== null;
+  const unitOptions = gridType === 'dt' ? UNIT_MAP_F : [];
 
   return (
-    <tr className="border-b border-slate-200 text-xs hover:bg-slate-50/60" style={{ height: '29px', maxHeight: '29px' }} onContextMenu={(e) => onRowContextMenu && onRowContextMenu(e, rowIdx, gridType)}>
+    <tr className="border-b border-slate-200 text-xs hover:bg-slate-50/60" onContextMenu={(e) => onRowContextMenu && onRowContextMenu(e, rowIdx, gridType)}>
       <td
-        className="p-1 bg-slate-200 text-slate-700 font-mono text-center text-xs sticky left-0 z-30 cursor-pointer hover:bg-red-200 hover:text-red-800 transition-colors shadow-[1px_0_0_0_#cbd5e1] font-bold select-none"
-        style={{ width: 60, minWidth: 60, maxWidth: 60, position: 'sticky', left: 0, zIndex: 30 }}
-        onClick={() => onSelectRow && onSelectRow(rowIdx, gridType)}
-        title="Klik untuk memilih baris ini"
+        className="sticky left-0 bg-slate-200 z-10 text-center font-bold text-slate-500 border-r border-slate-300 text-xs px-1 select-none whitespace-nowrap align-middle"
+        style={{ minWidth: 60, maxWidth: 60, height: 29 }}
       >
         {rowIdx + 1}
       </td>
@@ -499,13 +498,13 @@ const SpreadsheetRow = React.memo(({
         const isSticky = col.stickyLeft !== undefined;
         const isSelected = isSelectedRow && colIdx >= selectionMinCol && colIdx <= selectionMaxCol;
         const isFillHandleCorner = isSelectedRow && rowIdx === selectionMaxRow && colIdx === selectionMaxCol;
-        const isEditing = editingColIdx === colIdx;
+        const isEditingCell = editingColIdx === colIdx;
 
         const stickyStyle = isSticky ? { position: 'sticky', left: col.stickyLeft, zIndex: 10 } : {};
 
         let bgClass = 'bg-white';
         if (col.readOnly) bgClass = 'bg-slate-100 text-slate-600';
-        if (isSelected && !isEditing) {
+        if (isSelected && !isEditingCell) {
           bgClass = gridType === 'oee' ? 'bg-emerald-100' : 'bg-indigo-100';
         }
         if (isSticky && !isSelected) {
@@ -513,10 +512,10 @@ const SpreadsheetRow = React.memo(({
         }
 
         const borderSticky = isSticky && colIdx === (gridType === 'oee' ? 4 : 3) ? 'shadow-[1px_0_0_0_#cbd5e1]' : '';
-        const selectionRing = isSelected && !isEditing ? (gridType === 'oee' ? 'ring-1 ring-emerald-500 ring-inset' : 'ring-1 ring-indigo-500 ring-inset') : '';
+        const selectionRing = isSelected && !isEditingCell ? (gridType === 'oee' ? 'ring-1 ring-emerald-500 ring-inset' : 'ring-1 ring-indigo-500 ring-inset') : '';
 
-        const initVal = (isEditing && editingInitialValue !== undefined) ? editingInitialValue : val;
-        const relativeClass = (isFillHandleCorner || isEditing) ? 'relative' : '';
+        const initVal = (isEditingCell && editingInitialValue !== undefined) ? editingInitialValue : val;
+        const relativeClass = (isFillHandleCorner || isEditingCell) ? 'relative' : '';
 
         return (
           <td
@@ -529,7 +528,7 @@ const SpreadsheetRow = React.memo(({
             onMouseEnter={() => onCellMouseEnter(rowIdx, colIdx, gridType)}
             onDoubleClick={() => !col.readOnly && onCellDoubleClick(rowIdx, colIdx, gridType)}
           >
-            {isEditing && !col.readOnly ? (
+            {isEditingCell && !col.readOnly ? (
               col.type === 'select' || col.type === 'select_unit' ? (
                 <AutocompleteCombobox
                   initVal={initVal}
@@ -583,7 +582,7 @@ const SpreadsheetRow = React.memo(({
             ) : (
               <div className={`w-full h-7 px-1.5 flex items-center overflow-hidden whitespace-nowrap text-ellipsis cursor-cell ${isFillHandleCorner ? 'relative' : ''}`}>
                 {val}
-                {isFillHandleCorner && !isEditing && (
+                {isFillHandleCorner && !isEditingCell && (
                   <div
                     onMouseDown={(e) => {
                       e.stopPropagation();
@@ -597,6 +596,30 @@ const SpreadsheetRow = React.memo(({
           </td>
         );
       })}
+      <td
+        className="bg-slate-50 z-0 text-center font-bold text-slate-500 border-l border-r border-slate-300 text-xs px-1 select-none whitespace-nowrap align-middle"
+        style={{ minWidth: 70, maxWidth: 70, height: 29 }}
+      >
+        {rowId ? (
+          <div className="flex flex-col gap-0.5 items-center justify-center h-full">
+            <button
+              onClick={(e) => { e.stopPropagation(); onAction && onAction('update', rowIdx); }}
+              className="px-2 py-0.5 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded shadow text-[10px] leading-4"
+            >Update</button>
+            <button
+              onClick={(e) => { e.stopPropagation(); onAction && onAction('delete', rowIdx); }}
+              className="px-2 py-0.5 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded shadow text-[10px] leading-4"
+            >Delete</button>
+          </div>
+        ) : (
+          <div className="flex justify-center">
+            <button
+              onClick={(e) => { e.stopPropagation(); onAction && onAction('save', rowIdx); }}
+              className="px-2 py-0.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded shadow text-[10px] leading-4"
+            >Save</button>
+          </div>
+        )}
+      </td>
     </tr>
   );
 }, (prev, next) => {
@@ -619,8 +642,8 @@ export default function InputF() {
   const { user } = useAuth();
   const line1User = useMemo(() => ({ ...(user || {}), line: "1", plant: "1" }), [user]);
 
-  // [BUG-09 FIX] Gunakan kunci localStorage per-line agar data antar line tidak saling menimpa
   const LS_OEE = 'F_DATA_OEE_L1', LS_DT = 'F_DATA_DT_L1', LS_IDS_OEE = 'F_IDS_OEE_L1', LS_IDS_DT = 'F_IDS_DT_L1';
+  const LS_GAS_IDS_OEE = 'F_GAS_IDS_OEE_L1', LS_GAS_IDS_DT = 'F_GAS_IDS_DT_L1';
 
   const [oeeData, setOeeData] = useState(() => getCachedData(LS_OEE, getEmptyOEE, 100));
   const [dtData, setDtData] = useState(() => getCachedData(LS_DT, getEmptyDT, 100));
@@ -638,10 +661,10 @@ export default function InputF() {
   const ROW_HEIGHT = 29;
   const VISIBLE_ROWS = Math.ceil(700 / ROW_HEIGHT);
   const BUFFER_ROWS = 15;
+  const EMPTY_ROWS = 100;
 
   useEffect(() => {
     const handleCloseMenu = () => setContextMenu(null);
-    // [BUG-07 FIX] Gunakan named handler agar bisa di-removeEventListener dengan benar (cegah memory leak)
     const handleContextMenuClose = (e) => {
       if (!e.target.closest('table')) setContextMenu(null);
     };
@@ -660,6 +683,8 @@ export default function InputF() {
 
   const oeeIds = useRef(getCachedIds(LS_IDS_OEE));
   const dtIds = useRef(getCachedIds(LS_IDS_DT));
+  const gasOeeIds = useRef(getCachedIds(LS_GAS_IDS_OEE));
+  const gasDtIds = useRef(getCachedIds(LS_GAS_IDS_DT));
   const oeeTimers = useRef({});
   const dtTimers = useRef({});
 
@@ -817,9 +842,6 @@ export default function InputF() {
     }, 1000);
   }, [line1User]);
 
-  // Real-time autosave per-keystroke: dipanggil dari onChange input yang sedang aktif diedit.
-  // Menggunakan debounce 1 detik agar tidak spam request tiap karakter.
-  // Kalkulasi row & simpan ke localStorage langsung; autosave ke server dipanggil via triggerAutosaveOEE/DT.
   const handleTypingAutoSave = useCallback((rowIdx, colIdx, typingValue, gridType) => {
     const colsMeta = gridType === 'oee' ? OEE_COLS_META : DT_COLS_META;
     if (colsMeta[colIdx]?.readOnly) return;
@@ -930,13 +952,13 @@ export default function InputF() {
 
     idsRef.current = idsRef.current.filter((_, idx) => idx < minR || idx > maxR);
     const emptyFunc = gridType === 'oee' ? getEmptyOEE : getEmptyDT;
-    while (idsRef.current.length < 50) {
+    while (idsRef.current.length < EMPTY_ROWS) {
       idsRef.current.push(null);
     }
 
     setData(prev => {
       const next = prev.filter((_, idx) => idx < minR || idx > maxR);
-      while (next.length < 50) {
+      while (next.length < EMPTY_ROWS) {
         next.push(emptyFunc());
       }
       localStorage.setItem(gridType === 'oee' ? LS_OEE : LS_DT, JSON.stringify(next));
@@ -951,22 +973,249 @@ export default function InputF() {
     }
   }, [oeeSelection, dtSelection, line1User]);
 
+  const handleActionOEE = useCallback(async (actionType, targetRowIdx) => {
+    const rowData = oeeData[targetRowIdx];
+    const original_id = oeeIds.current[targetRowIdx] || null;
+    const toastId = toast.loading(`Memproses ${actionType} OEE baris ${targetRowIdx + 1}...`);
+    try {
+      if (actionType === 'delete') {
+        const promises = [];
+        if (original_id) {
+          promises.push(sendAutoSave({ action: 'delete_reject_f', data: { original_id }, user: line1User }));
+        }
+
+        const gas_id = gasOeeIds.current[targetRowIdx];
+        if (gas_id) {
+          promises.push(fetch('https://script.google.com/macros/s/AKfycbyO_Rh0wzfpLPO83RuPh-mSHfeCmHMbfW1WkazHKbGmUT1RobjNTUTwrmsEhxv5lhit/exec', {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({
+              action: 'direct_delete_f',
+              user: line1User,
+              data: { gas_id }
+            })
+          }));
+        }
+
+        await Promise.allSettled(promises);
+
+        oeeIds.current[targetRowIdx] = null;
+        gasOeeIds.current[targetRowIdx] = null;
+        localStorage.setItem(LS_IDS_OEE, JSON.stringify(oeeIds.current));
+        localStorage.setItem(LS_GAS_IDS_OEE, JSON.stringify(gasOeeIds.current));
+
+        setOeeData(prev => {
+          const next = [...prev];
+          next[targetRowIdx] = getEmptyOEE();
+          localStorage.setItem(LS_OEE, JSON.stringify(next));
+          return next;
+        });
+        toast.success(`Baris ${targetRowIdx + 1} berhasil dihapus!`, { id: toastId });
+        return;
+      }
+
+      const payloadData = {
+        original_id: original_id,
+        no_batch: rowData[0],
+        lot_no: rowData[1],
+        tanggal: parseToYMD(rowData[2]) || rowData[2],
+        shift: rowData[3],
+        group: rowData[4],
+        volume_botol: rowData[5],
+        steril_in: rowData[6],
+        steril_bocor: rowData[7],
+        steril_h_patah_ring: rowData[8],
+        steril_h_patah_lidah: rowData[9],
+        steril_h_patah_leleh: rowData[10],
+        steril_no_hanger: rowData[11],
+        steril_rej_total: rowData[12],
+        steril_sample: rowData[13],
+        steril_out: rowData[14],
+        vi_start: rowData[15],
+        vi_end: rowData[16],
+        vi_sub: rowData[17],
+        vi_partikel: rowData[19],
+        vi_kotik: rowData[20],
+        vi_rej_total: rowData[21],
+        vi_hasil_baik: rowData[22],
+        vi_qc: rowData[23],
+        vi_tf_packing: rowData[24],
+        pack_reject: rowData[25],
+        pack_hasil_baik: rowData[26],
+        pack_s_qc: rowData[27],
+        pack_s_others: rowData[28],
+        pack_fg: rowData[29],
+        pack_utuh: rowData[30],
+        pack_jml_batch: rowData[31],
+        av_sh: rowData[35],
+        av_sm: rowData[36],
+        av_eh: rowData[37],
+        av_em: rowData[38],
+        av_sub: rowData[39],
+        total_avail_shift: rowData[40],
+        run_sh: rowData[41],
+        run_sm: rowData[42],
+        run_eh: rowData[43],
+        run_em: rowData[44],
+        run_sub: rowData[45],
+        clear_sh: rowData[46],
+        clear_sm: rowData[47],
+        clear_eh: rowData[48],
+        clear_em: rowData[49],
+        clear_sub: rowData[50],
+        process_total: rowData[51]
+      };
+
+      const tidbAction = original_id ? 'update_reject_f' : 'submit_reject_f';
+      const pTiDB = sendAutoSave({ action: tidbAction, data: payloadData, user: line1User });
+
+      const gas_id = gasOeeIds.current[targetRowIdx] || `GAS_OEE_F_L1_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const gasAction = gasOeeIds.current[targetRowIdx] ? 'direct_update_f' : 'direct_append_f';
+
+      const gasRowData = [...rowData];
+
+      const pGAS = fetch('https://script.google.com/macros/s/AKfycbyO_Rh0wzfpLPO83RuPh-mSHfeCmHMbfW1WkazHKbGmUT1RobjNTUTwrmsEhxv5lhit/exec', {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          action: gasAction,
+          user: line1User,
+          data: {
+            gas_id: gas_id,
+            rowData: gasRowData
+          }
+        })
+      }).then(r => r.json()).catch(() => ({ status: 'error' }));
+
+      const results = await Promise.allSettled([pTiDB, pGAS]);
+      const resTiDB = results[0].status === 'fulfilled' ? results[0].value : { status: 'error' };
+
+      if (resTiDB?.status === 'success' && resTiDB.original_id) {
+        oeeIds.current[targetRowIdx] = resTiDB.original_id;
+        localStorage.setItem(LS_IDS_OEE, JSON.stringify(oeeIds.current));
+      }
+
+      gasOeeIds.current[targetRowIdx] = gas_id;
+      localStorage.setItem(LS_GAS_IDS_OEE, JSON.stringify(gasOeeIds.current));
+
+      toast.success(`Data baris ${targetRowIdx + 1} berhasil di${actionType === 'save' ? 'simpan' : 'update'}!`, { id: toastId });
+
+    } catch (err) {
+      toast.error(`Gagal memproses baris ${targetRowIdx + 1}`, { id: toastId });
+    }
+  }, [oeeData, line1User]);
+
+  const handleActionDT = useCallback(async (actionType, targetRowIdx) => {
+    const rowData = dtData[targetRowIdx];
+    const original_id = dtIds.current[targetRowIdx] || null;
+    const toastId = toast.loading(`Memproses ${actionType} Downtime baris ${targetRowIdx + 1}...`);
+    try {
+      if (actionType === 'delete') {
+        const promises = [];
+        if (original_id) {
+          promises.push(sendAutoSave({ action: 'delete_downtime_f', data: { original_id }, user: line1User }));
+        }
+
+        const gas_id = gasDtIds.current[targetRowIdx];
+        if (gas_id) {
+          promises.push(fetch('https://script.google.com/macros/s/AKfycbyO_Rh0wzfpLPO83RuPh-mSHfeCmHMbfW1WkazHKbGmUT1RobjNTUTwrmsEhxv5lhit/exec', {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({
+              action: 'direct_delete_dt_f',
+              user: line1User,
+              data: { gas_id }
+            })
+          }));
+        }
+
+        await Promise.allSettled(promises);
+
+        dtIds.current[targetRowIdx] = null;
+        gasDtIds.current[targetRowIdx] = null;
+        localStorage.setItem(LS_IDS_DT, JSON.stringify(dtIds.current));
+        localStorage.setItem(LS_GAS_IDS_DT, JSON.stringify(gasDtIds.current));
+
+        setDtData(prev => {
+          const next = [...prev];
+          next[targetRowIdx] = getEmptyDT();
+          localStorage.setItem(LS_DT, JSON.stringify(next));
+          return next;
+        });
+        toast.success(`Baris ${targetRowIdx + 1} berhasil dihapus!`, { id: toastId });
+        return;
+      }
+
+      const payloadData = {
+        original_id: original_id,
+        tanggal: parseToYMD(rowData[0]) || rowData[0],
+        shift: rowData[1],
+        group: rowData[2],
+        no_batch: rowData[3],
+        start_h: rowData[4],
+        start_m: rowData[5],
+        end_h: rowData[6],
+        end_m: rowData[7],
+        duration: rowData[8],
+        plan_unplan: rowData[9],
+        root_cause: rowData[10],
+        proses: rowData[11],
+        unit: rowData[12],
+        kasus: rowData[13]
+      };
+
+      const tidbAction = original_id ? 'update_downtime_f' : 'submit_downtime_f';
+      const pTiDB = sendAutoSave({ action: tidbAction, data: payloadData, user: line1User });
+
+      const gas_id = gasDtIds.current[targetRowIdx] || `GAS_DT_F_L1_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const gasAction = gasDtIds.current[targetRowIdx] ? 'direct_update_dt_f' : 'direct_append_dt_f';
+      const pGAS = fetch('https://script.google.com/macros/s/AKfycbyO_Rh0wzfpLPO83RuPh-mSHfeCmHMbfW1WkazHKbGmUT1RobjNTUTwrmsEhxv5lhit/exec', {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          action: gasAction,
+          user: line1User,
+          data: {
+            gas_id: gas_id,
+            rowData: [...rowData]
+          }
+        })
+      }).then(r => r.json()).catch(() => ({ status: 'error' }));
+
+      const results = await Promise.allSettled([pTiDB, pGAS]);
+      const resTiDB = results[0].status === 'fulfilled' ? results[0].value : { status: 'error' };
+
+      if (resTiDB?.status === 'success' && resTiDB.original_id) {
+        dtIds.current[targetRowIdx] = resTiDB.original_id;
+        localStorage.setItem(LS_IDS_DT, JSON.stringify(dtIds.current));
+      }
+
+      gasDtIds.current[targetRowIdx] = gas_id;
+      localStorage.setItem(LS_GAS_IDS_DT, JSON.stringify(gasDtIds.current));
+
+      toast.success(`Downtime baris ${targetRowIdx + 1} berhasil di${actionType === 'save' ? 'simpan' : 'update'}!`, { id: toastId });
+
+    } catch (err) {
+      toast.error(`Gagal memproses baris ${targetRowIdx + 1}`, { id: toastId });
+    }
+  }, [dtData, line1User]);
+
   const handleInsertRow = useCallback((gridType, rowIdx, position) => {
     const idsRef = gridType === 'oee' ? oeeIds : dtIds;
     const setData = gridType === 'oee' ? setOeeData : setDtData;
     const emptyFunc = gridType === 'oee' ? getEmptyOEE : getEmptyDT;
-    
+
     const insertIdx = position === 'above' ? rowIdx : rowIdx + 1;
-    
+
     setData(prev => {
       const next = [...prev];
       next.splice(insertIdx, 0, emptyFunc());
-      
+
       idsRef.current.splice(insertIdx, 0, null);
-      
+
       localStorage.setItem(gridType === 'oee' ? LS_OEE : LS_DT, JSON.stringify(next));
       localStorage.setItem(gridType === 'oee' ? LS_IDS_OEE : LS_IDS_DT, JSON.stringify(idsRef.current));
-      
+
       return next;
     });
   }, []);
@@ -1465,10 +1714,12 @@ export default function InputF() {
 
       let mappedOEE = [];
       let mappedOEEIds = [];
+      let mappedGasOEEIds = [];
       if (resOEE?.status === 'success' && Array.isArray(resOEE.data)) {
         const filteredOEE = [...resOEE.data].reverse().filter(filterCurrentMonth);
         mappedOEE = filteredOEE.map((row) => {
           mappedOEEIds.push(row.id);
+          mappedGasOEEIds.push(row.gas_id || null);
           const arr = Array(52).fill('');
           arr[0] = row.no_batch ?? '';
           arr[1] = row.lot_no ?? '';
@@ -1524,10 +1775,12 @@ export default function InputF() {
 
       let mappedDT = [];
       let mappedDTIds = [];
+      let mappedGasDTIds = [];
       if (resDT?.status === 'success' && Array.isArray(resDT.data)) {
         const filteredDT = [...resDT.data].reverse().filter(filterCurrentMonth);
         mappedDT = filteredDT.map((row) => {
           mappedDTIds.push(row.id);
+          mappedGasDTIds.push(row.gas_id || null);
           return [
             parseToYMD(row.tanggal), row.shift ?? '', row.group ?? '', row.no_batch ?? '', row.start_h ?? '', row.start_m ?? '',
             row.end_h ?? '', row.end_m ?? '', row.duration ?? '', row.plan_unplan ?? 'Unplanned', row.root_cause ?? '', row.proses ?? '',
@@ -1541,19 +1794,23 @@ export default function InputF() {
         return e;
       };
 
-      const finalOEEData = [...mappedOEE, ...Array.from({ length: Math.max(50, 100 - mappedOEE.length) }, getEmptyOEEWithUtuh)];
-      const finalDTData = [...mappedDT, ...Array.from({ length: Math.max(50, 100 - mappedDT.length) }, getEmptyDT)];
+      const finalOEE = [...mappedOEE, ...Array.from({ length: Math.max(50, EMPTY_ROWS - mappedOEE.length) }, getEmptyOEEWithUtuh)];
+      const finalDT = [...mappedDT, ...Array.from({ length: Math.max(50, EMPTY_ROWS - mappedDT.length) }, getEmptyDT)];
 
-      oeeIds.current = [...mappedOEEIds, ...Array(finalOEEData.length - mappedOEEIds.length).fill(null)];
-      dtIds.current = [...mappedDTIds, ...Array(finalDTData.length - mappedDTIds.length).fill(null)];
+      oeeIds.current = [...mappedOEEIds, ...Array(EMPTY_ROWS).fill(null)];
+      gasOeeIds.current = [...mappedGasOEEIds, ...Array(EMPTY_ROWS).fill(null)];
+      dtIds.current = [...mappedDTIds, ...Array(EMPTY_ROWS).fill(null)];
+      gasDtIds.current = [...mappedGasDTIds, ...Array(EMPTY_ROWS).fill(null)];
 
-      setOeeData(finalOEEData);
-      setDtData(finalDTData);
+      setOeeData(finalOEE);
+      setDtData(finalDT);
 
-      localStorage.setItem(LS_OEE, JSON.stringify(finalOEEData));
-      localStorage.setItem(LS_DT, JSON.stringify(finalDTData));
+      localStorage.setItem(LS_OEE, JSON.stringify(finalOEE));
+      localStorage.setItem(LS_DT, JSON.stringify(finalDT));
       localStorage.setItem(LS_IDS_OEE, JSON.stringify(oeeIds.current));
       localStorage.setItem(LS_IDS_DT, JSON.stringify(dtIds.current));
+      localStorage.setItem(LS_GAS_IDS_OEE, JSON.stringify(gasOeeIds.current));
+      localStorage.setItem(LS_GAS_IDS_DT, JSON.stringify(gasDtIds.current));
 
     } catch (error) {
       console.error('Fetch data error:', error);
@@ -1659,7 +1916,7 @@ export default function InputF() {
             <table className="w-max min-w-full border-collapse text-xs table-fixed">
               <thead className="bg-slate-100 text-slate-700 font-semibold shadow-sm sticky top-0 z-40 will-change-transform">
                 <tr>
-                  <th rowSpan={3} className="py-1.5 px-2 bg-slate-200 text-slate-800 font-mono text-center sticky top-0 left-0 z-50 w-[60px] min-w-[60px] max-w-[60px] shadow-[1px_0_0_0_#cbd5e1]">ID</th>
+                  <th rowSpan={3} className="py-1.5 px-2 bg-slate-200 text-slate-800 font-mono text-center sticky top-0 left-0 z-50 w-[60px] min-w-[60px] max-w-[60px] shadow-[1px_0_0_0_#cbd5e1]">No</th>
                   <th colSpan={6} className="border-r border-b border-slate-300 px-2 py-1.5 text-center"></th>
                   <th colSpan={9} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Output After Steril</th>
                   <th colSpan={10} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Output Visual Inspeksi</th>
@@ -1668,6 +1925,7 @@ export default function InputF() {
                   <th colSpan={5} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Available Time</th>
                   <th colSpan={1} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">TOTAL per Shift</th>
                   <th colSpan={11} className="border-r border-b border-slate-300 px-2 py-1.5 text-center">Process Details</th>
+                  <th rowSpan={3} className="border-r border-b border-slate-300 px-2 py-1.5 text-center bg-slate-200 text-slate-800" style={{ minWidth: 70, maxWidth: 70 }}>Action</th>
                 </tr>
                 <tr>
                   <th colSpan={6} className="border-r border-b border-slate-300 px-2 py-1.5 text-center"></th>
@@ -1753,6 +2011,7 @@ export default function InputF() {
                             onCancelEdit={handleCancelEdit}
                             onRowContextMenu={handleRowContextMenu}
                             onTypingAutoSave={handleTypingAutoSave}
+                            onAction={handleActionOEE}
                           />
                         );
                       })}
@@ -1801,7 +2060,7 @@ export default function InputF() {
             <table className="w-max min-w-full border-collapse text-xs table-fixed">
               <thead className="bg-slate-100 text-slate-700 font-semibold shadow-sm sticky top-0 z-40 will-change-transform">
                 <tr>
-                  <th className="py-1.5 px-2 bg-slate-200 text-slate-800 font-mono text-center sticky top-0 left-0 z-50 w-[60px] min-w-[60px] max-w-[60px] shadow-[1px_0_0_0_#cbd5e1]">ID</th>
+                  <th className="py-1.5 px-2 bg-slate-200 text-slate-800 font-mono text-center sticky top-0 left-0 z-50 w-[60px] min-w-[60px] max-w-[60px] shadow-[1px_0_0_0_#cbd5e1]">No</th>
                   {DT_COLS_META.map((col, idx) => (
                     <th
                       key={idx}
@@ -1816,6 +2075,7 @@ export default function InputF() {
                       {col.title}
                     </th>
                   ))}
+                  <th className="py-1.5 px-2 bg-slate-200 text-slate-800 font-bold text-center" style={{ minWidth: 70, maxWidth: 70 }}>Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -1860,6 +2120,7 @@ export default function InputF() {
                             onCancelEdit={handleCancelEdit}
                             onRowContextMenu={handleRowContextMenu}
                             onTypingAutoSave={handleTypingAutoSave}
+                            onAction={handleActionDT}
                           />
                         );
                       })}

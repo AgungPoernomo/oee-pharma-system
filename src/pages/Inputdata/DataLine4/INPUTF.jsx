@@ -1417,7 +1417,7 @@ export default function InputF() {
         const filteredOEE = [...resOEE.data].reverse().filter(filterCurrentMonth);
         mappedOEE = filteredOEE.map((row) => {
           mappedOEEIds.push(row.id);
-          const arr = Array(55).fill('');
+          const arr = Array(52).fill('');
           arr[0] = row.no_batch ?? '';
           arr[1] = row.lot_no ?? '';
           arr[2] = parseToYMD(row.tanggal);
@@ -1519,7 +1519,7 @@ export default function InputF() {
       if (res?.status === 'success' && Array.isArray(res.data)) {
         const headers = OEE_COLS_META.map(col => col.title);
         const exportRows = res.data.map((row) => {
-          const arr = Array(55).fill('');
+          const arr = Array(52).fill('');
           arr[0] = row.no_batch ?? '';
           arr[1] = row.lot_no ?? '';
           arr[2] = parseToYMD(row.tanggal);
