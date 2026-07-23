@@ -1,1 +1,1 @@
-Perbaiki posisi tombol update dan deleted di Line 1. Buat posisinya bersebelahan bukan saling tumpuk atas dan bawah.
+Matikan autosave di Line 1
