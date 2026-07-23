@@ -1,1 +1,1 @@
-Saya telah menekan tombol save, namun data tidak berhasil terkirim ke google spreadsheet. data yang terkirim hanyalah timestamp dan source.
+1. Tombol deleted tidak bekerja untuk OEE (INPUTC.jsx) Line 1

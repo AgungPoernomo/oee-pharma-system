@@ -861,9 +861,13 @@ export default function InputC() {
     }
 
     idsRef.current = idsRef.current.filter((_, idx) => idx < minR || idx > maxR);
+    const gasIdsRef = gridType === 'oee' ? gasOeeIds : gasDtIds;
+    gasIdsRef.current = gasIdsRef.current.filter((_, idx) => idx < minR || idx > maxR);
     const emptyFunc = gridType === 'oee' ? getEmptyOEE : getEmptyDT;
+    
     while (idsRef.current.length < 50) {
       idsRef.current.push(null);
+      gasIdsRef.current.push(null);
     }
 
     setData(prev => {
@@ -873,6 +877,7 @@ export default function InputC() {
       }
       localStorage.setItem(gridType === 'oee' ? LS_OEE : LS_DT, JSON.stringify(next));
       localStorage.setItem(gridType === 'oee' ? LS_IDS_OEE : LS_IDS_DT, JSON.stringify(idsRef.current));
+      localStorage.setItem(gridType === 'oee' ? LS_GAS_IDS_OEE : LS_GAS_IDS_DT, JSON.stringify(gasIdsRef.current));
       return next;
     });
 
@@ -909,21 +914,18 @@ export default function InputC() {
 
         await Promise.allSettled(promises);
 
-        oeeIds.current[targetRowIdx] = null;
-        gasOeeIds.current[targetRowIdx] = null;
+        oeeIds.current = oeeIds.current.filter((_, i) => i !== targetRowIdx);
+        gasOeeIds.current = gasOeeIds.current.filter((_, i) => i !== targetRowIdx);
+        oeeIds.current.push(null);
+        gasOeeIds.current.push(null);
+        
         localStorage.setItem(LS_IDS_OEE, JSON.stringify(oeeIds.current));
         localStorage.setItem(LS_GAS_IDS_OEE, JSON.stringify(gasOeeIds.current));
 
         setOeeData(prev => {
           const next = prev.filter((_, i) => i !== targetRowIdx);
-          oeeIds.current = oeeIds.current.filter((_, i) => i !== targetRowIdx);
-          gasOeeIds.current = gasOeeIds.current.filter((_, i) => i !== targetRowIdx);
           next.push(getEmptyOEE());
-          oeeIds.current.push(null);
-          gasOeeIds.current.push(null);
           localStorage.setItem(LS_OEE, JSON.stringify(next));
-          localStorage.setItem(LS_IDS_OEE, JSON.stringify(oeeIds.current));
-          localStorage.setItem(LS_GAS_IDS_OEE, JSON.stringify(gasOeeIds.current));
           return next;
         });
         toast.success(`Baris ${targetRowIdx + 1} berhasil dihapus!`, { id: toastId });
@@ -1058,21 +1060,18 @@ export default function InputC() {
 
         await Promise.allSettled(promises);
 
-        dtIds.current[targetRowIdx] = null;
-        gasDtIds.current[targetRowIdx] = null;
+        dtIds.current = dtIds.current.filter((_, i) => i !== targetRowIdx);
+        gasDtIds.current = gasDtIds.current.filter((_, i) => i !== targetRowIdx);
+        dtIds.current.push(null);
+        gasDtIds.current.push(null);
+
         localStorage.setItem(LS_IDS_DT, JSON.stringify(dtIds.current));
         localStorage.setItem(LS_GAS_IDS_DT, JSON.stringify(gasDtIds.current));
 
         setDtData(prev => {
           const next = prev.filter((_, i) => i !== targetRowIdx);
-          dtIds.current = dtIds.current.filter((_, i) => i !== targetRowIdx);
-          gasDtIds.current = gasDtIds.current.filter((_, i) => i !== targetRowIdx);
           next.push(getEmptyDT());
-          dtIds.current.push(null);
-          gasDtIds.current.push(null);
           localStorage.setItem(LS_DT, JSON.stringify(next));
-          localStorage.setItem(LS_IDS_DT, JSON.stringify(dtIds.current));
-          localStorage.setItem(LS_GAS_IDS_DT, JSON.stringify(gasDtIds.current));
           return next;
         });
         toast.success(`Baris ${targetRowIdx + 1} berhasil dihapus!`, { id: toastId });
