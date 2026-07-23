@@ -1048,9 +1048,15 @@ export default function InputC() {
         localStorage.setItem(LS_GAS_IDS_OEE, JSON.stringify(gasOeeIds.current));
 
         setOeeData(prev => {
-          const next = [...prev];
-          next[targetRowIdx] = getEmptyOEE();
+          const next = prev.filter((_, i) => i !== targetRowIdx);
+          oeeIds.current = oeeIds.current.filter((_, i) => i !== targetRowIdx);
+          gasOeeIds.current = gasOeeIds.current.filter((_, i) => i !== targetRowIdx);
+          next.push(getEmptyOEE());
+          oeeIds.current.push(null);
+          gasOeeIds.current.push(null);
           localStorage.setItem(LS_OEE, JSON.stringify(next));
+          localStorage.setItem(LS_IDS_OEE, JSON.stringify(oeeIds.current));
+          localStorage.setItem(LS_GAS_IDS_OEE, JSON.stringify(gasOeeIds.current));
           return next;
         });
         toast.success(`Baris ${targetRowIdx + 1} berhasil dihapus!`, { id: toastId });
@@ -1110,88 +1116,101 @@ export default function InputC() {
       };
 
       const tidbAction = original_id ? 'update_reject_c' : 'submit_reject_c';
-      const pTiDB = sendAutoSave({ action: tidbAction, data: payloadData, user: line1User });
+      const promises = [];
+      promises.push(sendAutoSave({ action: tidbAction, data: payloadData, user: line1User }));
 
-      const gas_id = gasOeeIds.current[targetRowIdx] || `GAS_OEE_C_L1_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      const gasAction = gasOeeIds.current[targetRowIdx] ? 'direct_update_c' : 'direct_append_c';
-      const pGAS = fetch('https://script.google.com/macros/s/AKfycbyO_Rh0wzfpLPO83RuPh-mSHfeCmHMbfW1WkazHKbGmUT1RobjNTUTwrmsEhxv5lhit/exec', {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({
-          action: gasAction,
-          user: line1User,
-          data: {
-            gas_id: gas_id,
-            rowData: [
-              '', '',
-              payloadData.no_batch,
-              payloadData.tanggal,
-              payloadData.shift,
-              payloadData.group,
-              payloadData.reject_botol,
-              payloadData.reject_preform,
-              payloadData.reject_blow,
-              payloadData.volume_botol,
-              payloadData.cnt_start,
-              payloadData.cnt_end,
-              payloadData.cnt_sub,
-              payloadData.utuh,
-              payloadData.jml_batch,
-              '',
-              payloadData.r_washing,
-              payloadData.r_vk,
-              payloadData.r_vl,
-              payloadData.r_nocap,
-              payloadData.r_sealnok,
-              payloadData.r_others,
-              payloadData.r_sub,
-              payloadData.s_ipc,
-              payloadData.s_others,
-              payloadData.s_sub,
-              payloadData.trf_st,
-              '', '', '', '',
-              payloadData.pre_bocor,
-              payloadData.pre_nocap,
-              payloadData.pre_vol,
-              payloadData.pre_thermo,
-              payloadData.pre_lain,
-              payloadData.pre_rej_total,
-              payloadData.pre_out,
-              payloadData.av_sh,
-              payloadData.av_sm,
-              payloadData.av_eh,
-              payloadData.av_em,
-              payloadData.av_sub,
-              payloadData.total_avail_shift,
-              payloadData.run_sh,
-              payloadData.run_sm,
-              payloadData.run_eh,
-              payloadData.run_em,
-              payloadData.run_sub,
-              payloadData.lc_sh,
-              payloadData.lc_sm,
-              payloadData.lc_eh,
-              payloadData.lc_em,
-              payloadData.lc_sub,
-              gas_id
-            ]
-          }
-        })
-      }).then(r => r.json()).catch(() => ({ status: 'error' }));
+      let gas_id = gasOeeIds.current[targetRowIdx];
+      if (actionType === 'save' && !gas_id) {
+        gas_id = `GAS_OEE_C_L1_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        gasOeeIds.current[targetRowIdx] = gas_id;
+        localStorage.setItem(LS_GAS_IDS_OEE, JSON.stringify(gasOeeIds.current));
+      }
 
-      const results = await Promise.allSettled([pTiDB, pGAS]);
+      if ((actionType === 'save' || actionType === 'update') && gas_id) {
+        const gasAction = actionType === 'save' ? 'direct_append_c' : 'direct_update_c';
+        promises.push(fetch('https://script.google.com/macros/s/AKfycbyO_Rh0wzfpLPO83RuPh-mSHfeCmHMbfW1WkazHKbGmUT1RobjNTUTwrmsEhxv5lhit/exec', {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({
+            action: gasAction,
+            user: line1User,
+            data: {
+              gas_id: gas_id,
+              rowData: [
+                '', '',
+                payloadData.no_batch,
+                payloadData.tanggal,
+                payloadData.shift,
+                payloadData.group,
+                payloadData.reject_botol,
+                payloadData.reject_preform,
+                payloadData.reject_blow,
+                payloadData.volume_botol,
+                payloadData.cnt_start,
+                payloadData.cnt_end,
+                payloadData.cnt_sub,
+                payloadData.utuh,
+                payloadData.jml_batch,
+                '',
+                payloadData.r_washing,
+                payloadData.r_vk,
+                payloadData.r_vl,
+                payloadData.r_nocap,
+                payloadData.r_sealnok,
+                payloadData.r_others,
+                payloadData.r_sub,
+                payloadData.s_ipc,
+                payloadData.s_others,
+                payloadData.s_sub,
+                payloadData.trf_st,
+                '', '', '', '',
+                payloadData.pre_bocor,
+                payloadData.pre_nocap,
+                payloadData.pre_vol,
+                payloadData.pre_thermo,
+                payloadData.pre_lain,
+                payloadData.pre_rej_total,
+                payloadData.pre_out,
+                payloadData.av_sh,
+                payloadData.av_sm,
+                payloadData.av_eh,
+                payloadData.av_em,
+                payloadData.av_sub,
+                payloadData.total_avail_shift,
+                payloadData.run_sh,
+                payloadData.run_sm,
+                payloadData.run_eh,
+                payloadData.run_em,
+                payloadData.run_sub,
+                payloadData.lc_sh,
+                payloadData.lc_sm,
+                payloadData.lc_eh,
+                payloadData.lc_em,
+                payloadData.lc_sub,
+                gas_id
+              ]
+            }
+          })
+        }).then(r => r.json()).catch(() => ({ status: 'error' })));
+      }
+
+      const results = await Promise.allSettled(promises);
       const resTiDB = results[0].status === 'fulfilled' ? results[0].value : { status: 'error' };
-      const resGAS = results[1].status === 'fulfilled' ? results[1].value : { status: 'error' };
 
       if (resTiDB?.status === 'success' && resTiDB.original_id) {
         oeeIds.current[targetRowIdx] = resTiDB.original_id;
         localStorage.setItem(LS_IDS_OEE, JSON.stringify(oeeIds.current));
+        // Force re-render baris ini agar tombol berubah ke Update/Delete (seperti Line 2)
+        setOeeData(prev => { const next = [...prev]; next[targetRowIdx] = [...next[targetRowIdx]]; return next; });
+        toast.success(`Data baris ${targetRowIdx + 1} berhasil di${actionType === 'save' ? 'simpan' : 'update'}!`, { id: toastId });
+      } else {
+        toast.error(`Gagal menyimpan data baris ${targetRowIdx + 1}. Coba lagi.`, { id: toastId });
       }
 
-      gasOeeIds.current[targetRowIdx] = gas_id;
-      localStorage.setItem(LS_GAS_IDS_OEE, JSON.stringify(gasOeeIds.current));
-
-      toast.success(`Data baris ${targetRowIdx + 1} berhasil di${actionType === 'save' ? 'simpan' : 'update'}!`, { id: toastId });
+      if (gas_id) {
+        gasOeeIds.current[targetRowIdx] = gas_id;
+        localStorage.setItem(LS_GAS_IDS_OEE, JSON.stringify(gasOeeIds.current));
+      }
 
     } catch (err) {
       toast.error(`Gagal memproses baris ${targetRowIdx + 1}`, { id: toastId });
@@ -1230,9 +1249,15 @@ export default function InputC() {
         localStorage.setItem(LS_GAS_IDS_DT, JSON.stringify(gasDtIds.current));
 
         setDtData(prev => {
-          const next = [...prev];
-          next[targetRowIdx] = getEmptyDT();
+          const next = prev.filter((_, i) => i !== targetRowIdx);
+          dtIds.current = dtIds.current.filter((_, i) => i !== targetRowIdx);
+          gasDtIds.current = gasDtIds.current.filter((_, i) => i !== targetRowIdx);
+          next.push(getEmptyDT());
+          dtIds.current.push(null);
+          gasDtIds.current.push(null);
           localStorage.setItem(LS_DT, JSON.stringify(next));
+          localStorage.setItem(LS_IDS_DT, JSON.stringify(dtIds.current));
+          localStorage.setItem(LS_GAS_IDS_DT, JSON.stringify(gasDtIds.current));
           return next;
         });
         toast.success(`Baris ${targetRowIdx + 1} berhasil dihapus!`, { id: toastId });
@@ -1256,52 +1281,66 @@ export default function InputC() {
       };
 
       const tidbAction = original_id ? 'update_downtime_c' : 'submit_downtime_c';
-      const pTiDB = sendAutoSave({ action: tidbAction, data: payloadData, user: line1User });
+      const dtPromises = [];
+      dtPromises.push(sendAutoSave({ action: tidbAction, data: payloadData, user: line1User }));
 
-      const gas_id = gasDtIds.current[targetRowIdx] || `GAS_DT_C_L1_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      const gasAction = gasDtIds.current[targetRowIdx] ? 'direct_update_dt_c' : 'direct_append_dt_c';
-      const pGAS = fetch('https://script.google.com/macros/s/AKfycbyO_Rh0wzfpLPO83RuPh-mSHfeCmHMbfW1WkazHKbGmUT1RobjNTUTwrmsEhxv5lhit/exec', {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({
-          action: gasAction,
-          user: line1User,
-          data: {
-            gas_id: gas_id,
-            rowData: [
-              '', '',
-              payloadData.tanggal,
-              payloadData.shift,
-              payloadData.group,
-              payloadData.no_batch,
-              payloadData.start_h,
-              payloadData.start_m,
-              payloadData.end_h,
-              payloadData.end_m,
-              payloadData.duration,
-              payloadData.plan_unplan,
-              payloadData.root_cause,
-              payloadData.proses,
-              payloadData.unit,
-              payloadData.kasus,
-              gas_id
-            ]
-          }
-        })
-      }).then(r => r.json()).catch(() => ({ status: 'error' }));
+      let gas_id = gasDtIds.current[targetRowIdx];
+      if (actionType === 'save' && !gas_id) {
+        gas_id = `GAS_DT_C_L1_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        gasDtIds.current[targetRowIdx] = gas_id;
+        localStorage.setItem(LS_GAS_IDS_DT, JSON.stringify(gasDtIds.current));
+      }
 
-      const results = await Promise.allSettled([pTiDB, pGAS]);
-      const resTiDB = results[0].status === 'fulfilled' ? results[0].value : { status: 'error' };
+      if ((actionType === 'save' || actionType === 'update') && gas_id) {
+        const gasAction = actionType === 'save' ? 'direct_append_dt_c' : 'direct_update_dt_c';
+        dtPromises.push(fetch('https://script.google.com/macros/s/AKfycbyO_Rh0wzfpLPO83RuPh-mSHfeCmHMbfW1WkazHKbGmUT1RobjNTUTwrmsEhxv5lhit/exec', {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({
+            action: gasAction,
+            user: line1User,
+            data: {
+              gas_id: gas_id,
+              rowData: [
+                '', '',
+                payloadData.tanggal,
+                payloadData.shift,
+                payloadData.group,
+                payloadData.no_batch,
+                payloadData.start_h,
+                payloadData.start_m,
+                payloadData.end_h,
+                payloadData.end_m,
+                payloadData.duration,
+                payloadData.plan_unplan,
+                payloadData.root_cause,
+                payloadData.proses,
+                payloadData.unit,
+                payloadData.kasus,
+                gas_id
+              ]
+            }
+          })
+        }).then(r => r.json()).catch(() => ({ status: 'error' })));
+      }
+
+      const dtResults = await Promise.allSettled(dtPromises);
+      const resTiDB = dtResults[0].status === 'fulfilled' ? dtResults[0].value : { status: 'error' };
 
       if (resTiDB?.status === 'success' && resTiDB.original_id) {
         dtIds.current[targetRowIdx] = resTiDB.original_id;
         localStorage.setItem(LS_IDS_DT, JSON.stringify(dtIds.current));
+        // Force re-render baris ini agar tombol berubah ke Update/Delete (seperti Line 2)
+        setDtData(prev => { const next = [...prev]; next[targetRowIdx] = [...next[targetRowIdx]]; return next; });
+        toast.success(`Downtime baris ${targetRowIdx + 1} berhasil di${actionType === 'save' ? 'simpan' : 'update'}!`, { id: toastId });
+      } else {
+        toast.error(`Gagal menyimpan Downtime baris ${targetRowIdx + 1}. Coba lagi.`, { id: toastId });
       }
 
-      gasDtIds.current[targetRowIdx] = gas_id;
-      localStorage.setItem(LS_GAS_IDS_DT, JSON.stringify(gasDtIds.current));
-
-      toast.success(`Downtime baris ${targetRowIdx + 1} berhasil di${actionType === 'save' ? 'simpan' : 'update'}!`, { id: toastId });
+      if (gas_id) {
+        gasDtIds.current[targetRowIdx] = gas_id;
+        localStorage.setItem(LS_GAS_IDS_DT, JSON.stringify(gasDtIds.current));
+      }
 
     } catch (err) {
       toast.error(`Gagal memproses baris ${targetRowIdx + 1}`, { id: toastId });
