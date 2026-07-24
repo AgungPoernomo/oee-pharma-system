@@ -1,1 +1,1 @@
-1. Tombol deleted tidak bekerja untuk OEE (INPUTC.jsx) Line 1
+1. Lakukan pengecheckan di INPUTC.jsx di Line 1 khususnya di UI tabel downtime karena disana ada error atau bug untuk data yang disave.

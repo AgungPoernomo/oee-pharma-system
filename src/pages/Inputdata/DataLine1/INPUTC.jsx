@@ -932,6 +932,16 @@ export default function InputC() {
         return;
       }
 
+      const isValidKey = (val) => val !== '' && val !== null && val !== undefined && String(val).trim() !== '';
+      const isKeyComplete =
+        isValidKey(rowData[C.TANGGAL]) && isValidKey(rowData[C.NO_BATCH]) && isValidKey(rowData[C.SHIFT]) &&
+        isValidKey(rowData[C.AT_SH]) && isValidKey(rowData[C.AT_SM]) && isValidKey(rowData[C.AT_EH]) && isValidKey(rowData[C.AT_EM]);
+      
+      if (!isKeyComplete) { 
+        toast.error('Data kunci belum lengkap (Tanggal, No Batch, Shift, Available Time wajib diisi)', { id: toastId }); 
+        return; 
+      }
+
       const payloadData = {
         original_id: original_id,
         no_batch: rowData[C.NO_BATCH],
@@ -1078,17 +1088,27 @@ export default function InputC() {
         return;
       }
 
+      const isValidKey = (val) => val !== '' && val !== null && val !== undefined && String(val).trim() !== '';
+      const isKeyComplete =
+        isValidKey(rowData[DC.TANGGAL]) && isValidKey(rowData[DC.NO_BATCH]) && isValidKey(rowData[DC.SHIFT]) &&
+        isValidKey(rowData[DC.SH]) && isValidKey(rowData[DC.SM]) && isValidKey(rowData[DC.EH]) && isValidKey(rowData[DC.EM]);
+      
+      if (!isKeyComplete) { 
+        toast.error('Data kunci belum lengkap (Tanggal, No Batch, Shift, Jam wajib diisi)', { id: toastId }); 
+        return; 
+      }
+
       const payloadData = {
         original_id: original_id,
         tanggal: parseToYMD(rowData[DC.TANGGAL]) || rowData[DC.TANGGAL],
         shift: rowData[DC.SHIFT],
-        group: rowData[DC.GROUP],
+        group: rowData[DC.GRUP],
         no_batch: rowData[DC.NO_BATCH],
-        start_h: rowData[DC.START_H], start_m: rowData[DC.START_M],
-        end_h: rowData[DC.END_H], end_m: rowData[DC.END_M],
-        duration: rowData[DC.DURATION],
-        plan_unplan: rowData[DC.PLAN_UNPLAN],
-        root_cause: rowData[DC.ROOT_CAUSE],
+        start_h: rowData[DC.SH], start_m: rowData[DC.SM],
+        end_h: rowData[DC.EH], end_m: rowData[DC.EM],
+        duration: rowData[DC.DURASI],
+        plan_unplan: rowData[DC.TYPE],
+        root_cause: rowData[DC.ROOT],
         proses: rowData[DC.PROSES],
         unit: rowData[DC.UNIT],
         kasus: rowData[DC.KASUS]
